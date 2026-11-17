@@ -97,6 +97,16 @@ end
 -- zone and objectives); without Questie, the quest log's zone heading or the game's map decide.
 -- Returns true/false and why (for /xpp zone).
 local function InZone(q)
+  -- first: the game's own map for the quest (its built-in objective areas / turn-in), which also
+  -- knows quests Questie's data doesn't
+  local gz, graw = ns.Questie.GameQuestZone and ns.Questie.GameQuestZone(q.questID)
+  if gz then
+    local here = ns.Questie.CurrentZoneMap()
+    local info = C_Map.GetMapInfo and C_Map.GetMapInfo(gz)
+    local where = info and info.name or ("map " .. gz)
+    if here and gz == here then return true, "the game's map places it here (" .. where .. ")" end
+    return false, "the game's map places it in " .. where
+  end
   local maps = ns.Questie.ActiveQuestMaps and ns.Questie.ActiveQuestMaps(q.questID, q.complete, q.objectives)
   if maps then
     local here = ns.Questie.CurrentZoneMap()

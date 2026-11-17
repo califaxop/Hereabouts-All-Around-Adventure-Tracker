@@ -116,9 +116,8 @@ local function StartMaps(c, zoneOrSort)
   return maps
 end
 
--- The zone you're in, as a map ID (sub-maps like caves and city districts count as their zone).
-local function CurrentZoneMap()
-  local id = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+-- A map ID raised to its zone (sub-maps like caves and city districts count as their zone).
+local function ZoneLevel(id)
   local zoneType = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
   local guard = 0
   while id and guard < 6 do
@@ -128,7 +127,23 @@ local function CurrentZoneMap()
   end
   return id
 end
+Q.ZoneLevel = ZoneLevel
+
+-- The zone you're in, as a map ID.
+local function CurrentZoneMap()
+  return ZoneLevel(C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
+end
 Q.CurrentZoneMap = CurrentZoneMap
+
+-- The game's own quest map data (its built-in objective areas and turn-in markers): the zone
+-- where it places a quest in your log right now. nil if the game gives no map for it.
+function Q.GameQuestZone(id)
+  local f = _G.GetQuestUiMapID or (C_QuestLog and C_QuestLog.GetQuestUiMapID)
+  if not f then return nil end
+  local ok, m = pcall(f, id)
+  if not ok or type(m) ~= "number" or m <= 0 then return nil end
+  return ZoneLevel(m), m
+end
 
 -- Where an active quest is done, from Questie's database, as a set of map IDs (nil if Questie
 -- can't say). Ready to turn in: wherever its turn-in NPC or object stands. Still in progress:
@@ -323,6 +338,10 @@ function Q.Inspect(id)
   end
   local function maps(m) if not m then return "nothing" end local t = {} for k, v in pairs(m) do t[#t + 1] = k .. " " .. tostring(v) end return #t > 0 and table.concat(t, "; ") or "no places" end
   out[#out + 1] = "here = map " .. tostring(CurrentZoneMap())
+  local gz, graw = Q.GameQuestZone(id)
+  out[#out + 1] = "game's quest map: " .. (gz and ("map " .. graw .. " (zone " .. gz .. ")") or "none")
+  local okW, wm = pcall(function() return C_QuestLog.GetNextWaypoint and C_QuestLog.GetNextWaypoint(id) end)
+  out[#out + 1] = "game's next waypoint map: " .. tostring(okW and wm or "none")
   out[#out + 1] = "markers: " .. (QM and ("questIdFrames " .. keys(QM.questIdFrames and QM.questIdFrames[id], 6)) or "QuestieMap not found")
   out[#out + 1] = "  -> " .. maps(FromQuestieMarkers(id))
   local log = QP and QP.currentQuestlog

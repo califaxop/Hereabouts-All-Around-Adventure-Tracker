@@ -27,7 +27,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
-- 0.15.2: Zone filter: a quest in progress counts as in your zone only where its unfinished objectives are (not where it was given, and not for objectives you've already done); /xpp zone names what matched.
+- 0.15.2: Zone filter follows the game's own quest map (where it places each quest's current objective or turn-in), so Forever's own quests work too; otherwise Questie's markers and unfinished objectives. /xpp zone names what matched; /xpp qinfo <questID> shows the details.
 - 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; a Zone / All switch on the Active Quests and Quests to Pick Up headings; /xpp zone explains each quest.
 - 0.15.0: Settings window redesigned in the tracker's style (FlareUI's when that style is on), organized into tabs.
 - 0.14.2: Logo in the AddOns list.
