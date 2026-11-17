@@ -10,7 +10,7 @@ local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, start
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
 
-local QDB, QXP, TU, ZDB
+local QDB, QXP, TU, ZDB, QP
 local function Bind()
   if not (QuestieLoader and Questie and Questie.API) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
@@ -20,6 +20,8 @@ local function Bind()
   QDB, QXP, TU = a, b, ok3 and c or nil
   local ok4, z = pcall(QuestieLoader.ImportModule, QuestieLoader, "ZoneDB")
   ZDB = ok4 and z or nil
+  local ok5, qp = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestiePlayer")
+  QP = ok5 and qp or nil
   return true
 end
 
@@ -152,8 +154,46 @@ local function Field(id, key)
 end
 -- logObjectives: the quest log's objective lines ({ text, done }). An objective already done
 -- (its name appears in a finished line, e.g. "Twisted Air Totem: 5/5") doesn't count.
+-- Questie's own quest log: each objective, whether it's done, and where it spawns (what its map
+-- markers come from, including special objectives like "find the crown in the Badlands crypt").
+-- Returns a set of map IDs ({} = nothing left with a known place), or nil if Questie has no entry.
+local function FromQuestieLog(id)
+  local log = QP and QP.currentQuestlog
+  local q = type(log) == "table" and log[id]
+  if type(q) ~= "table" then return nil end
+  local maps, sawObjective = {}, false
+  local function scan(list)
+    if type(list) ~= "table" then return end
+    for _, o in pairs(list) do
+      if type(o) == "table" then
+        sawObjective = true
+        if not o.Completed and type(o.spawnList) == "table" then
+          for _, sp in pairs(o.spawnList) do
+            if type(sp) == "table" and type(sp.Spawns) == "table" then
+              for areaId in pairs(sp.Spawns) do
+                local m = UiMapFor(areaId)
+                if m and not maps[m] then
+                  maps[m] = "objective: " .. tostring(sp.Name or o.Description or "?") .. " (Questie's map)"
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  local ok = pcall(function() scan(q.Objectives); scan(q.SpecialObjectives) end)
+  if not ok or not sawObjective then return nil end
+  return maps
+end
+
 function Q.ActiveQuestMaps(id, complete, logObjectives)
   if not (ready and QDB and id) then return nil end
+  if not complete then
+    -- first choice: Questie's own log (matches its map markers); not cached, it follows progress
+    local m = FromQuestieLog(id)
+    if m then return m end
+  end
   -- what's still to do, by name, so finished objectives drop out (and the cache follows progress)
   local doneText, todoKey = {}, {}
   for _, o in ipairs(logObjectives or {}) do
