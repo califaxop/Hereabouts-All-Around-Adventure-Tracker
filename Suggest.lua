@@ -100,7 +100,9 @@ local function InZone(q)
   local maps = ns.Questie.ActiveQuestMaps and ns.Questie.ActiveQuestMaps(q.questID, q.complete)
   if maps then
     local here = ns.Questie.CurrentZoneMap()
-    return (here and maps[here]) and true or false, q.complete and "turn-in (Questie)" or "zone/objectives (Questie)"
+    local why = here and maps[here]
+    if why then return true, (type(why) == "string" and why or "Questie") end
+    return false, q.complete and "turn-in elsewhere (Questie)" or "objectives elsewhere (Questie)"
   end
   if zoneName and q.zone == zoneName then return true, "quest log heading" end
   if onMap and onMap[q.questID] then return true, "on the game's map" end

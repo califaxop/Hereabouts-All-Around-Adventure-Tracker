@@ -816,10 +816,11 @@ SlashCmdList.XPPLANNER = function(msg)
     db.showDungeons = not db.showDungeons; ns.Print("dungeons " .. (db.showDungeons and "on" or "off"))
   elseif cmd == "zone" then
     -- why each active quest counts as in your zone or not (for "only quests in my current zone")
-    ns.Print(format("your zone: %s (map %s)", GetRealZoneText() or "?", tostring(ns.Questie.CurrentZoneMap())))
+    ns.Print(format("version %s, your zone: %s (map %s)", tostring(C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?"),
+      GetRealZoneText() or "?", tostring(ns.Questie.CurrentZoneMap())))
     for _, q in ipairs(ns.LogQuests()) do
       local inZone, why = ns.QuestInZone(q)
-      print(format("  %s[%s] %s|r - %s, by %s", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
+      print(format("  %s[%s] %s|r - %s: %s", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
         inZone and "here" or "elsewhere", why))
     end
     return

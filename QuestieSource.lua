@@ -131,14 +131,17 @@ Q.CurrentZoneMap = CurrentZoneMap
 -- wherever its objectives are (mobs and objects to kill or use, and the mobs and objects that
 -- drop its items); the quest's own zone only when those places aren't known.
 local activeMaps = {}
-local function AddSpawns(maps, kind, id)
+-- each map remembers why it counts (for /xpp zone): e.g. "objective: Twisted Elemental (mob)"
+local function AddSpawns(maps, kind, id, why)
   local query = (kind == "npc") and QDB.QueryNPCSingle or QDB.QueryObjectSingle
   if not (query and id) then return end
   local ok, sp = pcall(query, id, "spawns")
   if ok and type(sp) == "table" then
+    local okN, name = pcall(query, id, "name")
+    local label = (why or "") .. ((okN and name) or ("#" .. tostring(id))) .. (kind == "npc" and " (mob/NPC)" or " (object)")
     for areaId in pairs(sp) do
       local m = UiMapFor(areaId)
-      if m then maps[m] = true end
+      if m and not maps[m] then maps[m] = label end
     end
   end
 end
@@ -155,21 +158,23 @@ function Q.ActiveQuestMaps(id, complete)
   if complete then
     local fb = Field(id, "finishedBy") -- { npc IDs, object IDs }
     if type(fb) == "table" then
-      for _, n in ipairs(type(fb[1]) == "table" and fb[1] or {}) do AddSpawns(maps, "npc", n) end
-      for _, o in ipairs(type(fb[2]) == "table" and fb[2] or {}) do AddSpawns(maps, "object", o) end
+      for _, n in ipairs(type(fb[1]) == "table" and fb[1] or {}) do AddSpawns(maps, "npc", n, "turn-in: ") end
+      for _, o in ipairs(type(fb[2]) == "table" and fb[2] or {}) do AddSpawns(maps, "object", o, "turn-in: ") end
     end
   else
     local obj = Field(id, "objectives") -- { creatures, objects, items, ... }, each a list of { id, text }
     if type(obj) == "table" then
-      for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do AddSpawns(maps, "npc", type(c) == "table" and c[1] or c) end
-      for _, o in ipairs(type(obj[2]) == "table" and obj[2] or {}) do AddSpawns(maps, "object", type(o) == "table" and o[1] or o) end
+      for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do AddSpawns(maps, "npc", type(c) == "table" and c[1] or c, "objective: ") end
+      for _, o in ipairs(type(obj[2]) == "table" and obj[2] or {}) do AddSpawns(maps, "object", type(o) == "table" and o[1] or o, "objective: ") end
       for _, it in ipairs(type(obj[3]) == "table" and obj[3] or {}) do
         local itemId = type(it) == "table" and it[1] or it
         if itemId and QDB.QueryItemSingle then
           local ok1, npcs = pcall(QDB.QueryItemSingle, itemId, "npcDrops")
-          if ok1 and type(npcs) == "table" then for _, n in ipairs(npcs) do AddSpawns(maps, "npc", n) end end
+          local okI, iname = pcall(QDB.QueryItemSingle, itemId, "name")
+          local drop = "drops " .. ((okI and iname) or "item") .. ": "
+          if ok1 and type(npcs) == "table" then for _, n in ipairs(npcs) do AddSpawns(maps, "npc", n, drop) end end
           local ok2, objs = pcall(QDB.QueryItemSingle, itemId, "objectDrops")
-          if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o) end end
+          if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o, drop) end end
         end
       end
     end
@@ -178,7 +183,7 @@ function Q.ActiveQuestMaps(id, complete)
     if not next(maps) then
       local zone = Field(id, "zoneOrSort")
       if type(zone) == "number" and zone > 0 then
-        local m = UiMapFor(zone); if m then maps[m] = true end
+        local m = UiMapFor(zone); if m then maps[m] = "the quest's zone (no known objective places)" end
       end
     end
   end
