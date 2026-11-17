@@ -156,6 +156,35 @@ function ns.ApplyBackdrop()
   end
 end
 
+-- The tracker's look, for the settings windows: same palette, fonts and border.
+function ns.Theme()
+  ApplyStyle()
+  local flare = ns.UsingFlare()
+  local accent = flare and FLARE_BRONZE or (ns.db.borderColor or { 0.40, 0.33, 0.22 })
+  return {
+    flare = flare, header = HEADER_COLOR, title = TITLE_COLOR, hover = TITLE_HOVER_COLOR,
+    line = LINE_COLOR, dim = DIM_LINE, focus = FOCUS_COLOR, accent = accent,
+    box = flare and FLARE_BOX or accent, divider = FLARE_DIVIDER,
+    headerFont = HEADER_FONT, titleFont = TITLE_FONT, lineFont = LINE_FONT,
+  }
+end
+
+-- A window drawn like the tracker's box: FlareUI's dialog background and bronze border,
+-- or the dark panel with the thin brown border.
+function ns.SkinWindow(f, alpha)
+  local th = ns.Theme()
+  if th.flare then
+    f:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), tile = false, tileSize = 0, edgeSize = 16,
+      insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    f:SetBackdropColor(1, 1, 1, alpha)
+  else
+    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+      edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    f:SetBackdropColor(0.03, 0.03, 0.03, alpha)
+  end
+  f:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
+end
+
 ---------------------------------------------------------------------------
 -- Scrolling viewport: the list never grows past the max height; extra content scrolls.
 -- The viewport reaches a little left/up past the list so the header art isn't clipped.
