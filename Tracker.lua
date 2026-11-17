@@ -814,14 +814,20 @@ SlashCmdList.XPPLANNER = function(msg)
     db.showNearby = not db.showNearby; ns.Print("nearby quests " .. (db.showNearby and "on" or "off"))
   elseif cmd == "dungeons" then
     db.showDungeons = not db.showDungeons; ns.Print("dungeons " .. (db.showDungeons and "on" or "off"))
+  elseif cmd == "qinfo" and tonumber(arg) then
+    -- what each Questie source holds for one quest (to see why the zone filter decided as it did)
+    local id = tonumber(arg)
+    ns.Print("Questie sources for quest " .. id .. ":")
+    for _, l in ipairs(ns.Questie.Inspect(id)) do print("  " .. l) end
+    return
   elseif cmd == "zone" then
     -- why each active quest counts as in your zone or not (for "only quests in my current zone")
     ns.Print(format("version %s, your zone: %s (map %s)", tostring(C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?"),
       GetRealZoneText() or "?", tostring(ns.Questie.CurrentZoneMap())))
     for _, q in ipairs(ns.LogQuests()) do
       local inZone, why = ns.QuestInZone(q)
-      print(format("  %s[%s] %s|r - %s: %s", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
-        inZone and "here" or "elsewhere", why))
+      print(format("  %s[%s] %s|r - %s: %s (quest %s)", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
+        inZone and "here" or "elsewhere", why, tostring(q.questID)))
     end
     return
   else

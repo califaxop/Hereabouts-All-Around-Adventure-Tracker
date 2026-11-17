@@ -10,7 +10,7 @@ local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, start
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
 
-local QDB, QXP, TU, ZDB, QP
+local QDB, QXP, TU, ZDB, QP, QM
 local function Bind()
   if not (QuestieLoader and Questie and Questie.API) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
@@ -22,6 +22,8 @@ local function Bind()
   ZDB = ok4 and z or nil
   local ok5, qp = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestiePlayer")
   QP = ok5 and qp or nil
+  local ok6, qm = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieMap")
+  QM = ok6 and qm or nil
   return true
 end
 
@@ -187,10 +189,43 @@ local function FromQuestieLog(id)
   return maps
 end
 
+-- The map markers Questie has drawn for a quest (its objectives while in progress, its turn-in
+-- once complete): the maps they sit on. nil if Questie has drawn none for it.
+local function FromQuestieMarkers(id)
+  local byQuest = QM and type(QM.questIdFrames) == "table" and QM.questIdFrames[id]
+  if type(byQuest) ~= "table" then return nil end
+  local maps, any = {}, false
+  pcall(function()
+    for k, v in pairs(byQuest) do
+      local f = (type(v) == "table" and v) or (type(v) == "string" and _G[v]) or (type(k) == "string" and _G[k]) or nil
+      if type(f) == "table" then
+        local data = f.data
+        local typ = type(data) == "table" and data.Type or nil
+        if typ ~= "available" then
+          local m = f.UiMapID or f.uiMapId or (type(data) == "table" and (data.UiMapID or data.uiMapId))
+          if type(m) == "number" then
+            any = true
+            if not maps[m] then
+              local what = type(data) == "table" and (data.Name or (type(data.ObjectiveData) == "table" and data.ObjectiveData.Description)) or nil
+              maps[m] = "Questie's map marker" .. (what and (": " .. tostring(what)) or "")
+            end
+          end
+        end
+      end
+    end
+  end)
+  if not any then return nil end
+  return maps
+end
+Q.FromQuestieMarkers = FromQuestieMarkers
+
 function Q.ActiveQuestMaps(id, complete, logObjectives)
   if not (ready and QDB and id) then return nil end
+  -- first choice: where Questie has drawn the quest's markers (not cached: it follows progress)
+  local mk = FromQuestieMarkers(id)
+  if mk then return mk end
   if not complete then
-    -- first choice: Questie's own log (matches its map markers); not cached, it follows progress
+    -- next: Questie's own quest log (objectives, done or not, and where they spawn)
     local m = FromQuestieLog(id)
     if m then return m end
   end
@@ -275,6 +310,32 @@ function Q.ActiveQuestMaps(id, complete, logObjectives)
   end
   activeMaps[key] = maps
   return maps or nil
+end
+
+-- /xpp qinfo <questID>: what each source holds, as short lines
+function Q.Inspect(id)
+  local out = {}
+  local function keys(t, n)
+    local k = {}
+    if type(t) ~= "table" then return tostring(t) end
+    for key in pairs(t) do k[#k + 1] = tostring(key); if #k >= (n or 12) then break end end
+    return "{" .. table.concat(k, ", ") .. "}"
+  end
+  local function maps(m) if not m then return "nothing" end local t = {} for k, v in pairs(m) do t[#t + 1] = k .. " " .. tostring(v) end return #t > 0 and table.concat(t, "; ") or "no places" end
+  out[#out + 1] = "here = map " .. tostring(CurrentZoneMap())
+  out[#out + 1] = "markers: " .. (QM and ("questIdFrames " .. keys(QM.questIdFrames and QM.questIdFrames[id], 6)) or "QuestieMap not found")
+  out[#out + 1] = "  -> " .. maps(FromQuestieMarkers(id))
+  local log = QP and QP.currentQuestlog
+  out[#out + 1] = "log: " .. (QP and (type(log) == "table" and ("entry " .. keys(log[id], 14)) or "no currentQuestlog") or "QuestiePlayer not found")
+  local e = type(log) == "table" and log[id]
+  if type(e) == "table" then
+    out[#out + 1] = "  Objectives " .. keys(e.Objectives, 6) .. "  SpecialObjectives " .. keys(e.SpecialObjectives, 6)
+    local o = type(e.Objectives) == "table" and select(2, next(e.Objectives))
+    if type(o) == "table" then out[#out + 1] = "  first objective " .. keys(o, 14) end
+  end
+  out[#out + 1] = "  -> " .. maps(FromQuestieLog(id))
+  out[#out + 1] = "database objectives: " .. keys(Field(id, "objectives"), 8) .. "  zoneOrSort " .. tostring(Field(id, "zoneOrSort"))
+  return out
 end
 
 local function Consider(id)
