@@ -19,8 +19,9 @@ local function RGB(c, a) return c[1], c[2], c[3], a or 1 end
 
 -- text in one of the tracker's roles: "title", "header", "line", "value", "note"
 local function Text(parent, role, str)
-  local fs = parent:CreateFontString(nil, "OVERLAY")
-  fs:SetText(str or "")
+  -- created with a font, and the text set only after the theme's font is applied:
+  -- WoW refuses SetText on a font string that has no font yet
+  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   fs:SetJustifyH("LEFT")
   Skin(function(th)
     if role == "header" then fs:SetFontObject(th.headerFont); fs:SetTextColor(RGB(th.header))
@@ -29,6 +30,7 @@ local function Text(parent, role, str)
     elseif role == "note" then fs:SetFontObject("GameFontHighlightSmall"); fs:SetTextColor(RGB(th.dim))
     else fs:SetFontObject(th.lineFont); fs:SetTextColor(RGB(th.line)) end
   end)
+  fs:SetText(str or "")
   return fs
 end
 
@@ -397,7 +399,7 @@ local function BuildWindow()
   end
   for i, def in ipairs(TABS) do
     local t = CreateFrame("Button", nil, window)
-    t.text = t:CreateFontString(nil, "OVERLAY")
+    t.text = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     t.text:SetFontObject(ns.Theme().headerFont); t.text:SetText(def[1])
     t.text:SetPoint("BOTTOM", 0, 6)
     local w = math.max(60, math.floor((t.text:GetStringWidth() or 0) + 0.5) + 20)
