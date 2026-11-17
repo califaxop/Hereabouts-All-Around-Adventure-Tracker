@@ -93,9 +93,21 @@ local function RefreshZone()
     for _, q in ipairs(list) do if q.questID then onMap[q.questID] = true end end
   end
 end
+-- In your zone? Questie knows where a quest is done (its turn-in once it's ready, otherwise its
+-- zone and objectives); without Questie, the quest log's zone heading or the game's map decide.
+-- Returns true/false and why (for /xpp zone).
 local function InZone(q)
-  return (zoneName and q.zone == zoneName) or (onMap and onMap[q.questID]) or false
+  local maps = ns.Questie.ActiveQuestMaps and ns.Questie.ActiveQuestMaps(q.questID, q.complete)
+  if maps then
+    local here = ns.Questie.CurrentZoneMap()
+    return (here and maps[here]) and true or false, q.complete and "turn-in (Questie)" or "zone/objectives (Questie)"
+  end
+  if zoneName and q.zone == zoneName then return true, "quest log heading" end
+  if onMap and onMap[q.questID] then return true, "on the game's map" end
+  return false, "no match"
 end
+ns.QuestInZone = function(q) RefreshZone(); return InZone(q) end
+ns.LogQuests = function() return LogQuests() end
 
 function ns.BuildSuggestions()
   local db = ns.db

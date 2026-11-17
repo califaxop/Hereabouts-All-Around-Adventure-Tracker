@@ -15,6 +15,7 @@ Features
 Settings and commands
 - /xpp: settings window in the tracker's own style, with tabs: Tracker (position and look), Lists (what to show and how many), Picking Quests (level range, zone filters, ignored quests) and Status (Questie, What's Training, FlareUI, TomTom).
 - /xpp lock / unlock, /xpp replace, /xpp toggle, /xpp reset.
+- /xpp zone: why each active quest counts as in your zone or not.
 - Esc > Options > AddOns > XP Planner.
 
 Requirements
@@ -25,6 +26,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
+- 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; /xpp zone explains each quest.
 - 0.15.0: Settings window redesigned in the tracker's style (FlareUI's when that style is on), organized into tabs.
 - 0.14.2: Logo in the AddOns list.
 - 0.14.0: Quests to Pick Up shows only your current zone; level range -8 to +8.

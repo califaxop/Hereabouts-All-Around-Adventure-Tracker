@@ -761,8 +761,17 @@ SlashCmdList.XPPLANNER = function(msg)
     db.showNearby = not db.showNearby; ns.Print("nearby quests " .. (db.showNearby and "on" or "off"))
   elseif cmd == "dungeons" then
     db.showDungeons = not db.showDungeons; ns.Print("dungeons " .. (db.showDungeons and "on" or "off"))
+  elseif cmd == "zone" then
+    -- why each active quest counts as in your zone or not (for "only quests in my current zone")
+    ns.Print(format("your zone: %s (map %s)", GetRealZoneText() or "?", tostring(ns.Questie.CurrentZoneMap())))
+    for _, q in ipairs(ns.LogQuests()) do
+      local inZone, why = ns.QuestInZone(q)
+      print(format("  %s[%s] %s|r - %s, by %s", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
+        inZone and "here" or "elsewhere", why))
+    end
+    return
   else
-    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp nearby  -  /xpp dungeons")
+    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp nearby  -  /xpp dungeons  -  /xpp zone")
     return
   end
   ns.Refresh()
