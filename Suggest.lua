@@ -182,7 +182,7 @@ function ns.BuildSuggestions()
     for i = 1, math.min(db.maxQuests, #near) do result.nearby[i] = near[i] end
   end
 
-  -- Dungeons whose minimum level you meet.
+  -- Dungeons whose level range you're in (at least its minimum, not past its top).
   if db.showDungeons then
     local d = {}
     -- your zone: by name, as the dungeon list names each entrance's zone
@@ -191,7 +191,7 @@ function ns.BuildSuggestions()
     local mapInfo = hereMap and C_Map.GetMapInfo and C_Map.GetMapInfo(hereMap)
     local hereZone = mapInfo and mapInfo.name or here
     for _, dg in ipairs(ns.DUNGEONS) do
-      if me >= dg.min then -- you meet its minimum level (no upper cut-off)
+      if me >= dg.min and me <= dg.max then -- from its minimum level to the top of its range
         local inZone = dg.zone == hereZone or dg.zone == here
         if inZone or not db.dungeonZoneOnly then d[#d + 1] = dg
         else result.dungeonsElsewhere = (result.dungeonsElsewhere or 0) + 1 end
