@@ -128,8 +128,8 @@ Q.CurrentZoneMap = CurrentZoneMap
 
 -- Where an active quest is done, from Questie's database, as a set of map IDs (nil if Questie
 -- can't say). Ready to turn in: wherever its turn-in NPC or object stands. Still in progress:
--- the quest's own zone, plus wherever its objectives are (mobs and objects to kill or use, and
--- the mobs and objects that drop its items).
+-- wherever its objectives are (mobs and objects to kill or use, and the mobs and objects that
+-- drop its items); the quest's own zone only when those places aren't known.
 local activeMaps = {}
 local function AddSpawns(maps, kind, id)
   local query = (kind == "npc") and QDB.QueryNPCSingle or QDB.QueryObjectSingle
@@ -159,10 +159,6 @@ function Q.ActiveQuestMaps(id, complete)
       for _, o in ipairs(type(fb[2]) == "table" and fb[2] or {}) do AddSpawns(maps, "object", o) end
     end
   else
-    local zone = Field(id, "zoneOrSort")
-    if type(zone) == "number" and zone > 0 then
-      local m = UiMapFor(zone); if m then maps[m] = true end
-    end
     local obj = Field(id, "objectives") -- { creatures, objects, items, ... }, each a list of { id, text }
     if type(obj) == "table" then
       for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do AddSpawns(maps, "npc", type(c) == "table" and c[1] or c) end
@@ -175,6 +171,14 @@ function Q.ActiveQuestMaps(id, complete)
           local ok2, objs = pcall(QDB.QueryItemSingle, itemId, "objectDrops")
           if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o) end end
         end
+      end
+    end
+    -- the quest's own zone (usually where it was given) only when its objectives' places are unknown:
+    -- a quest given here with objectives elsewhere belongs to where you'll do it
+    if not next(maps) then
+      local zone = Field(id, "zoneOrSort")
+      if type(zone) == "number" and zone > 0 then
+        local m = UiMapFor(zone); if m then maps[m] = true end
       end
     end
   end
