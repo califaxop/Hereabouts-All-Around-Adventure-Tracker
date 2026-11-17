@@ -264,6 +264,37 @@ local function GetHeader()
     h.text:SetTextColor(1, 0.82, 0)
     h.toggle = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     h.toggle:SetPoint("RIGHT", -4, 0)
+    -- "Zone" / "All": the section's current-zone filter, one click away
+    h.zone = CreateFrame("Button", nil, h, "BackdropTemplate")
+    h.zone:SetSize(34, 14); h.zone:SetPoint("RIGHT", h.toggle, "LEFT", -8, 0)
+    h.zone:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    h.zone.text = h.zone:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    h.zone.text:SetPoint("CENTER", 0, 0)
+    h.zone:SetScript("OnClick", function(self)
+      ns.db[self.key] = not ns.db[self.key]
+      if ns.RefreshOptions then ns.RefreshOptions() end
+      ns.Refresh()
+      if GameTooltip:IsOwned(self) then self:GetScript("OnEnter")(self) end
+    end)
+    h.zone:SetScript("OnEnter", function(self)
+      self.hover = true; self.Paint()
+      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+      GameTooltip:SetText(ns.db[self.key] and "Showing quests in your zone" or "Showing quests in all zones", 1, 1, 1)
+      GameTooltip:AddLine(ns.db[self.key] and "Click to show all zones." or "Click to show only your current zone.", 0.8, 0.8, 0.8)
+      GameTooltip:Show()
+    end)
+    h.zone:SetScript("OnLeave", function(self) self.hover = false; self.Paint(); GameTooltip:Hide() end)
+    h.zone.Paint = function()
+      local z = h.zone
+      local on = z.key and ns.db[z.key]
+      local accent = ns.UsingFlare() and FLARE_BRONZE or (ns.db.borderColor or { 0.4, 0.33, 0.22 })
+      local box = ns.UsingFlare() and FLARE_BOX or accent
+      z.text:SetText(on and "Zone" or "All")
+      z:SetBackdropColor(box[1], box[2], box[3], on and (z.hover and 0.75 or 0.55) or (z.hover and 0.35 or 0.15))
+      z:SetBackdropBorderColor(accent[1], accent[2], accent[3], z.hover and 1 or 0.7)
+      if on then z.text:SetTextColor(TITLE_COLOR[1], TITLE_COLOR[2], TITLE_COLOR[3])
+      else z.text:SetTextColor(LINE_COLOR[1], LINE_COLOR[2], LINE_COLOR[3]) end
+    end
     -- FlareUI style: a divider line under the heading instead of Blizzard's header art
     h.divider = h:CreateTexture(nil, "ARTWORK")
     h.divider:SetTexture(FLARE_DIVIDER)
@@ -538,10 +569,21 @@ local function AddEntry(title, level, sub, onClick, style)
   y = y + 6
 end
 
+local function AddNote(text)
+  local l = GetLine()
+  l:SetText(text); l:SetTextColor(unpack(DIM_LINE))
+  l:SetHeight(l:GetStringHeight())
+  Place(l, 10, 6)
+end
+
 local shownSomething = false
-local function Section(name, count, key)
+-- zoneKey: the setting for this section's current-zone filter (adds the Zone / All switch)
+local function Section(name, count, key, zoneKey)
   local h = GetHeader()
   h.text:SetText(name)
+  h.zone.key = zoneKey
+  h.zone:SetShown(zoneKey ~= nil)
+  if zoneKey then h.zone.Paint() end
   local collapsed = ns.db.collapsedSections and ns.db.collapsedSections[key]
   h.toggle:SetText(collapsed and "+" or "-")
   h:SetScript("OnClick", function()
@@ -559,7 +601,9 @@ function ns.Render(s)
   y = 0
   shownSomething = false
 
-  if #s.quests > 0 and Section("Active Quests", #s.quests, "quests") then
+  -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
+  local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
+  if (#s.quests > 0 or qElse > 0) and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
     for _, q in ipairs(s.quests) do
       local sub = {}
       if q.complete then
@@ -575,7 +619,12 @@ function ns.Render(s)
     end
   end
 
-  if #s.pickup > 0 and Section("Quests to Pick Up", #s.pickup, "pickup") then
+  if #s.quests == 0 and qElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.quests) then
+    AddNote(format("None in this zone (%d elsewhere)", qElse))
+  end
+
+  local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
+  if (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
       if ns.db.showXP then sub[1] = { text = (BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP" } end
@@ -593,6 +642,10 @@ function ns.Render(s)
           (q.starter or "?") .. (q.zone and (", " .. q.zone) or "")))
       end)
     end
+  end
+
+  if #s.pickup == 0 and pElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.pickup) then
+    AddNote(format("None in this zone (%d elsewhere)", pElse))
   end
 
   if #s.nearby > 0 and Section("Available Nearby", #s.nearby, "nearby") then

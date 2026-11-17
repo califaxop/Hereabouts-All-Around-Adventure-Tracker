@@ -10,6 +10,7 @@ Features
 - Right-click a quest to pick up: Show on Map (a map waypoint on the quest giver, plus TomTom's arrow if installed) or Ignore Quest, with an ignore list you can manage.
 - Training (needs What's Training): spells and ranks you can train now, with costs and a total; next-level spells dimmed.
 - Dungeons: dungeons whose level range fits you.
+- Zone / All switch on the Active Quests and Quests to Pick Up headings: one click between your current zone and every zone.
 - Look: FlareUI style or a brown-bordered backdrop, opacity, scale, max height with scrolling, lock in place, replace Blizzard's quest tracker.
 
 Settings and commands
@@ -26,7 +27,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
-- 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; /xpp zone explains each quest.
+- 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; a Zone / All switch on the Active Quests and Quests to Pick Up headings; /xpp zone explains each quest.
 - 0.15.0: Settings window redesigned in the tracker's style (FlareUI's when that style is on), organized into tabs.
 - 0.14.2: Logo in the AddOns list.
 - 0.14.0: Quests to Pick Up shows only your current zone; level range -8 to +8.

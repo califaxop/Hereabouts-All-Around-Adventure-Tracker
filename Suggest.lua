@@ -123,9 +123,9 @@ function ns.BuildSuggestions()
     -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
     local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused
     local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
-    if not hiddenUntracked and not otherZone and (q.complete or not q.trivial or db.replaceTracker or q.focused) then
-      keep[#keep + 1] = q
-    end
+    local wanted = not hiddenUntracked and (q.complete or not q.trivial or db.replaceTracker or q.focused)
+    if wanted and not otherZone then keep[#keep + 1] = q
+    elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
   end
   table.sort(keep, function(a, b)
     if a.focused ~= b.focused then return a.focused end   -- focused quest pinned on top
@@ -147,7 +147,7 @@ function ns.BuildSuggestions()
   if ns.Questie.Available() then
     if db.showPickup then
       -- which quests: the best XP (as before); in what order: highest level first
-      result.pickup, result.pickupTotal = ns.Questie.Ranked(db.maxPickup)
+      result.pickup, result.pickupTotal, result.pickupElsewhere = ns.Questie.Ranked(db.maxPickup)
       if db.sortByLevel then
         table.sort(result.pickup, function(a, b)
           if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end

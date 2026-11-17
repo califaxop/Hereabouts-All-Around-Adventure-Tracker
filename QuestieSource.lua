@@ -244,14 +244,18 @@ function Q.Ranked(limit)
   local lo, hi = me + (db.levelMin or -5), me + (db.levelMax or 3)
   local hereMap = CurrentZoneMap()
   local ignored = db.ignoredQuests or {}
-  local list = {}
+  local list, elsewhere = {}, 0
   for _, c in pairs(candidates) do
     local lvl = c.level
     local inRange = not lvl or lvl <= 0 or (lvl >= lo and lvl <= hi) -- unknown/scaling levels: kept
     c.here = (hereMap and c.maps and c.maps[hereMap]) or false
-    if not ignored[c.id] and inRange and (c.here or not db.pickupZoneOnly) then
-      c.score = c.xp * (c.here and db.zoneBonus or 1)
-      list[#list + 1] = c
+    if not ignored[c.id] and inRange then
+      if c.here or not db.pickupZoneOnly then
+        c.score = c.xp * (c.here and db.zoneBonus or 1)
+        list[#list + 1] = c
+      else
+        elsewhere = elsewhere + 1 -- hidden by the current-zone filter
+      end
     end
   end
   table.sort(list, function(a, b)
@@ -260,7 +264,7 @@ function Q.Ranked(limit)
   end)
   local out = {}
   for n = 1, math.min(limit, #list) do out[n] = list[n] end
-  return out, #list
+  return out, #list, elsewhere
 end
 
 function Q.Init()
