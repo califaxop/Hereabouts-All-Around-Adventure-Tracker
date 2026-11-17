@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: XP Planner
+## Notes: Suggests the quests and dungeons that give you the best experience for your level, in a quest-tracker style list.
+## IconTexture: Interface\AddOns\XPPlanner\media\Logo
+## Author: You
+## Version: 0.14.2
+## X-Curse-Project-ID: 1811757
+## SavedVariables: XPPlannerDB
+## OptionalDeps: Questie, QuestieDB, FlareUI, WhatsTraining
+
+Core.lua
+Dungeons.lua
+QuestieSource.lua
+Training.lua
+Suggest.lua
+Tracker.lua
+Options.lua
+Replace.lua
