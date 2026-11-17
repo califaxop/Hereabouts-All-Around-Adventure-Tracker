@@ -23,3 +23,20 @@ Requirements
 Known limits
 - Without Questie, Quests to Pick Up falls back to the quests the map shows nearby, with no XP ranking or waypoints.
 - Dungeon level ranges are classic ranges; Forever may tune them.
+
+Changelogs
+- 0.14.2: Logo in the AddOns list.
+- 0.14.0: Quests to Pick Up shows only your current zone; level range -8 to +8.
+- 0.13.0: Option to show only active quests in your current zone.
+- 0.12.0: Every section sorted by level, highest first.
+- 0.11.1: Blizzard's tracker no longer reappears in combat; position fixed after reload.
+- 0.11.0: Quests to Pick Up right-click menu: Show on Map, Ignore Quest, ignore list.
+- 0.10.0: Training section from What's Training.
+- 0.9.0: FlareUI style when FlareUI is installed.
+- 0.8.0: Focus highlight and tracked / untracked display.
+- 0.7.0: Blizzard's right-click menu on active quests.
+- 0.6.0: Brown border, max height with scrolling, headers without "XP:".
+- 0.4.0 – 0.5.0: Backdrop with opacity, soft edges, border.
+- 0.3.0: Replace Blizzard's quest tracker.
+- 0.2.0: Lock in place, settings window (/xpp), "Active Quests" naming.
+- 0.1.0 – 0.1.2: First release; collapse and anchoring fixes.
