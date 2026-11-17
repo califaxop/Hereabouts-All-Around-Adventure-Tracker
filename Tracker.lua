@@ -279,7 +279,8 @@ local function GetHeader()
     h.zone:SetScript("OnEnter", function(self)
       self.hover = true; self.Paint()
       GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-      GameTooltip:SetText(ns.db[self.key] and "Showing quests in your zone" or "Showing quests in all zones", 1, 1, 1)
+      local what = self.key == "dungeonZoneOnly" and "dungeons" or "quests"
+      GameTooltip:SetText(ns.db[self.key] and ("Showing " .. what .. " in your zone") or ("Showing " .. what .. " in all zones"), 1, 1, 1)
       GameTooltip:AddLine(ns.db[self.key] and "Click to show all zones." or "Click to show only your current zone.", 0.8, 0.8, 0.8)
       GameTooltip:Show()
     end)
@@ -680,12 +681,16 @@ function ns.Render(s)
     end
   end
 
-  if #s.dungeons > 0 and Section("Dungeons", #s.dungeons, "dungeons") then
+  local dElse = ns.db.dungeonZoneOnly and (s.dungeonsElsewhere or 0) or 0
+  if (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
     for _, d in ipairs(s.dungeons) do
       AddEntry(d.name, nil, { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }, function()
         ns.Print(d.name .. ": " .. d.zone .. format(" (levels %d-%d)", d.min, d.max))
       end)
     end
+  end
+  if #s.dungeons == 0 and dElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.dungeons) then
+    AddNote(format("None in this zone (%d elsewhere)", dElse))
   end
 
   -- Size: grow with the content up to the max height, then scroll.

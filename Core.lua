@@ -14,6 +14,7 @@ ns.DEFAULTS = {
   pickupZoneOnly = true,-- Quests to Pick Up: only quests whose quest giver is in your current zone
   zoneBonus   = 1.5,    -- quests in your current zone count as this much more XP (less travel)
   maxDungeons = 3,      -- dungeon suggestions shown
+  dungeonZoneOnly = false, -- Dungeons: only those whose entrance is in your current zone
   sortByLevel = true,   -- list every section by level, highest first (off: XP / best-fit order)
   showNearby  = true,   -- include quests the map shows as available near you
   showDungeons = true,

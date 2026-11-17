@@ -185,8 +185,17 @@ function ns.BuildSuggestions()
   -- Dungeons whose range includes your level, best fit first.
   if db.showDungeons then
     local d = {}
+    -- your zone: by name, as the dungeon list names each entrance's zone
+    local here = GetRealZoneText and GetRealZoneText() or nil
+    local hereMap = ns.Questie.CurrentZoneMap and ns.Questie.CurrentZoneMap()
+    local mapInfo = hereMap and C_Map.GetMapInfo and C_Map.GetMapInfo(hereMap)
+    local hereZone = mapInfo and mapInfo.name or here
     for _, dg in ipairs(ns.DUNGEONS) do
-      if me >= dg.min and me <= dg.max then d[#d + 1] = dg end
+      if me >= dg.min and me <= dg.max then
+        local inZone = dg.zone == hereZone or dg.zone == here
+        if inZone or not db.dungeonZoneOnly then d[#d + 1] = dg
+        else result.dungeonsElsewhere = (result.dungeonsElsewhere or 0) + 1 end
+      end
     end
     table.sort(d, function(a, b)
       if db.sortByLevel then -- highest level range first
