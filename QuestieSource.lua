@@ -150,11 +150,31 @@ local function Field(id, key)
   local ok, v = pcall(QDB.QueryQuestSingle, id, key)
   return ok and v or nil
 end
-function Q.ActiveQuestMaps(id, complete)
+-- logObjectives: the quest log's objective lines ({ text, done }). An objective already done
+-- (its name appears in a finished line, e.g. "Twisted Air Totem: 5/5") doesn't count.
+function Q.ActiveQuestMaps(id, complete, logObjectives)
   if not (ready and QDB and id) then return nil end
-  local key = id .. (complete and ":done" or ":todo")
+  -- what's still to do, by name, so finished objectives drop out (and the cache follows progress)
+  local doneText, todoKey = {}, {}
+  for _, o in ipairs(logObjectives or {}) do
+    if type(o.text) == "string" then
+      if o.done then doneText[#doneText + 1] = o.text:lower() else todoKey[#todoKey + 1] = o.text end
+    end
+  end
+  local key = id .. (complete and ":done" or (":todo:" .. table.concat(todoKey, "|")))
   if activeMaps[key] ~= nil then return activeMaps[key] or nil end
+  local function finished(name)
+    if type(name) ~= "string" or name == "" then return false end
+    local n = name:lower()
+    for _, t in ipairs(doneText) do if t:find(n, 1, true) then return true end end
+    return false
+  end
+  local function nameOf(query, oid)
+    local ok, n = pcall(query, oid, "name")
+    return ok and n or nil
+  end
   local maps = {}
+  local remaining = 0
   if complete then
     local fb = Field(id, "finishedBy") -- { npc IDs, object IDs }
     if type(fb) == "table" then
@@ -162,32 +182,57 @@ function Q.ActiveQuestMaps(id, complete)
       for _, o in ipairs(type(fb[2]) == "table" and fb[2] or {}) do AddSpawns(maps, "object", o, "turn-in: ") end
     end
   else
-    local obj = Field(id, "objectives") -- { creatures, objects, items, ... }, each a list of { id, text }
+    local obj = Field(id, "objectives") -- { creatures, objects, items, reputation, ... }
+    local hasAny = false
     if type(obj) == "table" then
-      for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do AddSpawns(maps, "npc", type(c) == "table" and c[1] or c, "objective: ") end
-      for _, o in ipairs(type(obj[2]) == "table" and obj[2] or {}) do AddSpawns(maps, "object", type(o) == "table" and o[1] or o, "objective: ") end
-      for _, it in ipairs(type(obj[3]) == "table" and obj[3] or {}) do
-        local itemId = type(it) == "table" and it[1] or it
-        if itemId and QDB.QueryItemSingle then
-          local ok1, npcs = pcall(QDB.QueryItemSingle, itemId, "npcDrops")
-          local okI, iname = pcall(QDB.QueryItemSingle, itemId, "name")
-          local drop = "drops " .. ((okI and iname) or "item") .. ": "
-          if ok1 and type(npcs) == "table" then for _, n in ipairs(npcs) do AddSpawns(maps, "npc", n, drop) end end
-          local ok2, objs = pcall(QDB.QueryItemSingle, itemId, "objectDrops")
-          if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o, drop) end end
+      for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do
+        local nid = type(c) == "table" and c[1] or c
+        hasAny = true
+        if not finished(QDB.QueryNPCSingle and nameOf(QDB.QueryNPCSingle, nid)) then
+          remaining = remaining + 1
+          AddSpawns(maps, "npc", nid, "objective: ")
         end
       end
+      for _, o in ipairs(type(obj[2]) == "table" and obj[2] or {}) do
+        local oid = type(o) == "table" and o[1] or o
+        hasAny = true
+        if not finished(QDB.QueryObjectSingle and nameOf(QDB.QueryObjectSingle, oid)) then
+          remaining = remaining + 1
+          AddSpawns(maps, "object", oid, "objective: ")
+        end
+      end
+      for _, it in ipairs(type(obj[3]) == "table" and obj[3] or {}) do
+        local itemId = type(it) == "table" and it[1] or it
+        hasAny = true
+        local iname = QDB.QueryItemSingle and nameOf(QDB.QueryItemSingle, itemId)
+        if itemId and not finished(iname) then
+          remaining = remaining + 1
+          if QDB.QueryItemSingle then
+            local drop = "drops " .. (iname or "item") .. ": "
+            local ok1, npcs = pcall(QDB.QueryItemSingle, itemId, "npcDrops")
+            if ok1 and type(npcs) == "table" then for _, n in ipairs(npcs) do AddSpawns(maps, "npc", n, drop) end end
+            local ok2, objs = pcall(QDB.QueryItemSingle, itemId, "objectDrops")
+            if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o, drop) end end
+          end
+        end
+      end
+      for _, r in ipairs(type(obj[4]) == "table" and obj[4] or {}) do hasAny = true end
     end
-    -- the quest's own zone (usually where it was given) only when its objectives' places are unknown:
-    -- a quest given here with objectives elsewhere belongs to where you'll do it
-    if not next(maps) then
+    -- the quest's own zone only for quests with no listed objectives at all (e.g. "talk to...");
+    -- objectives still to do whose places Questie doesn't know don't make it count as here
+    if not hasAny and not next(maps) then
       local zone = Field(id, "zoneOrSort")
       if type(zone) == "number" and zone > 0 then
-        local m = UiMapFor(zone); if m then maps[m] = "the quest's zone (no known objective places)" end
+        local m = UiMapFor(zone); if m then maps[m] = "the quest's zone (it lists no objectives)" end
       end
     end
   end
-  if not next(maps) then maps = false end
+  if not next(maps) then
+    -- Questie knows the quest but nothing left to do is placed anywhere: say "not here" (an empty
+    -- set), rather than "can't say", which would fall back to the quest log's zone heading
+    local known = complete and Field(id, "finishedBy") or (not complete and Field(id, "objectives"))
+    maps = known and {} or false
+  end
   activeMaps[key] = maps
   return maps or nil
 end
