@@ -28,7 +28,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
-- 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab).
+- 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab). Training no longer repeats "Next level" under spells (they stay dimmed, with their level shown).
 - 0.16.0: Dungeons can be limited to your current zone, with a Zone / All switch on their heading too.
 - 0.15.2: Zone filter follows the game's own quest map (where it places each quest's current objective or turn-in), so Forever's own quests work too; otherwise Questie's markers and unfinished objectives. /xpp zone names what matched; /xpp qinfo <questID> shows the details.
 - 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; a Zone / All switch on the Active Quests and Quests to Pick Up headings; /xpp zone explains each quest.

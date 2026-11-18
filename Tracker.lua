@@ -680,7 +680,7 @@ function ns.Render(s)
     for _, sp in ipairs(s.training) do
       local name = (sp.name or "?") .. (sp.rank and sp.rank ~= "" and (" (" .. sp.rank .. ")") or "")
       local sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
-      if sp.nextLevel then sub[#sub + 1] = { text = "Next level" } end
+      -- next-level spells: shown dimmed, with their level in the title (no extra line)
       AddEntry(name, sp.level, sub, function()
         -- shift-click links the spell in chat, like everywhere else
         if IsModifiedClick and IsModifiedClick("CHATLINK") and sp.link and ChatEdit_InsertLink then
