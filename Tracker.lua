@@ -846,6 +846,8 @@ SlashCmdList.XPPLANNER = function(msg)
     ns.Print("Questie sources for quest " .. id .. ":")
     for _, l in ipairs(ns.Questie.Inspect(id)) do print("  " .. l) end
     return
+  elseif cmd == "questie" then
+    ns.Questie.Diagnose(ns.Print)
   elseif cmd == "zone" then
     -- why each active quest counts as in your zone or not (for "only quests in my current zone")
     ns.Print(format("version %s, your zone: %s (map %s)", tostring(C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?"),
@@ -857,7 +859,7 @@ SlashCmdList.XPPLANNER = function(msg)
     end
     return
   else
-    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp nearby  -  /xpp dungeons  -  /xpp zone")
+    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp nearby  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
     return
   end
   ns.Refresh()

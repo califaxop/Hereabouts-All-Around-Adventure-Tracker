@@ -12,7 +12,7 @@ Q.onUpdate = nil        -- called when a scan finishes
 
 local QDB, QXP, TU, ZDB, QP, QM
 local function Bind()
-  if not (QuestieLoader and Questie and Questie.API) then return false end
+  if not (QuestieLoader and QuestieLoader.ImportModule) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
   local ok2, b = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestXP")
   local ok3, c = pcall(QuestieLoader.ImportModule, QuestieLoader, "TrackerUtils")
@@ -34,7 +34,32 @@ function Q.Count()
   return n
 end
 function Q.IsScanning() return scanning end
-function Q.Installed() return (Questie and Questie.API) and true or false end
+local function AddonLoaded(name)
+  if C_AddOns and C_AddOns.IsAddOnLoaded then return C_AddOns.IsAddOnLoaded(name) and true or false end
+  return IsAddOnLoaded and IsAddOnLoaded(name) and true or false
+end
+-- Installed: Questie's addon is loaded or its loader exists. Doesn't rely on Questie.API.
+function Q.Installed()
+  return (AddonLoaded("Questie") or (QuestieLoader ~= nil and type(Questie) == "table")) and true or false
+end
+
+-- /xpp questie: what XPP sees of Questie, to tell apart "not loaded" from "loaded but broken".
+function Q.Diagnose(print)
+  local api = type(Questie) == "table" and Questie.API
+  local ver = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Questie", "Version")
+  print(format("Questie addon loaded: %s, version: %s", tostring(AddonLoaded("Questie")), tostring(ver)))
+  print(format("Questie global: %s, QuestieLoader: %s, API: %s, isReady: %s",
+    type(Questie), type(QuestieLoader), tostring(api and true or false), tostring(api and api.isReady)))
+  if C_AddOns and C_AddOns.GetNumAddOns and C_AddOns.GetAddOnInfo then
+    for i = 1, C_AddOns.GetNumAddOns() do
+      local name, title = C_AddOns.GetAddOnInfo(i)
+      if name and name ~= "Questie" and (name:lower():find("questie", 1, true)) then
+        print(format("Other Questie-named addon: %s (loaded: %s)", name, tostring(AddonLoaded(name))))
+      end
+    end
+  end
+  print(format("XPP bound to Questie database: %s, quests found: %d", tostring(ready), Q.Count()))
+end
 
 -- Rescan shortly after settings change (coalesces slider drags).
 local rescanToken = 0
@@ -441,16 +466,39 @@ function Q.Ranked(limit)
   return out, #list, elsewhere
 end
 
+local function OnReady()
+  if ready then return end
+  if Bind() then
+    ready = true
+    Q.Scan()
+  else
+    ns.Print("Questie found, but its database couldn't be read. Using the map instead.")
+  end
+end
+
+-- Ready once Questie says so; without its API, once its quest list exists. Gives up after ~2 min.
+local function PollReady(tries)
+  if ready then return end
+  local api = type(Questie) == "table" and Questie.API
+  local qdbOk, qdb = false, nil
+  if QuestieLoader and QuestieLoader.ImportModule then
+    qdbOk, qdb = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
+  end
+  if (api and api.isReady) or (not api and qdbOk and type(qdb) == "table" and qdb.QuestPointers) then
+    return OnReady()
+  end
+  if tries > 0 and C_Timer then C_Timer.After(2, function() PollReady(tries - 1) end) end
+end
+
 function Q.Init()
-  if not (Questie and Questie.API and Questie.API.RegisterOnReady) then return false end
-  Questie.API.RegisterOnReady(function()
-    if Bind() then
-      ready = true
-      Q.Scan()
-    else
-      ns.Print("Questie found, but its database couldn't be read. Using the map instead.")
-    end
-  end)
+  if not Q.Installed() then return false end
+  local api = type(Questie) == "table" and Questie.API
+  if api and type(api.RegisterOnReady) == "function" then
+    local ok = pcall(api.RegisterOnReady, OnReady)
+    if not ok then PollReady(60) end
+  else
+    PollReady(60)
+  end
   return true
 end
 

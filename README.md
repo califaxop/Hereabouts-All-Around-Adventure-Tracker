@@ -24,6 +24,7 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 | `/xpp lock` / `unlock` | Lock or move the list |
 | `/xpp replace` | Replace Blizzard's quest tracker |
 | `/xpp zone` | Why each quest counts as in this zone or not |
+| `/xpp questie` | What XP Planner sees of Questie |
 
 ## Good to know
 - Without Questie, Quests to Pick Up uses the map's nearby quests (no XP ranking or waypoints).
@@ -31,6 +32,7 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 - Works on English clients for dungeon zone matching.
 
 ## Recent changes
+- **0.16.3:** Works with Questie's latest update again; new `/xpp questie` check.
 - **0.16.2:** Click a quest to pick up for a map waypoint on its quest giver.
 - **0.16.1:** Dungeon quests count inside the dungeon; hide sections in dungeons or combat; finished objectives hidden.
 - **0.16.0:** Zone / All switch for Dungeons.
