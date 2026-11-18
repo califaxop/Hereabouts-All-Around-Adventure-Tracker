@@ -243,6 +243,24 @@ local function PageTracker(p)
   track(Slider(p, "Background opacity", COL2, y - 100, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
   track(Slider(p, "Max height (then scrolls)", COL2, y - 142, 224, 120, 900, 10, Setting("maxHeight"),
     function(v) return v .. " px" end))
+
+  -- which sections show in dungeons and in combat (ticked = shown)
+  y = Section(p, "Show in dungeons and in combat", 0, -224, PAGE_W)
+  local C1, C2 = 300, 390
+  Text(p, "note", "In dungeons"):SetPoint("TOPLEFT", C1 - 22, y)
+  Text(p, "note", "In combat"):SetPoint("TOPLEFT", C2 - 18, y)
+  y = y - 18
+  local function Shown(tbl, key)
+    return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
+      function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
+  end
+  for i, sec in ipairs({ { "quests", "Active Quests" }, { "pickup", "Quests to Pick Up" }, { "training", "Training" },
+      { "dungeons", "Dungeons" }, { "nearby", "Available Nearby (without Questie)" } }) do
+    local ry = y - (i - 1) * 22
+    Text(p, "line", sec[2]):SetPoint("TOPLEFT", 0, ry - 2)
+    track(Check(p, nil, C1, ry, Shown("hideInInstance", sec[1]), 24))
+    track(Check(p, nil, C2, ry, Shown("hideInCombat", sec[1]), 24))
+  end
 end
 
 local function PageLists(p)
@@ -371,7 +389,7 @@ local TABS = {
 }
 
 local function BuildWindow()
-  window = Window("XPPlannerOptionsWindow", 520, 470)
+  window = Window("XPPlannerOptionsWindow", 520, 500)
   window:SetPoint("CENTER")
   local title = Text(window, "title", "XP Planner")
   title:SetPoint("TOPLEFT", 26, -20)
@@ -414,7 +432,7 @@ local function BuildWindow()
     x = x + w + 4
 
     local pg = CreateFrame("Frame", nil, window)
-    pg:SetPoint("TOPLEFT", 26, -88); pg:SetSize(PAGE_W, 360)
+    pg:SetPoint("TOPLEFT", 26, -88); pg:SetSize(PAGE_W, 390)
     def[2](pg)
     pg:Hide()
     pages[i] = pg

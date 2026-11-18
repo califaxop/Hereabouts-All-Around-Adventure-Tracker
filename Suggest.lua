@@ -97,9 +97,25 @@ end
 -- zone and objectives); without Questie, the quest log's zone heading or the game's map decide.
 -- Returns true/false and why (for /xpp zone).
 local function InZone(q)
+  -- in a dungeon: its quests are here. The game files them under the dungeon's name in the quest
+  -- log ("Scarlet Monastery"), and may place them on the dungeon's own map rather than a zone.
+  -- (not `a and f()`: that keeps only f's first value)
+  local inInstance = false
+  if IsInInstance then inInstance = IsInInstance() end
+  local gz, graw
+  if ns.Questie.GameQuestZone then gz, graw = ns.Questie.GameQuestZone(q.questID) end
+  if inInstance then
+    local instName = GetInstanceInfo and GetInstanceInfo()
+    local hereRaw = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    if graw and hereRaw and graw == hereRaw then return true, "the game's map places it in this dungeon" end
+    local h = q.zone and q.zone:lower()
+    local n = type(instName) == "string" and instName:lower() or nil
+    if h and n and h ~= "" and (n:find(h, 1, true) or h:find(n, 1, true)) then
+      return true, "quest log heading matches this dungeon (" .. q.zone .. ")"
+    end
+  end
   -- first: the game's own map for the quest (its built-in objective areas / turn-in), which also
   -- knows quests Questie's data doesn't
-  local gz, graw = ns.Questie.GameQuestZone and ns.Questie.GameQuestZone(q.questID)
   if gz then
     local here = ns.Questie.CurrentZoneMap()
     local info = C_Map.GetMapInfo and C_Map.GetMapInfo(gz)

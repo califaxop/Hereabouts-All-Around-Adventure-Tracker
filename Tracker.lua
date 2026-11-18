@@ -579,6 +579,15 @@ end
 
 local shownSomething = false
 -- zoneKey: the setting for this section's current-zone filter (adds the Zone / All switch)
+-- a section the settings hide right now (in a dungeon / in combat)
+local function SectionHidden(key)
+  local db = ns.db
+  if db.hideInInstance and db.hideInInstance[key] and IsInInstance and IsInInstance() then return true end
+  if db.hideInCombat and db.hideInCombat[key] and UnitAffectingCombat and UnitAffectingCombat("player") then return true end
+  return false
+end
+ns.SectionHidden = SectionHidden
+
 local function Section(name, count, key, zoneKey)
   local h = GetHeader()
   h.text:SetText(name)
@@ -604,7 +613,7 @@ function ns.Render(s)
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
   local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
-  if (#s.quests > 0 or qElse > 0) and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
+  if not SectionHidden("quests") and (#s.quests > 0 or qElse > 0) and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
     for _, q in ipairs(s.quests) do
       local sub = {}
       if q.complete then
@@ -620,12 +629,12 @@ function ns.Render(s)
     end
   end
 
-  if #s.quests == 0 and qElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.quests) then
+  if not SectionHidden("quests") and #s.quests == 0 and qElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.quests) then
     AddNote(format("None in this zone (%d elsewhere)", qElse))
   end
 
   local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
-  if (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
+  if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
       if ns.db.showXP then sub[1] = { text = (BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP" } end
@@ -645,11 +654,11 @@ function ns.Render(s)
     end
   end
 
-  if #s.pickup == 0 and pElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.pickup) then
+  if not SectionHidden("pickup") and #s.pickup == 0 and pElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.pickup) then
     AddNote(format("None in this zone (%d elsewhere)", pElse))
   end
 
-  if #s.nearby > 0 and Section("Available Nearby", #s.nearby, "nearby") then
+  if not SectionHidden("nearby") and #s.nearby > 0 and Section("Available Nearby", #s.nearby, "nearby") then
     for _, q in ipairs(s.nearby) do
       AddEntry(q.title, q.level, { { text = "Not picked up yet (see map)" } }, function()
         if ToggleWorldMap then pcall(ToggleWorldMap) end
@@ -657,7 +666,7 @@ function ns.Render(s)
     end
   end
 
-  if s.training and #s.training > 0 and Section("Training", #s.training, "training") then
+  if not SectionHidden("training") and s.training and #s.training > 0 and Section("Training", #s.training, "training") then
     local money = function(c)
       return (GetCoinTextureString and GetCoinTextureString(c)) or (GetMoneyString and GetMoneyString(c)) or (c .. "c")
     end
@@ -682,14 +691,14 @@ function ns.Render(s)
   end
 
   local dElse = ns.db.dungeonZoneOnly and (s.dungeonsElsewhere or 0) or 0
-  if (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
+  if not SectionHidden("dungeons") and (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
     for _, d in ipairs(s.dungeons) do
       AddEntry(d.name, nil, { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }, function()
         ns.Print(d.name .. ": " .. d.zone .. format(" (levels %d-%d)", d.min, d.max))
       end)
     end
   end
-  if #s.dungeons == 0 and dElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.dungeons) then
+  if not SectionHidden("dungeons") and #s.dungeons == 0 and dElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.dungeons) then
     AddNote(format("None in this zone (%d elsewhere)", dElse))
   end
 
@@ -762,7 +771,8 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     ns.Questie.onUpdate = ns.Refresh
     for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
       "PLAYER_LEVEL_UP", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "QUESTLINE_UPDATE", "PLAYER_LOGIN",
-      "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED" }) do
+      "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED",
+      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
       pcall(ev.RegisterEvent, ev, e)
     end
     return

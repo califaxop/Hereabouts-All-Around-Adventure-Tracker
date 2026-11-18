@@ -11,6 +11,7 @@ Features
 - Training (needs What's Training): spells and ranks you can train now, with costs and a total; next-level spells dimmed.
 - Dungeons: dungeons whose level range fits you, optionally only those in your current zone.
 - Zone / All switch on the Active Quests, Quests to Pick Up and Dungeons headings: one click between your current zone and every zone.
+- Show or hide each section in dungeons and in combat.
 - Look: FlareUI style or a brown-bordered backdrop, opacity, scale, max height with scrolling, lock in place, replace Blizzard's quest tracker.
 
 Settings and commands
@@ -27,6 +28,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
+- 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab).
 - 0.16.0: Dungeons can be limited to your current zone, with a Zone / All switch on their heading too.
 - 0.15.2: Zone filter follows the game's own quest map (where it places each quest's current objective or turn-in), so Forever's own quests work too; otherwise Questie's markers and unfinished objectives. /xpp zone names what matched; /xpp qinfo <questID> shows the details.
 - 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; a Zone / All switch on the Active Quests and Quests to Pick Up headings; /xpp zone explains each quest.
