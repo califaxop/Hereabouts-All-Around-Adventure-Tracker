@@ -7,7 +7,7 @@ Features
 - Active Quests: your quest log with the objectives still to do and XP, highest level first; the focused quest pinned and highlighted; untracked quests dimmed or hidden; optionally only quests in your current zone.
 - Right-click an active quest: Blizzard's own tracker menu (focus, view, map, track, share, abandon).
 - Quests to Pick Up (needs Questie): quests you can accept in your current zone, within your level range (-8 to +8), best XP chosen, with quest giver and zone.
-- Right-click a quest to pick up: Show on Map (a map waypoint on the quest giver, plus TomTom's arrow if installed) or Ignore Quest, with an ignore list you can manage.
+- Click a quest to pick up to open the map with a waypoint on its quest giver. Right-click: Show on Map (a map waypoint on the quest giver, plus TomTom's arrow if installed) or Ignore Quest, with an ignore list you can manage.
 - Training (needs What's Training): spells and ranks you can train now, with costs and a total; next-level spells dimmed.
 - Dungeons: dungeons whose level range fits you, optionally only those in your current zone.
 - Zone / All switch on the Active Quests, Quests to Pick Up and Dungeons headings: one click between your current zone and every zone.
@@ -28,6 +28,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
+- 0.16.2: Clicking a quest under Quests to Pick Up opens the map with a waypoint on its quest giver (shift-click prints its details; right-click for the menu).
 - 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab). Training no longer repeats "Next level" under spells (they stay dimmed, with their level shown). Active Quests hide finished objectives (option, on by default).
 - 0.16.0: Dungeons can be limited to your current zone, with a Zone / All switch on their heading too.
 - 0.15.2: Zone filter follows the game's own quest map (where it places each quest's current objective or turn-in), so Forever's own quests work too; otherwise Questie's markers and unfinished objectives. /xpp zone names what matched; /xpp qinfo <questID> shows the details.

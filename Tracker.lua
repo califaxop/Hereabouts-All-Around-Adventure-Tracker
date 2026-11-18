@@ -501,14 +501,17 @@ function ns.SetWaypoint(loc, title)
   return placed
 end
 
+-- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
+local function ShowPickupOnMap(q)
+  local loc = ns.Questie.Location(q.id)
+  local who = q.starter or q.name
+  if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
+  elseif ns.SetWaypoint(loc, who) then ns.Print(format("waypoint set: %s (%.1f, %.1f)", who, loc.x * 100, loc.y * 100))
+  else ns.Print("couldn't place a waypoint on that map.") end
+end
+
 local function ShowPickupMenu(owner, q)
-  local function showOnMap()
-    local loc = ns.Questie.Location(q.id)
-    local who = q.starter or q.name
-    if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
-    elseif ns.SetWaypoint(loc, who) then ns.Print(format("waypoint set: %s (%.1f, %.1f)", who, loc.x * 100, loc.y * 100))
-    else ns.Print("couldn't place a waypoint on that map.") end
-  end
+  local function showOnMap() ShowPickupOnMap(q) end
   local function ignore()
     ns.IgnoreQuest(q.id, q.name, q.level)
     ns.Print((q.name or "Quest") .. " ignored. Manage ignored quests in /xpp.")
@@ -651,8 +654,13 @@ function ns.Render(s)
       end
       AddEntry(q.name, q.level, sub, function(self, button)
         if button == "RightButton" then ShowPickupMenu(self, q); return end
-        ns.Print(format("[%d] %s - %s XP - %s", q.level or 0, q.name or "?", q.xp,
-          (q.starter or "?") .. (q.zone and (", " .. q.zone) or "")))
+        -- shift-click: the quest's details in chat; click: map + waypoint on the quest giver
+        if IsShiftKeyDown and IsShiftKeyDown() then
+          ns.Print(format("[%d] %s - %s XP - %s", q.level or 0, q.name or "?", q.xp,
+            (q.starter or "?") .. (q.zone and (", " .. q.zone) or "")))
+          return
+        end
+        ShowPickupOnMap(q)
       end)
     end
   end
