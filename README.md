@@ -4,7 +4,7 @@ A quest tracker that tells you where your next XP is: your quests, quests to pic
 XP Planner is a quest-tracker-style list, built to show what levels you fastest. It can sit under Blizzard's tracker or replace it, scrolls within a set height, and matches FlareUI's look when FlareUI is installed. It reads Questie's quest database and What's Training's spell list when those addons are installed; nothing from them is copied into XP Planner.
 
 Features
-- Active Quests: your quest log with objectives and XP, highest level first; the focused quest pinned and highlighted; untracked quests dimmed or hidden; optionally only quests in your current zone.
+- Active Quests: your quest log with the objectives still to do and XP, highest level first; the focused quest pinned and highlighted; untracked quests dimmed or hidden; optionally only quests in your current zone.
 - Right-click an active quest: Blizzard's own tracker menu (focus, view, map, track, share, abandon).
 - Quests to Pick Up (needs Questie): quests you can accept in your current zone, within your level range (-8 to +8), best XP chosen, with quest giver and zone.
 - Right-click a quest to pick up: Show on Map (a map waypoint on the quest giver, plus TomTom's arrow if installed) or Ignore Quest, with an ignore list you can manage.
@@ -28,7 +28,7 @@ Known limits
 - Dungeon level ranges are classic ranges; Forever may tune them.
 
 Changelogs
-- 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab). Training no longer repeats "Next level" under spells (they stay dimmed, with their level shown).
+- 0.16.1: Inside a dungeon, its quests count as in your zone (by the dungeon's map or the quest log's dungeon heading). Each section can be hidden in dungeons and in combat (Tracker tab). Training no longer repeats "Next level" under spells (they stay dimmed, with their level shown). Active Quests hide finished objectives (option, on by default).
 - 0.16.0: Dungeons can be limited to your current zone, with a Zone / All switch on their heading too.
 - 0.15.2: Zone filter follows the game's own quest map (where it places each quest's current objective or turn-in), so Forever's own quests work too; otherwise Questie's markers and unfinished objectives. /xpp zone names what matched; /xpp qinfo <questID> shows the details.
 - 0.15.1: "Only quests in my current zone" now uses Questie: quests ready to turn in show where their turn-in is, others where their objectives are; a Zone / All switch on the Active Quests and Quests to Pick Up headings; /xpp zone explains each quest.

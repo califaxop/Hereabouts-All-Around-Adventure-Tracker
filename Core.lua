@@ -37,6 +37,7 @@ ns.DEFAULTS = {
   activeZoneOnly = false, -- Active Quests: only quests in the zone you're in (focused quest always shown)
   showPickup  = true,   -- "Quests to Pick Up" section (Questie)
   showObjectives = true,-- objective lines under active quests
+  hideDoneObjectives = true, -- ...only the ones still to do
   showXP      = true,   -- XP line under quests
   showStarter = true,   -- quest giver + zone line under quests to pick up
   hideUntracked = false,-- hide active quests you've stopped tracking (like Blizzard's tracker)

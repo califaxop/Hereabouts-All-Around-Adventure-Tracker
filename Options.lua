@@ -299,7 +299,10 @@ local function PageLists(p)
 
   y = Section(p, "Details", 0, y - 252, PAGE_W)
   track(Check(p, "Sort by level (highest first)", 0, y, Setting("sortByLevel")))
-  track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives")))
+  local objectives = track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives", function() ns.RefreshOptions() end)))
+  local hideDone = track(Check(p, "Hide finished objectives", 22, y - 48, Setting("hideDoneObjectives"), 208))
+  local hr = hideDone.Refresh
+  hideDone.Refresh = function() hr(); hideDone.SetActive(ns.db.showObjectives and true or false) end
   track(Check(p, "XP reward", COL2, y, Setting("showXP"), 224))
   track(Check(p, "Quest giver and zone", COL2, y - 24, Setting("showStarter"), 224))
 end

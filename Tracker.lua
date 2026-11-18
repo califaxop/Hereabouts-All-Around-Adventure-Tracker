@@ -620,7 +620,10 @@ function ns.Render(s)
         sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 } }
       else
         if ns.db.showObjectives then
-          for i, o in ipairs(q.objectives) do if i <= 3 then sub[#sub + 1] = o end end
+          for _, o in ipairs(q.objectives) do
+            if #sub >= 3 then break end
+            if not (ns.db.hideDoneObjectives and o.done) then sub[#sub + 1] = o end
+          end
         end
       end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
