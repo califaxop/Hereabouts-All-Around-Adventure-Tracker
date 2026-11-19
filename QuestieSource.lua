@@ -10,7 +10,7 @@ local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, start
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
 
-local QDB, QXP, TU, ZDB, QP, QM
+local QDB, QXP, TU, ZDB, QP, QM, QL
 local function Bind()
   if not (QuestieLoader and QuestieLoader.ImportModule) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
@@ -24,6 +24,8 @@ local function Bind()
   QP = ok5 and qp or nil
   local ok6, qm = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieMap")
   QM = ok6 and qm or nil
+  local ok7, ql = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieLib")
+  QL = (ok7 and ql and ql.GetEffectiveQuestLevel) and ql or nil
   return true
 end
 
@@ -390,6 +392,17 @@ local function Consider(id)
   if not (okQ and quest) or quest.isHidden then return end
   -- keep every level (Questie already drops what you can't take yet); the level range, or
   -- "Show all levels", is applied when listing, so changing it needs no rescan
+  -- level to accept: Questie's "can take" check leaves that to its own level filter
+  local me = UnitLevel("player")
+  local reqLvl, reqMax
+  if QL then
+    local okL, lvl, rl, rm = pcall(QL.GetEffectiveQuestLevel, id, me)
+    if okL then reqLvl = (type(rl) == "number" and rl > 0) and rl or lvl; reqMax = rm end
+  else
+    reqLvl = Field(id, "requiredLevel")
+  end
+  if type(reqLvl) == "number" and reqLvl > me then return end              -- too low to take it yet
+  if type(reqMax) == "number" and reqMax > 0 and me > reqMax then return end -- too high for it
   local okX, xp = pcall(QXP.GetQuestLogRewardXP, QXP, id, false)
   xp = (okX and Readable(xp) and type(xp) == "number") and xp or 0
   -- repeatable and no-XP quests are kept too, but only listed with "Show every quest I can take"
