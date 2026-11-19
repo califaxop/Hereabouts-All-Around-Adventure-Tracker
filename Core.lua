@@ -23,6 +23,7 @@ ns.DEFAULTS = {
   showDungeons = true,
   showTraining = true,  -- "Training" section (needs What's Training)
   maxTraining = 10,     -- spells shown in it
+  showCityPrices = true, -- training: base cost plus each city's price with your reputation
   showNextLevel = true, -- also list spells coming at your next level (dimmed)
   collapsed   = false,
   locked      = true,   -- can't be dragged until unlocked

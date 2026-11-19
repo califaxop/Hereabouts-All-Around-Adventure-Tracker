@@ -18,6 +18,7 @@ local LINE_FONT   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFo
 -- so switching style recolours everything on the next draw.
 local TITLE_COLOR, TITLE_HOVER_COLOR, LINE_COLOR, DONE_COLOR = {}, {}, {}, {}
 local FOCUS_COLOR, DIM_TITLE, DIM_LINE, HEADER_COLOR = {}, {}, {}, {}
+local BEST_COLOR = { 0.25, 1, 0.25 } -- cheapest city price (green, like What's Training)
 
 local PALETTES = {
   -- Blizzard's quest tracker
@@ -561,7 +562,7 @@ local function AddEntry(title, level, sub, onClick, style)
     if style and style.dim and not s.color then c = DIM_LINE end
     l:SetTextColor(unpack(c))
     l:SetHeight(l:GetStringHeight())
-    Place(l, 20, 1)
+    Place(l, 20 + (s.indent or 0) * 10, 1)
   end
   if style and style.focused then
     local m = GetMark()
@@ -690,7 +691,18 @@ function ns.Render(s)
     end
     for _, sp in ipairs(s.training) do
       local name = (sp.name or "?") .. (sp.rank and sp.rank ~= "" and (" (" .. sp.rank .. ")") or "")
-      local sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
+      local sub
+      local cities, base = {}, sp.cost
+      if ns.db.showCityPrices then cities, base = ns.Training.CityPrices(sp) end
+      if #cities > 0 then
+        -- Base value, then what each city charges (green: the cheapest, with your reputation)
+        sub = { { text = money(base) .. " base" } }
+        for _, c in ipairs(cities) do
+          sub[#sub + 1] = { text = money(c.price) .. " in " .. c.name, indent = 1, color = c.best and BEST_COLOR or nil }
+        end
+      else
+        sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
+      end
       -- next-level spells: shown dimmed, with their level in the title (no extra line)
       AddEntry(name, sp.level, sub, function()
         -- shift-click links the spell in chat, like everywhere else

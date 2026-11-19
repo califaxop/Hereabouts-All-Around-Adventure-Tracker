@@ -305,6 +305,7 @@ local function PageLists(p)
   hideDone.Refresh = function() hr(); hideDone.SetActive(ns.db.showObjectives and true or false) end
   track(Check(p, "XP reward", COL2, y, Setting("showXP"), 224))
   track(Check(p, "Quest giver and zone", COL2, y - 24, Setting("showStarter"), 224))
+  track(Check(p, "Training prices by city", COL2, y - 48, Setting("showCityPrices"), 224))
 end
 
 local function PagePicking(p)
