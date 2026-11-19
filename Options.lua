@@ -290,6 +290,9 @@ local function PageLists(p)
   Row("Active Quests", "showActive", "maxQuests", 20, y)
   Sub("Only quests in my current zone", "activeZoneOnly", "showActive", y - 24)
   Sub("Hide quests I'm not tracking", "hideUntracked", "showActive", y - 46)
+  local ready = track(Check(p, "Always show ready to turn in", COL2, y - 24, Setting("showAllReady"), 224))
+  local rr = ready.Refresh
+  ready.Refresh = function() rr(); ready.SetActive(ns.db.showActive and true or false) end
   Row("Quests to Pick Up (Questie)", "showPickup", "maxPickup", 20, y - 76)
   Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 106)
   Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 130)

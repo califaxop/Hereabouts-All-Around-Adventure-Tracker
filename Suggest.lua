@@ -152,8 +152,10 @@ function ns.BuildSuggestions()
   for _, q in ipairs(quests) do
     q.trivial = ns.IsTrivial(q.level)
     -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
-    local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused
-    local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
+    -- "always show ready to turn in": a finished quest skips the zone and tracking filters
+    local readyPass = db.showAllReady and q.complete
+    local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused and not readyPass
+    local otherZone = db.activeZoneOnly and not q.focused and not readyPass and not InZone(q)
     local wanted = not hiddenUntracked and (q.complete or not q.trivial or db.replaceTracker or q.focused)
     if wanted and not otherZone then keep[#keep + 1] = q
     elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
@@ -172,6 +174,11 @@ function ns.BuildSuggestions()
   end)
   if db.showActive then
     for i = 1, math.min(db.maxQuests, #keep) do result.quests[i] = keep[i] end
+    if db.showAllReady then -- every quest ready to turn in, even past the limit
+      for i = db.maxQuests + 1, #keep do
+        if keep[i].complete then result.quests[#result.quests + 1] = keep[i] end
+      end
+    end
   end
 
   -- Quests to pick up: from Questie when installed, otherwise the map's nearby quests.

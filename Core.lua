@@ -41,6 +41,7 @@ ns.DEFAULTS = {
   hideDoneObjectives = true, -- ...only the ones still to do
   showXP      = true,   -- XP line under quests
   showStarter = true,   -- quest giver + zone line under quests to pick up
+  showAllReady = false, -- Active Quests: quests ready to turn in always show, whatever the zone / tracking filters
   hideUntracked = false,-- hide active quests you've stopped tracking (like Blizzard's tracker)
   pos         = nil,    -- nil = sit under the quest tracker
 }
