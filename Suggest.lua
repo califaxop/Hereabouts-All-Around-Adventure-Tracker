@@ -152,10 +152,10 @@ function ns.BuildSuggestions()
   local keep, turnin = {}, {}
   for _, q in ipairs(quests) do
     q.trivial = ns.IsTrivial(q.level)
-    if q.complete and db.showTurnIn then
+    if q.complete and db.showTurnIn and not q.focused then
       -- Quests to Turn In: every finished quest (tracked or not), with its own zone filter
-      -- (InZone goes by where it's turned in)
-      if db.turninZoneOnly and not q.focused and not InZone(q) then
+      -- (InZone goes by where it's turned in). The focused quest stays pinned in Active Quests.
+      if db.turninZoneOnly and not InZone(q) then
         result.turninElsewhere = (result.turninElsewhere or 0) + 1
       else
         turnin[#turnin + 1] = q
@@ -185,7 +185,6 @@ function ns.BuildSuggestions()
     for i = 1, math.min(db.maxQuests, #keep) do result.quests[i] = keep[i] end
   end
   table.sort(turnin, function(a, b)
-    if a.focused ~= b.focused then return a.focused end
     if db.sortByLevel and (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
     if a.xp ~= b.xp then return a.xp > b.xp end
     return (a.level or 0) < (b.level or 0)
