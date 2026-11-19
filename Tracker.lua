@@ -658,7 +658,12 @@ function ns.Render(s)
   if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
-      if ns.db.showXP then sub[1] = { text = (BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP" } end
+      if ns.db.showXP then
+        local xpText = q.xp > 0 and ((BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP") or "No XP"
+        sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
+      elseif q.repeatable then
+        sub[1] = { text = "Repeatable" }
+      end
       if not ns.db.showStarter then
         -- no giver line
       elseif q.starter then

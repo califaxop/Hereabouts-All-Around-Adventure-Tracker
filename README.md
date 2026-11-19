@@ -32,7 +32,7 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 - Works on English clients for dungeon zone matching.
 
 ## Recent changes
-- **0.19.0:** Quest tracking ticks no longer hide or dim quests (the Zone / All switch decides); "Show all levels" for Quests to Pick Up.
+- **0.19.0:** Quest tracking ticks no longer hide or dim quests (the Zone / All switch decides); "Show every quest I can take" for Quests to Pick Up (any level, repeatable, no XP).
 - **0.18.1:** Your focused quest stays in Active Quests, even when it's ready to turn in.
 - **0.18.0:** New Quests to Turn In section, with its own Zone / All switch.
 - **0.17.0:** Training shows what each city charges with your reputation.

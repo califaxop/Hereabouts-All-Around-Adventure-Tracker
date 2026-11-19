@@ -30,7 +30,7 @@ end
 function Q.Available() return ready end
 function Q.Count()
   local n, ignored = 0, ns.db.ignoredQuests or {}
-  for id in pairs(candidates) do if not ignored[id] then n = n + 1 end end
+  for id, c in pairs(candidates) do if not ignored[id] and (ns.db.pickupAllLevels or not c.extra) then n = n + 1 end end
   return n
 end
 function Q.IsScanning() return scanning end
@@ -387,15 +387,18 @@ local function Consider(id)
   local okD, doable = pcall(QDB.IsDoable, id)
   if not (okD and doable) then return end
   local okQ, quest = pcall(QDB.GetQuest, id)
-  if not (okQ and quest) or quest.isHidden or quest.IsRepeatable then return end
+  if not (okQ and quest) or quest.isHidden then return end
   -- keep every level (Questie already drops what you can't take yet); the level range, or
   -- "Show all levels", is applied when listing, so changing it needs no rescan
   local okX, xp = pcall(QXP.GetQuestLogRewardXP, QXP, id, false)
-  if not (okX and Readable(xp) and xp > 0) then return end
+  xp = (okX and Readable(xp) and type(xp) == "number") and xp or 0
+  -- repeatable and no-XP quests are kept too, but only listed with "Show every quest I can take"
   local starter, starterZone = StarterInfo(quest)
   local zoneID = quest.zoneOrSort
   candidates[id] = {
     id = id, name = quest.name, level = quest.level, xp = xp,
+    extra = (quest.IsRepeatable or xp <= 0) and true or nil,
+    repeatable = quest.IsRepeatable and true or nil,
     zoneID = (zoneID and zoneID > 0) and zoneID or nil,
     zone = starterZone or ZoneName(zoneID),
     starter = starter,
@@ -446,7 +449,7 @@ function Q.Ranked(limit)
     local lvl = c.level
     local inRange = db.pickupAllLevels or not lvl or lvl <= 0 or (lvl >= lo and lvl <= hi) -- unknown/scaling levels: kept
     c.here = (hereMap and c.maps and c.maps[hereMap]) or false
-    if not ignored[c.id] and inRange then
+    if not ignored[c.id] and inRange and (db.pickupAllLevels or not c.extra) then
       if c.here or not db.pickupZoneOnly then
         c.score = c.xp * (c.here and db.zoneBonus or 1)
         list[#list + 1] = c

@@ -311,13 +311,13 @@ end
 local function PagePicking(p)
   local y = Section(p, "Which quests to suggest", 0, 0, PAGE_W)
   track(Check(p, "Only quests from my current zone", 0, y, Setting("pickupZoneOnly"), 220))
-  track(Check(p, "Show all levels", COL2, y, Setting("pickupAllLevels", function() ns.RefreshOptions() end), 224))
+  track(Check(p, "Show every quest I can take", COL2, y, Setting("pickupAllLevels", function() ns.RefreshOptions() end), 224))
   local signed = function(v) return v == 0 and "your level" or ((v > 0 and "+" or "") .. v) end
   local lo = track(Slider(p, "Lowest quest level", 0, y - 34, 220, -8, 8, 1,
     Setting("levelMin", function(v) if v > ns.db.levelMax then ns.db.levelMax = v; ns.RefreshOptions() end end), signed))
   local hi = track(Slider(p, "Highest quest level", COL2, y - 34, 224, -8, 8, 1,
     Setting("levelMax", function(v) if v < ns.db.levelMin then ns.db.levelMin = v; ns.RefreshOptions() end end), signed))
-  -- "Show all levels" sets the range aside
+  -- "Show every quest I can take" sets the range aside
   for _, sl in ipairs({ lo, hi }) do
     local r = sl.Refresh
     sl.Refresh = function() r(); sl.SetActive(not ns.db.pickupAllLevels) end
