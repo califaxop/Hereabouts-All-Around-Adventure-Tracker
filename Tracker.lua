@@ -695,10 +695,10 @@ function ns.Render(s)
       local cities, base = {}, sp.cost
       if ns.db.showCityPrices then cities, base = ns.Training.CityPrices(sp) end
       if #cities > 0 then
-        -- Base value, then what each city charges (green: the cheapest, with your reputation)
-        sub = { { text = money(base) .. " base" } }
+        -- what each city charges with your reputation (green: the cheapest)
+        sub = {}
         for _, c in ipairs(cities) do
-          sub[#sub + 1] = { text = money(c.price) .. " in " .. c.name, indent = 1, color = c.best and BEST_COLOR or nil }
+          sub[#sub + 1] = { text = money(c.price) .. " in " .. c.name, color = c.best and BEST_COLOR or nil }
         end
       else
         sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
