@@ -310,12 +310,18 @@ end
 
 local function PagePicking(p)
   local y = Section(p, "Which quests to suggest", 0, 0, PAGE_W)
-  track(Check(p, "Only quests from my current zone", 0, y, Setting("pickupZoneOnly"), 300))
+  track(Check(p, "Only quests from my current zone", 0, y, Setting("pickupZoneOnly"), 220))
+  track(Check(p, "Show all levels", COL2, y, Setting("pickupAllLevels", function() ns.RefreshOptions() end), 224))
   local signed = function(v) return v == 0 and "your level" or ((v > 0 and "+" or "") .. v) end
-  track(Slider(p, "Lowest quest level", 0, y - 34, 220, -8, 8, 1,
+  local lo = track(Slider(p, "Lowest quest level", 0, y - 34, 220, -8, 8, 1,
     Setting("levelMin", function(v) if v > ns.db.levelMax then ns.db.levelMax = v; ns.RefreshOptions() end end), signed))
-  track(Slider(p, "Highest quest level", COL2, y - 34, 224, -8, 8, 1,
+  local hi = track(Slider(p, "Highest quest level", COL2, y - 34, 224, -8, 8, 1,
     Setting("levelMax", function(v) if v < ns.db.levelMin then ns.db.levelMin = v; ns.RefreshOptions() end end), signed))
+  -- "Show all levels" sets the range aside
+  for _, sl in ipairs({ lo, hi }) do
+    local r = sl.Refresh
+    sl.Refresh = function() r(); sl.SetActive(not ns.db.pickupAllLevels) end
+  end
   track(Slider(p, "Current-zone bonus", 0, y - 80, 220, 1, 3, 0.1, Setting("zoneBonus"),
     function(v) return format("x%.1f", v) end))
   Note(p, "Quests in your zone rank higher, since there's less travel.", COL2, y - 84, 224)

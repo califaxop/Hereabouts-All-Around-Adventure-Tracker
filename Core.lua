@@ -9,6 +9,7 @@ function ns.Print(...) print("|cffffd200XP Planner:|r", ...) end
 ns.DEFAULTS = {
   maxQuests   = 8,      -- quest-log suggestions shown
   maxPickup   = 6,      -- "quests to pick up" shown (needs Questie)
+  pickupAllLevels = false, -- Quests to Pick Up: ignore the level range below (find quests you missed)
   levelMin    = -5,     -- Quests to Pick Up: lowest quest level, relative to yours (-8..+8)
   levelMax    = 3,      -- Quests to Pick Up: highest quest level, relative to yours (-8..+8)
   pickupZoneOnly = true,-- Quests to Pick Up: only quests whose quest giver is in your current zone

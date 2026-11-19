@@ -388,10 +388,8 @@ local function Consider(id)
   if not (okD and doable) then return end
   local okQ, quest = pcall(QDB.GetQuest, id)
   if not (okQ and quest) or quest.isHidden or quest.IsRepeatable then return end
-  -- keep anything within the widest level range the settings allow (-8..+8); the exact range
-  -- you chose is applied when listing, so changing it needs no rescan
-  local me = UnitLevel("player")
-  if quest.level and quest.level > 0 and (quest.level > me + 8 or quest.level < me - 8) then return end
+  -- keep every level (Questie already drops what you can't take yet); the level range, or
+  -- "Show all levels", is applied when listing, so changing it needs no rescan
   local okX, xp = pcall(QXP.GetQuestLogRewardXP, QXP, id, false)
   if not (okX and Readable(xp) and xp > 0) then return end
   local starter, starterZone = StarterInfo(quest)
@@ -446,7 +444,7 @@ function Q.Ranked(limit)
   local list, elsewhere = {}, 0
   for _, c in pairs(candidates) do
     local lvl = c.level
-    local inRange = not lvl or lvl <= 0 or (lvl >= lo and lvl <= hi) -- unknown/scaling levels: kept
+    local inRange = db.pickupAllLevels or not lvl or lvl <= 0 or (lvl >= lo and lvl <= hi) -- unknown/scaling levels: kept
     c.here = (hereMap and c.maps and c.maps[hereMap]) or false
     if not ignored[c.id] and inRange then
       if c.here or not db.pickupZoneOnly then
