@@ -632,7 +632,7 @@ function ns.Render(s)
       end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, dim = not q.tracked and not q.focused })
+        { focused = q.focused })
     end
   end
 

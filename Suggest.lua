@@ -153,7 +153,7 @@ function ns.BuildSuggestions()
   for _, q in ipairs(quests) do
     q.trivial = ns.IsTrivial(q.level)
     if q.complete and db.showTurnIn and not q.focused then
-      -- Quests to Turn In: every finished quest (tracked or not), with its own zone filter
+      -- Quests to Turn In: every finished quest, with its own zone filter
       -- (InZone goes by where it's turned in). The focused quest stays pinned in Active Quests.
       if db.turninZoneOnly and not InZone(q) then
         result.turninElsewhere = (result.turninElsewhere or 0) + 1
@@ -162,9 +162,9 @@ function ns.BuildSuggestions()
       end
     else
       -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
-      local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused
       local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
-      local wanted = not hiddenUntracked and (q.complete or not q.trivial or db.replaceTracker or q.focused)
+      -- (Blizzard's tracking ticks don't matter here: the Zone / All switch decides what shows)
+      local wanted = q.complete or not q.trivial or db.replaceTracker or q.focused
       if wanted and not otherZone then keep[#keep + 1] = q
       elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
     end
@@ -176,7 +176,6 @@ function ns.BuildSuggestions()
       return a.xp > b.xp
     end
     if a.complete ~= b.complete then return a.complete end
-    if a.tracked ~= b.tracked then return a.tracked end   -- untracked ones sink below
     if a.trivial ~= b.trivial then return not a.trivial end
     if a.xp ~= b.xp then return a.xp > b.xp end
     return (a.level or 0) < (b.level or 0)

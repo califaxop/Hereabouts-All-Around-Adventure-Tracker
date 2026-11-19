@@ -44,7 +44,6 @@ ns.DEFAULTS = {
   showTurnIn = true,     -- Quests to Turn In: finished quests get their own section (and leave Active Quests)
   maxTurnIn = 20,
   turninZoneOnly = false, -- ...only the ones turned in where you are
-  hideUntracked = false,-- hide active quests you've stopped tracking (like Blizzard's tracker)
   pos         = nil,    -- nil = sit under the quest tracker
 }
 
