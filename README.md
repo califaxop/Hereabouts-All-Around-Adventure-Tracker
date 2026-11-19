@@ -32,7 +32,7 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 - Works on English clients for dungeon zone matching.
 
 ## Recent changes
-- **0.18.0:** Option to always show quests ready to turn in, whatever the zone.
+- **0.18.0:** New Quests to Turn In section, with its own Zone / All switch.
 - **0.17.0:** Training shows what each city charges with your reputation.
 - **0.16.3:** Works with Questie's latest update again; new `/xpp questie` check.
 - **0.16.2:** Click a quest to pick up for a map waypoint on its quest giver.

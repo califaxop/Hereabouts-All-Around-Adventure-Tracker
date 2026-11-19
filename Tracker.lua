@@ -640,6 +640,20 @@ function ns.Render(s)
     AddNote(format("None in this zone (%d elsewhere)", qElse))
   end
 
+  local tElse = ns.db.turninZoneOnly and (s.turninElsewhere or 0) or 0
+  local turnin = s.turnin or {}
+  if not SectionHidden("turnin") and (#turnin > 0 or tElse > 0) and Section("Quests to Turn In", #turnin, "turnin", "turninZoneOnly") then
+    for _, q in ipairs(turnin) do
+      local sub = {}
+      if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
+      AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+        { focused = q.focused })
+    end
+  end
+  if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
+    AddNote(format("None in this zone (%d elsewhere)", tElse))
+  end
+
   local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
   if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do

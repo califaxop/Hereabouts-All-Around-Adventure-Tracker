@@ -254,9 +254,9 @@ local function PageTracker(p)
     return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
       function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
   end
-  for i, sec in ipairs({ { "quests", "Active Quests" }, { "pickup", "Quests to Pick Up" }, { "training", "Training" },
-      { "dungeons", "Dungeons" }, { "nearby", "Available Nearby (without Questie)" } }) do
-    local ry = y - (i - 1) * 22
+  for i, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests to Pick Up" },
+      { "training", "Training" }, { "dungeons", "Dungeons" }, { "nearby", "Available Nearby (without Questie)" } }) do
+    local ry = y - (i - 1) * 20
     Text(p, "line", sec[2]):SetPoint("TOPLEFT", 0, ry - 2)
     track(Check(p, nil, C1, ry, Shown("hideInInstance", sec[1]), 24))
     track(Check(p, nil, C2, ry, Shown("hideInCombat", sec[1]), 24))
@@ -290,17 +290,15 @@ local function PageLists(p)
   Row("Active Quests", "showActive", "maxQuests", 20, y)
   Sub("Only quests in my current zone", "activeZoneOnly", "showActive", y - 24)
   Sub("Hide quests I'm not tracking", "hideUntracked", "showActive", y - 46)
-  local ready = track(Check(p, "Always show ready to turn in", COL2, y - 24, Setting("showAllReady"), 224))
-  local rr = ready.Refresh
-  ready.Refresh = function() rr(); ready.SetActive(ns.db.showActive and true or false) end
-  Row("Quests to Pick Up (Questie)", "showPickup", "maxPickup", 20, y - 76)
-  Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 106)
-  Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 130)
-  Row("Training (What's Training)", "showTraining", "maxTraining", 30, y - 160)
-  Sub("Also spells at my next level", "showNextLevel", "showTraining", y - 184)
-  Row("Map's nearby quests (without Questie)", "showNearby", nil, nil, y - 214)
+  Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20, y - 76)
+  Row("Quests to Pick Up (Questie)", "showPickup", "maxPickup", 20, y - 106)
+  Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 136)
+  Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 160)
+  Row("Training (What's Training)", "showTraining", "maxTraining", 30, y - 190)
+  Sub("Also spells at my next level", "showNextLevel", "showTraining", y - 214)
+  Row("Map's nearby quests (without Questie)", "showNearby", nil, nil, y - 244)
 
-  y = Section(p, "Details", 0, y - 252, PAGE_W)
+  y = Section(p, "Details", 0, y - 282, PAGE_W)
   track(Check(p, "Sort by level (highest first)", 0, y, Setting("sortByLevel")))
   local objectives = track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives", function() ns.RefreshOptions() end)))
   local hideDone = track(Check(p, "Hide finished objectives", 22, y - 48, Setting("hideDoneObjectives"), 208))

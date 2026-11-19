@@ -143,22 +143,31 @@ ns.LogQuests = function() return LogQuests() end
 function ns.BuildSuggestions()
   local db = ns.db
   local me = UnitLevel("player")
-  local result = { quests = {}, nearby = {}, pickup = {}, dungeons = {}, training = {} }
+  local result = { quests = {}, turnin = {}, nearby = {}, pickup = {}, dungeons = {}, training = {} }
 
   -- Log quests: ready-to-turn-in first, then most XP. Gray quests are dropped.
   local quests = LogQuests()
   if db.activeZoneOnly then RefreshZone() end
-  local keep = {}
+  if db.turninZoneOnly and db.showTurnIn and not db.activeZoneOnly then RefreshZone() end
+  local keep, turnin = {}, {}
   for _, q in ipairs(quests) do
     q.trivial = ns.IsTrivial(q.level)
-    -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
-    -- "always show ready to turn in": a finished quest skips the zone and tracking filters
-    local readyPass = db.showAllReady and q.complete
-    local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused and not readyPass
-    local otherZone = db.activeZoneOnly and not q.focused and not readyPass and not InZone(q)
-    local wanted = not hiddenUntracked and (q.complete or not q.trivial or db.replaceTracker or q.focused)
-    if wanted and not otherZone then keep[#keep + 1] = q
-    elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
+    if q.complete and db.showTurnIn then
+      -- Quests to Turn In: every finished quest (tracked or not), with its own zone filter
+      -- (InZone goes by where it's turned in)
+      if db.turninZoneOnly and not q.focused and not InZone(q) then
+        result.turninElsewhere = (result.turninElsewhere or 0) + 1
+      else
+        turnin[#turnin + 1] = q
+      end
+    else
+      -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
+      local hiddenUntracked = db.hideUntracked and not q.tracked and not q.focused
+      local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
+      local wanted = not hiddenUntracked and (q.complete or not q.trivial or db.replaceTracker or q.focused)
+      if wanted and not otherZone then keep[#keep + 1] = q
+      elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
+    end
   end
   table.sort(keep, function(a, b)
     if a.focused ~= b.focused then return a.focused end   -- focused quest pinned on top
@@ -174,11 +183,16 @@ function ns.BuildSuggestions()
   end)
   if db.showActive then
     for i = 1, math.min(db.maxQuests, #keep) do result.quests[i] = keep[i] end
-    if db.showAllReady then -- every quest ready to turn in, even past the limit
-      for i = db.maxQuests + 1, #keep do
-        if keep[i].complete then result.quests[#result.quests + 1] = keep[i] end
-      end
-    end
+  end
+  table.sort(turnin, function(a, b)
+    if a.focused ~= b.focused then return a.focused end
+    if db.sortByLevel and (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+    if a.xp ~= b.xp then return a.xp > b.xp end
+    return (a.level or 0) < (b.level or 0)
+  end)
+  result.turnin = {}
+  if db.showTurnIn then
+    for i = 1, math.min(db.maxTurnIn or 20, #turnin) do result.turnin[i] = turnin[i] end
   end
 
   -- Quests to pick up: from Questie when installed, otherwise the map's nearby quests.
