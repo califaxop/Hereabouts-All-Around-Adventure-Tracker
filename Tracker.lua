@@ -323,6 +323,7 @@ local function GetHeader()
     h:SetScript("OnDragStop", function()
       frame:StopMovingOrSizing()
       ns.LockTopLeft()
+      ns.Refresh() -- the quest item buttons follow (they're placed by screen position)
     end)
     headers[used.h] = h
   end

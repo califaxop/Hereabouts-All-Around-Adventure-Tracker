@@ -72,8 +72,17 @@ local function Apply(list)
     holder:SetSize(SIZE, SIZE)
   end
   holder:ClearAllPoints()
-  -- beside the tracker, on its left, at the top
-  holder:SetPoint("TOPRIGHT", ns.TrackerBox or ns.TrackerFrame or UIParent, "TOPLEFT", -6, 0)
+  -- beside the tracker, on its left, at the top. Placed by screen position, NOT anchored to the
+  -- tracker: anchoring secure buttons to it would make the game lock the tracker's size in combat
+  -- (it couldn't shrink when sections hide). Re-placed on every update out of combat.
+  local box = ns.TrackerBox or ns.TrackerFrame
+  local left, top = box and box:GetLeft(), box and box:GetTop()
+  if left and top then
+    local k = box:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    holder:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", left * k - 6, top * k)
+  else
+    holder:SetPoint("CENTER", UIParent, "CENTER", -300, 200)
+  end
   for i = 1, MAX do
     local it = list[i]
     local b = buttons[i]

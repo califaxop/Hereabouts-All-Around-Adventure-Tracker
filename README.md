@@ -47,6 +47,7 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **0.21.2:** Fix: the tracker shrinks again in combat when sections hide (the quest item buttons had locked its size).
 - **0.21.1:** Quest colors (low-level grey, ready-to-turn-in green, far quest givers dimmed); Quests Nearby's distance moves to the right of the quest name.
 - **0.21.0:** Quest item buttons (with keybinds) and session bars: XP per hour, time to level, gold per hour and more.
 - **0.20.1:** Quests Nearby fills in by itself once Questie is ready (no more Rescan). New "Report a bug / suggest" button in the settings.
