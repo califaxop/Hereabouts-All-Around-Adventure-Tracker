@@ -21,6 +21,7 @@ local FOCUS_COLOR, DIM_TITLE, DIM_LINE, HEADER_COLOR = {}, {}, {}, {}
 -- low-level (grey) quests: the game's own colour for them
 local GRAY_TITLE = (QuestDifficultyColors and QuestDifficultyColors.trivial
   and { QuestDifficultyColors.trivial.r, QuestDifficultyColors.trivial.g, QuestDifficultyColors.trivial.b }) or { 0.5, 0.5, 0.5 }
+local DONE_TITLE = { 0.3, 1, 0.3 } -- ready to turn in: the same green as its "Ready to turn in" line
 local BEST_COLOR = { 0.25, 1, 0.25 } -- cheapest city price (green, like What's Training)
 
 local PALETTES = {
@@ -555,8 +556,9 @@ end
 -- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
 -- low level (grey) for you? the game's own flag for the quest when it has one, else its level rule
 local function IsLowLevel(q)
-  if C_QuestLog and C_QuestLog.IsQuestTrivial and q.id then
-    local ok, v = pcall(C_QuestLog.IsQuestTrivial, q.id)
+  local id = q.id or q.questID
+  if C_QuestLog and C_QuestLog.IsQuestTrivial and id then
+    local ok, v = pcall(C_QuestLog.IsQuestTrivial, id)
     if ok and type(v) == "boolean" then return v end
   end
   return ns.IsTrivial(q.level)
@@ -610,6 +612,7 @@ local function AddEntry(title, level, sub, onClick, style)
   t.spellID = style and style.spellID or nil
   if style and style.focused then t.baseColor = FOCUS_COLOR
   elseif style and style.dim then t.baseColor = DIM_TITLE
+  elseif style and style.done then t.baseColor = DONE_TITLE
   elseif style and style.gray then t.baseColor = GRAY_TITLE end
   t.text:SetTextColor(unpack(t.baseColor))
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -700,8 +703,9 @@ function ns.Render(s)
         end
       end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
+      -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
       AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused })
+        { focused = q.focused, done = q.complete, gray = IsLowLevel(q) })
     end
   end
 
@@ -716,7 +720,7 @@ function ns.Render(s)
       local sub = {}
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused })
+        { focused = q.focused, done = true }) -- green: ready to turn in
     end
   end
   if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
@@ -742,9 +746,9 @@ function ns.Render(s)
         -- no giver line
       elseif q.starter then
         sub[#sub + 1] = { text = q.starter .. (q.zone and (" - " .. q.zone) or ""),
-          color = q.here and { 0.3, 1, 0.3 } or nil }
+          color = (not q.here) and DIM_LINE or nil }
       elseif q.zone then
-        sub[#sub + 1] = { text = q.zone, color = q.here and { 0.3, 1, 0.3 } or nil }
+        sub[#sub + 1] = { text = q.zone, color = (not q.here) and DIM_LINE or nil }
       end
       AddEntry(q.name, q.level, sub, function(self, button)
         if button == "RightButton" then ShowPickupMenu(self, q); return end
