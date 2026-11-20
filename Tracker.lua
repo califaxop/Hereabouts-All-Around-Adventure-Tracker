@@ -342,9 +342,13 @@ local function GetTitle()
   if not b then
     b = CreateFrame("Button", nil, content)
     b:SetSize(WIDTH - 10, 16)
+    -- right end: a dimmed tag (Quests Nearby's distance), the name shortened to make room
+    b.dist = b:CreateFontString(nil, "OVERLAY")
+    b.dist:SetFontObject(LINE_FONT)
+    b.dist:SetPoint("RIGHT", -2, 0); b.dist:SetJustifyH("RIGHT")
     b.text = b:CreateFontString(nil, "OVERLAY")
     b.text:SetFontObject(TITLE_FONT)
-    b.text:SetPoint("LEFT"); b.text:SetPoint("RIGHT")
+    b.text:SetPoint("LEFT"); b.text:SetPoint("RIGHT", b.dist, "LEFT", -6, 0)
     b.text:SetJustifyH("LEFT"); b.text:SetWordWrap(false)
     b:SetScript("OnEnter", function(self)
       self.text:SetTextColor(unpack(TITLE_HOVER_COLOR))
@@ -362,6 +366,8 @@ local function GetTitle()
   end
   b.baseColor = TITLE_COLOR
   b.spellID = nil
+  b.dist:SetText("")
+  b.dist:SetFontObject(LINE_FONT); b.dist:SetTextColor(unpack(DIM_LINE))
   b.text:SetTextColor(unpack(TITLE_COLOR))
   b:Show()
   return b
@@ -441,9 +447,13 @@ end
 -- lines showing a distance: refreshed every second while shown, without rebuilding the list
 local distLines = {}
 local function DistText(d) local t = YardsText(ns.YardsTo(d.loc)); return d.base .. (t and (" - " .. t) or "") end
+local function PaintDist(d)
+  if d.tag then d.line:SetText(YardsText(ns.YardsTo(d.loc)) or "")
+  else d.line:SetText("- " .. DistText(d)) end
+end
 C_Timer.NewTicker(1, function()
   for _, d in ipairs(distLines) do
-    if d.line:IsShown() then d.line:SetText("- " .. DistText(d)) end
+    if d.line:IsShown() then PaintDist(d) end
   end
 end)
 
@@ -610,6 +620,11 @@ local function AddEntry(title, level, sub, onClick, style)
   local lvl = level and format("[%d] ", level) or ""
   t.text:SetText(lvl .. (title or "?"))
   t.spellID = style and style.spellID or nil
+  if style and style.loc then -- distance to the quest giver, at the right end of the name row
+    local d = { line = t.dist, loc = style.loc, tag = true }
+    distLines[#distLines + 1] = d
+    PaintDist(d)
+  end
   if style and style.focused then t.baseColor = FOCUS_COLOR
   elseif style and style.dim then t.baseColor = DIM_TITLE
   elseif style and style.done then t.baseColor = DONE_TITLE
@@ -737,11 +752,8 @@ function ns.Render(s)
       elseif q.repeatable then
         sub[1] = { text = "Repeatable" }
       end
-      -- distance to the quest giver, on the first line
+      -- distance to the quest giver: shown at the right end of the quest's name row
       local loc = q.loc or (ns.Questie.Location and ns.Questie.Location(q.id))
-      if loc then
-        if sub[1] then sub[1].loc = loc else sub[1] = { text = "Quest giver", loc = loc } end
-      end
       if not ns.db.showStarter then
         -- no giver line
       elseif q.starter then
@@ -759,7 +771,7 @@ function ns.Render(s)
           return
         end
         ShowPickupOnMap(q)
-      end, { gray = IsLowLevel(q) }) -- low-level quests in the game's grey
+      end, { gray = IsLowLevel(q), loc = loc }) -- low-level quests in the game's grey
     end
   end
 
