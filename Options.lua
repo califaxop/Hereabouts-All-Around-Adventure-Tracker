@@ -290,7 +290,7 @@ local function PageLists(p)
   Row("Active Quests", "showActive", "maxQuests", 20, y)
   Sub("Only quests in my current zone", "activeZoneOnly", "showActive", y - 24)
   Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20, y - 54)
-  Row("Quests Nearby", "showPickup", "maxPickup", 20, y - 84)
+  Row("Quests Nearby (Questie)", "showPickup", "maxPickup", 20, y - 84)
   Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 114)
   Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 138)
   Row("Training (What's Training)", "showTraining", "maxTraining", 30, y - 168)
@@ -310,7 +310,7 @@ end
 local function PagePicking(p)
   local y = Section(p, "Which quests to suggest", 0, 0, PAGE_W)
   track(Check(p, "Only quests from my current zone", 0, y, Setting("pickupZoneOnly"), 220))
-  Note(p, "Which quests can show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options. Without Questie, the quests the game's map offers around you.", 0, y - 28, PAGE_W)
+  Note(p, "Quests Nearby needs Questie. Which quests show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options.", 0, y - 28, PAGE_W)
   track(Slider(p, "Current-zone bonus", 0, y - 80, 220, 1, 3, 0.1, Setting("zoneBonus"),
     function(v) return format("x%.1f", v) end))
   Note(p, "With All zones, quests in your zone rank higher, since there's less travel.", COL2, y - 84, 224)
@@ -354,7 +354,7 @@ local function PageStatus(p)
 
   statusUpdate = function()
     local q = ns.Questie
-    if not q.Installed() then set("Questie", GREY, "Not installed: Quests Nearby uses the map's nearby quests.")
+    if not q.Installed() then set("Questie", GREY, "Not installed: no Quests Nearby section (active quests and turn-ins still work).")
     elseif not q.Available() then set("Questie", YELLOW, "Loading...")
     elseif q.IsScanning() then set("Questie", YELLOW, "Scanning quests...")
     else set("Questie", GREEN, format("Connected: %d quests you can pick up.", q.Count())) end

@@ -549,10 +549,6 @@ end
 
 -- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
 local function ShowPickupOnMap(q)
-  if q.fromMap and not q.loc then -- the game's own list without a spot: its map marks the quest giver
-    if ToggleWorldMap and not (WorldMapFrame and WorldMapFrame:IsShown()) then pcall(ToggleWorldMap) end
-    return
-  end
   local loc = q.loc or ns.Questie.Location(q.id)
   local who = q.starter or q.name
   if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
@@ -713,9 +709,7 @@ function ns.Render(s)
   if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests Nearby", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
-      if q.fromMap then
-        sub[1] = { text = "On the map near you" } -- the game's own list (no Questie): no XP figure
-      elseif ns.db.showXP then
+      if ns.db.showXP then
         local xpText = q.xp > 0 and ((BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP") or "No XP"
         sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
       elseif q.repeatable then
@@ -930,39 +924,6 @@ SlashCmdList.XPPLANNER = function(msg)
     ns.Print("Questie sources for quest " .. id .. ":")
     for _, l in ipairs(ns.Questie.Inspect(id)) do print("  " .. l) end
     return
-  elseif cmd == "mapprobe" then
-    -- what the game itself can tell an addon about quests to pick up around you (no Questie)
-    local function try(label, fn)
-      local ok, a = pcall(fn)
-      if not ok then ns.Print(label .. ": error " .. tostring(a):gsub("^.-:%d+: ", ""))
-      elseif type(a) == "table" then
-        local n, first = 0, nil
-        for _, v in pairs(a) do n = n + 1; first = first or v end
-        local desc = ""
-        if type(first) == "table" then
-          local k = {}
-          for key, val in pairs(first) do if #k < 6 then k[#k + 1] = key .. "=" .. tostring(val) end end
-          desc = " first: " .. table.concat(k, " ")
-        end
-        ns.Print(label .. ": " .. n .. desc)
-      else ns.Print(label .. ": " .. tostring(a)) end
-    end
-    local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-    ns.Print("map probe, map " .. tostring(map) .. " (" .. tostring(GetRealZoneText and GetRealZoneText()) .. "):")
-    try("C_QuestLine exists", function() return C_QuestLine ~= nil end)
-    try("QuestLine.GetAvailableQuestLines", function() C_QuestLine.RequestQuestLinesForMap(map); return C_QuestLine.GetAvailableQuestLines(map) end)
-    try("QuestLine.GetForceVisibleQuests", function() return C_QuestLine.GetForceVisibleQuests and C_QuestLine.GetForceVisibleQuests(map) end)
-    try("QuestLog.GetQuestsOnMap (yours)", function() return C_QuestLog.GetQuestsOnMap(map) end)
-    try("TaskQuest.GetQuestsOnMap", function() return C_TaskQuest and C_TaskQuest.GetQuestsOnMap and C_TaskQuest.GetQuestsOnMap(map) end)
-    try("AreaPoiInfo.GetAreaPOIForMap", function() return C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIForMap(map) end)
-    try("world map data providers", function()
-      local t = {}
-      for dp in pairs(WorldMapFrame and WorldMapFrame.dataProviders or {}) do
-        local n = dp.GetDebugName and dp:GetDebugName() or tostring(dp.__name or "?")
-        t[#t + 1] = n
-      end
-      return #t .. ": " .. table.concat(t, ", "):sub(1, 220)
-    end)
   elseif cmd == "questie" then
     ns.Questie.Diagnose(ns.Print)
   elseif cmd == "zone" then

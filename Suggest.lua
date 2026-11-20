@@ -54,32 +54,6 @@ local function LogQuests()
 end
 
 ---------------------------------------------------------------------------
--- Quests the map shows as available near you
----------------------------------------------------------------------------
-local function NearbyQuests()
-  local out = {}
-  if not (C_QuestLine and C_QuestLine.GetAvailableQuestLines and C_Map) then return out end
-  local mapID = Safe(C_Map.GetBestMapForUnit, "player")
-  if not mapID then return out end
-  Safe(C_QuestLine.RequestQuestLinesForMap, mapID)
-  local lines = Safe(C_QuestLine.GetAvailableQuestLines, mapID)
-  if type(lines) ~= "table" then return out end
-  local seen = {}
-  for _, q in ipairs(lines) do
-    local id = q.questID
-    local inLog = id and C_QuestLog.GetLogIndexForQuestID and Safe(C_QuestLog.GetLogIndexForQuestID, id)
-    if id and not seen[id] and not inLog and not q.isHidden and Readable(q.questName) then
-      seen[id] = true
-      local level = Safe(C_QuestLog.GetQuestDifficultyLevel, id)
-      out[#out + 1] = { kind = "nearby", questID = id, title = q.questName,
-        level = (Readable(level) and level > 0) and level or nil,
-        loc = (Readable(q.x) and Readable(q.y) and q.x and q.y) and { map = mapID, x = q.x, y = q.y } or nil }
-    end
-  end
-  return out
-end
-
----------------------------------------------------------------------------
 -- Ranking
 ---------------------------------------------------------------------------
 -- Is an active quest in the zone you're in? Its quest log zone header matches, or the map
@@ -194,7 +168,7 @@ function ns.BuildSuggestions()
     for i = 1, math.min(db.maxTurnIn or 20, #turnin) do result.turnin[i] = turnin[i] end
   end
 
-  -- Quests to pick up: Questie's available quests when installed, otherwise the game map's.
+  -- Quests Nearby: Questie's available quests (needs Questie; the game has no such list)
   if ns.Questie.Available() then
     if db.showPickup then
       -- which quests: the best XP (as before); in what order: highest level first
@@ -206,20 +180,6 @@ function ns.BuildSuggestions()
         end)
       end
     end
-  elseif db.showPickup then
-    -- without Questie: the quests the game's map offers around you (your current map only,
-    -- no XP figures), in the same section
-    local near, ignored = {}, db.ignoredQuests or {}
-    for _, q in ipairs(NearbyQuests()) do
-      if not ignored[q.questID] then
-        near[#near + 1] = { id = q.questID, name = q.title, level = q.level, xp = 0, here = true, fromMap = true, loc = q.loc }
-      end
-    end
-    table.sort(near, function(a, b)
-      if db.sortByLevel then return (a.level or 0) > (b.level or 0) end
-      return math.abs((a.level or me) - me) < math.abs((b.level or me) - me)
-    end)
-    for i = 1, math.min(db.maxPickup, #near) do result.pickup[i] = near[i] end
   end
 
   -- Dungeons whose level range you're in (at least its minimum, not past its top).
