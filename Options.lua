@@ -1,4 +1,4 @@
--- XP Planner: settings window (/xpp, or Esc > Options > AddOns > XP Planner), drawn in the
+-- XP Planner: settings window (/hab, or Esc > Options > AddOns > XP Planner), drawn in the
 -- tracker's own style: its border, background, fonts and colours (FlareUI's when that style is on).
 local _, ns = ...
 
@@ -543,7 +543,7 @@ function ns.CreateOptions()
       if not (window and window:IsShown()) then ns.OpenOptions() end
     end)
     local hint = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -8); hint:SetText("Or type /xpp.")
+    hint:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -8); hint:SetText("Or type /hab.")
     if Settings and Settings.RegisterCanvasLayoutCategory then
       Settings.RegisterAddOnCategory(Settings.RegisterCanvasLayoutCategory(settingsPanel, settingsPanel.name))
     elseif InterfaceOptions_AddCategory then

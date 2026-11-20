@@ -25,17 +25,17 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 
 ## Quick start
 1. Optional: install **Questie** and **What's Training** (see the table above).
-2. Type `/xpp` to set it up; drag a heading to move the list when unlocked.
+2. Type `/hab` to set it up; drag a heading to move the list when unlocked.
 
 ## Commands
 | Command | Does |
 |---|---|
-| `/xpp` (or `/hereabouts`) | Open settings |
-| `/xpp lock` / `unlock` | Lock or move the list |
-| `/xpp replace` | Replace Blizzard's quest tracker |
-| `/xpp zone` | Why each quest counts as in this zone or not |
-| `/xpp session` | Reset the session bar's numbers |
-| `/xpp questie` | What Hereabouts sees of Questie |
+| `/hab` (or `/hereabouts`) | Open settings |
+| `/hab lock` / `unlock` | Lock or move the list |
+| `/hab replace` | Replace Blizzard's quest tracker |
+| `/hab zone` | Why each quest counts as in this zone or not |
+| `/hab session` | Reset the session bar's numbers |
+| `/hab questie` | What Hereabouts sees of Questie |
 
 ## Good to know
 - With Questie, which quests show in Quests Nearby follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
@@ -47,7 +47,8 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
-- **0.22.0:** XP Planner is now **Hereabouts**: same addon, same settings and `/xpp`, a name that says what it does.
+- **0.22.1:** New short command `/hab` (also `/hereabouts`); the old `/xpp` still works.
+- **0.22.0:** XP Planner is now **Hereabouts**: same addon, same settings, a name that says what it does.
 - **0.21.2:** Fix: the tracker shrinks again in combat when sections hide (the quest item buttons had locked its size).
 - **0.21.1:** Quest colors (low-level grey, ready-to-turn-in green, far quest givers dimmed); Quests Nearby's distance moves to the right of the quest name.
 - **0.21.0:** Quest item buttons (with keybinds) and session bars: XP per hour, time to level, gold per hour and more.
@@ -57,7 +58,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-pla
 - **0.18.1:** Your focused quest stays in Active Quests, even when it's ready to turn in.
 - **0.18.0:** New Quests to Turn In section, with its own Zone / All switch.
 - **0.17.0:** Training shows what each city charges with your reputation.
-- **0.16.3:** Works with Questie's latest update again; new `/xpp questie` check.
+- **0.16.3:** Works with Questie's latest update again; new `/hab questie` check.
 - **0.16.2:** Click a quest to pick up for a map waypoint on its quest giver.
 - **0.16.1:** Dungeon quests count inside the dungeon; hide sections in dungeons or combat; finished objectives hidden.
 - **0.16.0:** Zone / All switch for Dungeons.

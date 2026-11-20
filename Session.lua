@@ -155,7 +155,7 @@ local function Tooltip(self)
   for _, st in ipairs(S.STATS) do
     if v[st[1]] then GameTooltip:AddDoubleLine(st[2], v[st[1]], 0.8, 0.8, 0.8, 1, 1, 1) end
   end
-  GameTooltip:AddLine("Right-click to reset. Pick what shows in /xpp, Session.", 0.6, 0.6, 0.6, true)
+  GameTooltip:AddLine("Right-click to reset. Pick what shows in /hab, Session.", 0.6, 0.6, 0.6, true)
   GameTooltip:Show()
 end
 
@@ -190,7 +190,7 @@ function S.Paint()
       end
       if #parts > 0 then lines[#lines + 1] = table.concat(parts, "  \194\183  ") end
     end
-    if #lines == 0 then lines[1] = "Session: pick what to show in /xpp" end
+    if #lines == 0 then lines[1] = "Session: pick what to show in /hab" end
     local anchor = ns.TrackerBox or ns.TrackerFrame
     for i, line in ipairs(lines) do
       local bar = Bar(i)

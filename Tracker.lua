@@ -587,7 +587,7 @@ local function ShowPickupMenu(owner, q)
   local function showOnMap() ShowPickupOnMap(q) end
   local function ignore()
     ns.IgnoreQuest(q.id, q.name, q.level)
-    ns.Print((q.name or "Quest") .. " ignored. Manage ignored quests in /xpp.")
+    ns.Print((q.name or "Quest") .. " ignored. Manage ignored quests in /hab.")
   end
   if not (MenuUtil and MenuUtil.CreateContextMenu) then showOnMap(); return end
   MenuUtil.CreateContextMenu(owner, function(_, root)
@@ -934,8 +934,9 @@ end)
 ---------------------------------------------------------------------------
 -- Slash
 ---------------------------------------------------------------------------
-SLASH_XPPLANNER1 = "/xpp"
+SLASH_XPPLANNER1 = "/hab"
 SLASH_XPPLANNER2 = "/hereabouts"
+SLASH_XPPLANNER3 = "/xpp" -- the old command, still works
 SlashCmdList.XPPLANNER = function(msg)
   local cmd, arg = (msg or ""):lower():match("^(%S*)%s*(.-)$")
   local db = ns.db
@@ -983,7 +984,7 @@ SlashCmdList.XPPLANNER = function(msg)
     end
     return
   else
-    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp session (reset)  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab questie")
     return
   end
   ns.Refresh()
