@@ -398,6 +398,25 @@ local function QuestieSet()
   if type(set) == "table" then return set end
 end
 
+-- a cheap fingerprint of Questie's available set: count and id sum
+function Q.SetStamp(set)
+  local n, sum = 0, 0
+  for id in pairs(set) do n = n + 1; sum = sum + (tonumber(id) or 0) end
+  return n .. ":" .. sum
+end
+
+-- Questie fills and updates its available set in the background, over several seconds:
+-- check it every few seconds and rescan whenever it has changed since the last scan.
+local watcher
+local function WatchQuestieSet()
+  if watcher or not C_Timer.NewTicker then return end
+  watcher = C_Timer.NewTicker(3, function()
+    if not ready or scanning then return end
+    local set = QuestieSet()
+    if set and Q.SetStamp(set) ~= Q.setStamp then Q.Scan() end
+  end)
+end
+
 local function Consider(id, fromQuestie)
   if InLogOrDone(id) then return end
   if not fromQuestie then -- Questie's set is already filtered by its own rules and settings
@@ -444,6 +463,7 @@ function Q.Scan()
   scanning = true
   local ids = {}
   local set = QuestieSet()
+  Q.setStamp = set and Q.SetStamp(set) or nil -- what this scan saw (see the watcher below)
   -- Questie's available quests when it exposes them; otherwise its whole database, checked here
   for id in pairs(set or QDB.QuestPointers or {}) do ids[#ids + 1] = id end
   local fromQuestie = set ~= nil
@@ -505,6 +525,7 @@ local function OnReady()
   if Bind() then
     ready = true
     Q.Scan()
+    WatchQuestieSet()
   else
     ns.Print("Questie found, but its database couldn't be read. Using the map instead.")
   end
