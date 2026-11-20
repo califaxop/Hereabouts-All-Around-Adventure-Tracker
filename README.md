@@ -11,7 +11,7 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 - **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
 - **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
 - **Quest item buttons:** one click (or a keybind) for the usable items of your quests in this zone, focused quest first.
-- **Session bar:** a small bar under the tracker with XP per hour, time to level, gold per hour and more, your pick.
+- **Session bars:** slim bars under the tracker: XP per hour and time to level, gold per hour and this session, XP and quests this session, rested XP. Your pick.
 - **Dungeons:** the ones that fit your level, here or everywhere.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 

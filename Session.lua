@@ -114,66 +114,97 @@ function S.Values()
 end
 
 ---------------------------------------------------------------------------
--- The bar under the tracker
+-- The bars under the tracker: one slim bar per row of stats that pair up, stacked, so
+-- nothing gets cut off. A row shows when any of its stats is turned on.
 ---------------------------------------------------------------------------
-local bar
+S.ROWS = {
+  { "xph", "ttl" },     -- 13.2k XP/h  ·  Level in 5h 32m
+  { "gph", "gold" },    -- 1g 20s/h  ·  +3g 40s
+  { "xp", "quests" },   -- 8,500 XP  ·  4 quests (~12 to level)
+  { "rested" },         -- Rested 4,500
+}
+local bars = {}
+S.bars = bars
+local BAR_H, GAP = 22, 2
 local DIALOG_BG = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
-local function Skin()
+
+local function Skin(bar)
   local th = ns.Theme()
   local a = math.max(ns.db.bgAlpha or 0, 0.55)
-  if th.flare then
-    bar:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
-    bar:SetBackdropColor(1, 1, 1, a)
-  else
-    bar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
-      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-    bar:SetBackdropColor(0.03, 0.03, 0.03, a)
+  local key = tostring(th.flare) .. a .. th.accent[1]
+  if bar.skinKey ~= key then
+    bar.skinKey = key
+    if th.flare then
+      bar:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+      bar:SetBackdropColor(1, 1, 1, a)
+    else
+      bar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+      bar:SetBackdropColor(0.03, 0.03, 0.03, a)
+    end
+    bar:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
   end
-  bar:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
   bar.text:SetFontObject(th.lineFont)
   bar.text:SetTextColor(th.line[1], th.line[2], th.line[3])
 end
 
-local function Build()
-  bar = CreateFrame("Frame", "XPPlannerSessionBar", ns.TrackerFrame, "BackdropTemplate")
-  S.bar = bar
-  bar:SetHeight(22)
+local function Tooltip(self)
+  local v = S.Values()
+  GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+  GameTooltip:SetText("Session (" .. v.elapsed .. ")", 1, 0.82, 0)
+  for _, st in ipairs(S.STATS) do
+    if v[st[1]] then GameTooltip:AddDoubleLine(st[2], v[st[1]], 0.8, 0.8, 0.8, 1, 1, 1) end
+  end
+  GameTooltip:AddLine("Right-click to reset. Pick what shows in /xpp, Session.", 0.6, 0.6, 0.6, true)
+  GameTooltip:Show()
+end
+
+local function Bar(i)
+  if bars[i] then return bars[i] end
+  local bar = CreateFrame("Frame", "XPPlannerSessionBar" .. i, ns.TrackerFrame, "BackdropTemplate")
+  bar:SetHeight(BAR_H)
   bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   bar.text:SetPoint("LEFT", 8, 0); bar.text:SetPoint("RIGHT", -8, 0)
   bar.text:SetJustifyH("CENTER"); bar.text:SetWordWrap(false)
   bar:EnableMouse(true)
-  bar:SetScript("OnEnter", function(self)
-    local v = S.Values()
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:SetText("Session (" .. v.elapsed .. ")", 1, 0.82, 0)
-    for _, st in ipairs(S.STATS) do
-      if v[st[1]] then GameTooltip:AddDoubleLine(st[2], v[st[1]], 0.8, 0.8, 0.8, 1, 1, 1) end
-    end
-    GameTooltip:AddLine("Right-click to reset. Pick what shows in /xpp, Session.", 0.6, 0.6, 0.6, true)
-    GameTooltip:Show()
-  end)
+  bar:SetScript("OnEnter", Tooltip)
   bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
   bar:SetScript("OnMouseUp", function(_, button)
     if button == "RightButton" then S.Reset(); ns.Print("session stats reset.") end
   end)
+  bars[i] = bar
+  if i == 1 then S.bar = bar end
+  return bar
 end
 
 function S.Paint()
   if not (ns.db and ns.TrackerFrame) then return end
-  if not bar then Build() end
-  if not ns.db.showSession then bar:Hide(); return end
-  local box = ns.TrackerBox or ns.TrackerFrame
-  bar:ClearAllPoints()
-  bar:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -3)
-  bar:SetPoint("TOPRIGHT", box, "BOTTOMRIGHT", 0, -3)
-  Skin()
-  local v, parts, on = S.Values(), {}, ns.db.sessionStats or {}
-  for _, st in ipairs(S.STATS) do
-    if on[st[1]] and v[st[1]] then parts[#parts + 1] = v[st[1]] end
+  local used = 0
+  if ns.db.showSession then
+    local v, on = S.Values(), ns.db.sessionStats or {}
+    local lines = {}
+    for _, row in ipairs(S.ROWS) do
+      local parts = {}
+      for _, key in ipairs(row) do
+        if on[key] and v[key] then parts[#parts + 1] = v[key] end
+      end
+      if #parts > 0 then lines[#lines + 1] = table.concat(parts, "  \194\183  ") end
+    end
+    if #lines == 0 then lines[1] = "Session: pick what to show in /xpp" end
+    local anchor = ns.TrackerBox or ns.TrackerFrame
+    for i, line in ipairs(lines) do
+      local bar = Bar(i)
+      bar:ClearAllPoints()
+      bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, i == 1 and -3 or -GAP)
+      bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, i == 1 and -3 or -GAP)
+      Skin(bar)
+      bar.text:SetText(line)
+      bar:Show()
+      anchor, used = bar, i
+    end
   end
-  bar.text:SetText(#parts > 0 and table.concat(parts, "  \194\183  ") or "Session: pick what to show in /xpp")
-  bar:Show()
+  for i = used + 1, #bars do bars[i]:Hide() end
 end
 
 -- keep the numbers moving
-C_Timer.NewTicker(2, function() if bar and bar:IsVisible() then S.Paint() end end)
+C_Timer.NewTicker(2, function() if bars[1] and bars[1]:IsVisible() then S.Paint() end end)
