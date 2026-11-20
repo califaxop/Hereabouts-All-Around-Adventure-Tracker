@@ -1,21 +1,28 @@
 # XP Planner
 
-**Your next XP, at a glance: quests, pickups, dungeons and training in one tracker.**
+**Your quest tracker, filtered to where you are.**
 
-A quest tracker built for leveling. It shows what's worth doing right where you are, and points you to it.
+XP Planner shows only the quests you can work on in the zone you're in, judged by where their objectives and turn-ins are, not just the quest log heading. It also shows what to hand in, what to train and which dungeons fit your level. It works on its own; Questie and What's Training add more.
 
 ## Highlights
-- **Active Quests:** only what's left to do, highest level first, focused quest pinned.
+- **Zone-aware tracking:** active quests with objectives here, and quests ready to turn in here. One click on Zone / All switches to everywhere.
+- **No tracking limit:** the zone filter decides what shows, not Blizzard's tracked-quest cap.
 - **Quests to Turn In:** everything ready to hand in, in its own section.
-- **Zone / All switch:** one click between this zone and everywhere, on quests, turn-ins, nearby quests and dungeons.
-- **Quests Nearby:** quests you can pick up, best XP first, with how far each quest giver is (in yards). Uses Questie's own list, by its settings. Click for a map waypoint.
-- **Training:** what your trainer has for you, and what each city charges with your reputation (via What's Training).
-- **Dungeons:** the ones that fit your level.
-- **Smart zone filter:** follows the game's own quest map (and Questie, when installed), dungeons included.
+- **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
+- **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
+- **Dungeons:** the ones that fit your level, here or everywhere.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 
+## What each add-on unlocks
+| | On its own | + Questie | + What's Training |
+|---|---|---|---|
+| Active Quests, Quests to Turn In | Yes, via the game's quest map | Sharper zone matching | |
+| Dungeons | Yes | | |
+| Quests Nearby | | Yes | |
+| Training | | | Yes |
+
 ## Quick start
-1. Optional: **Questie** for Quests Nearby, **What's Training** for the Training section. Active quests and turn-ins work without either.
+1. Optional: install **Questie** and **What's Training** (see the table above).
 2. Type `/xpp` to set it up; drag a heading to move the list when unlocked.
 
 ## Commands
