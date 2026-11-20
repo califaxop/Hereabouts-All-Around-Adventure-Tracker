@@ -206,6 +206,40 @@ local function Window(name, width, height)
   return win
 end
 
+-- A small window with a link, selected and ready to copy (addons can't open a browser).
+local linkWin
+local function ShowLink(title, url)
+  if not linkWin then
+    linkWin = Window("XPPlannerLinkWindow", 400, 118)
+    linkWin:SetPoint("CENTER", 0, 120)
+    linkWin.title = Text(linkWin, "title", "")
+    linkWin.title:SetPoint("TOPLEFT", 20, -18)
+    Note(linkWin, "Press Ctrl+C to copy, then paste it into your browser.", 20, -44, 360)
+    local e = CreateFrame("EditBox", nil, linkWin, "BackdropTemplate")
+    e:SetSize(360, 20); e:SetPoint("TOPLEFT", 20, -66); e:SetAutoFocus(false); e:SetTextInsets(6, 6, 0, 0)
+    e:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    Skin(function(th)
+      e:SetFontObject(th.lineFont); e:SetTextColor(RGB(th.title))
+      e:SetBackdropColor(0, 0, 0, 0.55); e:SetBackdropBorderColor(RGB(th.title, 0.7))
+    end)
+    -- keep the link intact if someone types in the box
+    e:SetScript("OnTextChanged", function(self, user)
+      if user and self:GetText() ~= linkWin.url then self:SetText(linkWin.url); self:HighlightText() end
+    end)
+    e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    e:SetScript("OnEscapePressed", function() linkWin:Hide() end)
+    e:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    linkWin.edit = e
+  end
+  linkWin.url = url
+  linkWin.title:SetText(title)
+  linkWin.edit:SetText(url)
+  linkWin:Show()
+  linkWin.edit:SetFocus()
+  linkWin.edit:HighlightText()
+end
+ns.ShowLink = ShowLink
+
 local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
 
 ---------------------------------------------------------------------------
@@ -378,6 +412,13 @@ local function PageStatus(p)
   end)
   reset:SetPoint("TOPLEFT", 0, y)
   Note(p, "Keeps where the list is and the quests you've ignored.", 140, y - 5, 320)
+
+  y = Section(p, "Feedback", 0, y - 44, PAGE_W)
+  local fb = Button(p, "Report a bug / suggest", 180, function()
+    ShowLink("XP Planner: bugs and ideas", "https://github.com/califaxop/xp-planner/issues/new/choose")
+  end)
+  fb:SetPoint("TOPLEFT", 0, y)
+  Note(p, "Opens a link to copy: a short form for bugs or ideas.", 190, y - 5, 270)
 end
 
 local TABS = {

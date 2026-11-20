@@ -40,7 +40,11 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 - Dungeon level ranges are the classic ones; WoW: Forever may differ.
 - Works on English clients for dungeon zone matching.
 
+## Feedback
+Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
+
 ## Recent changes
+- **0.20.1:** New "Report a bug / suggest" button in the settings, linking to a short feedback form.
 - **0.20.0:** Quests to Pick Up is now Quests Nearby, with distances in yards, and follows Questie's own settings. Active quests and turn-ins no longer need Questie.
 - **0.19.0:** Quest tracking ticks no longer hide or dim quests (the Zone / All switch decides); "Show every quest I can take" for Quests to Pick Up (any level you can take, repeatable, no XP). Quests above your level to accept no longer show.
 - **0.18.1:** Your focused quest stays in Active Quests, even when it's ready to turn in.
