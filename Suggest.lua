@@ -72,7 +72,8 @@ local function NearbyQuests()
       seen[id] = true
       local level = Safe(C_QuestLog.GetQuestDifficultyLevel, id)
       out[#out + 1] = { kind = "nearby", questID = id, title = q.questName,
-        level = (Readable(level) and level > 0) and level or nil }
+        level = (Readable(level) and level > 0) and level or nil,
+        loc = (Readable(q.x) and Readable(q.y) and q.x and q.y) and { map = mapID, x = q.x, y = q.y } or nil }
     end
   end
   return out
@@ -211,7 +212,7 @@ function ns.BuildSuggestions()
     local near, ignored = {}, db.ignoredQuests or {}
     for _, q in ipairs(NearbyQuests()) do
       if not ignored[q.questID] then
-        near[#near + 1] = { id = q.questID, name = q.title, level = q.level, xp = 0, here = true, fromMap = true }
+        near[#near + 1] = { id = q.questID, name = q.title, level = q.level, xp = 0, here = true, fromMap = true, loc = q.loc }
       end
     end
     table.sort(near, function(a, b)

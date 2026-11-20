@@ -397,7 +397,52 @@ local function GetMark()
   return m
 end
 
+---------------------------------------------------------------------------
+-- Distance to a quest giver, in yards (the game's distance unit)
+---------------------------------------------------------------------------
+local function WorldPos(map, x, y)
+  if not (C_Map and C_Map.GetWorldPosFromMapPos and CreateVector2D) then return end
+  local ok, cont, pos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
+  if not (ok and cont and pos) then return end
+  local wx, wy
+  if pos.GetXY then wx, wy = pos:GetXY() else wx, wy = pos.x, pos.y end
+  if type(wx) ~= "number" or type(wy) ~= "number" then return end
+  return cont, wx, wy
+end
+local function PlayerWorldPos()
+  local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+  if not map then return end
+  local ok, p = pcall(C_Map.GetPlayerMapPosition, map, "player")
+  if not (ok and p) then return end
+  local x, y = p:GetXY()
+  if type(x) ~= "number" or type(y) ~= "number" or (x == 0 and y == 0) then return end
+  return WorldPos(map, x, y)
+end
+-- yards from you to loc ({ map, x, y } in 0-1), or nil (another continent, or unknown)
+function ns.YardsTo(loc)
+  if not loc then return nil end
+  local c1, x1, y1 = PlayerWorldPos()
+  local c2, x2, y2 = WorldPos(loc.map, loc.x, loc.y)
+  if not (c1 and c2) or c1 ~= c2 then return nil end
+  return math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2)
+end
+local function YardsText(yd)
+  if not yd then return nil end
+  if yd >= 1000 then return format("%.1fk yd", yd / 1000) end
+  return format("%d yd", math.floor(yd / 5 + 0.5) * 5) -- to the nearest 5 yards
+end
+
+-- lines showing a distance: refreshed every second while shown, without rebuilding the list
+local distLines = {}
+local function DistText(d) local t = YardsText(ns.YardsTo(d.loc)); return d.base .. (t and (" - " .. t) or "") end
+C_Timer.NewTicker(1, function()
+  for _, d in ipairs(distLines) do
+    if d.line:IsShown() then d.line:SetText("- " .. DistText(d)) end
+  end
+end)
+
 local function ResetPools()
+  wipe(distLines)
   for _, m in ipairs(marks) do m.bg:Hide(); m.bar:Hide() end
   usedMarks = 0
   for _, h in ipairs(headers) do h:Hide() end
@@ -504,11 +549,11 @@ end
 
 -- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
 local function ShowPickupOnMap(q)
-  if q.fromMap then -- the game's own list: its map already marks the quest giver
+  if q.fromMap and not q.loc then -- the game's own list without a spot: its map marks the quest giver
     if ToggleWorldMap and not (WorldMapFrame and WorldMapFrame:IsShown()) then pcall(ToggleWorldMap) end
     return
   end
-  local loc = ns.Questie.Location(q.id)
+  local loc = q.loc or ns.Questie.Location(q.id)
   local who = q.starter or q.name
   if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
   elseif ns.SetWaypoint(loc, who) then ns.Print(format("waypoint set: %s (%.1f, %.1f)", who, loc.x * 100, loc.y * 100))
@@ -561,7 +606,13 @@ local function AddEntry(title, level, sub, onClick, style)
   Place(t, 10, 0)
   for _, s in ipairs(sub) do
     local l = GetLine()
-    l:SetText("- " .. s.text)
+    if s.loc then -- this line also shows how far away the quest giver is
+      local d = { line = l, base = s.text, loc = s.loc }
+      distLines[#distLines + 1] = d
+      l:SetText("- " .. DistText(d))
+    else
+      l:SetText("- " .. s.text)
+    end
     local c = s.done and DONE_COLOR or (s.color or LINE_COLOR)
     if style and style.dim and not s.color then c = DIM_LINE end
     l:SetTextColor(unpack(c))
@@ -659,7 +710,7 @@ function ns.Render(s)
   end
 
   local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
-  if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
+  if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests Nearby", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
       if q.fromMap then
@@ -669,6 +720,11 @@ function ns.Render(s)
         sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
       elseif q.repeatable then
         sub[1] = { text = "Repeatable" }
+      end
+      -- distance to the quest giver, on the first line
+      local loc = q.loc or (ns.Questie.Location and ns.Questie.Location(q.id))
+      if loc then
+        if sub[1] then sub[1].loc = loc else sub[1] = { text = "Quest giver", loc = loc } end
       end
       if not ns.db.showStarter then
         -- no giver line

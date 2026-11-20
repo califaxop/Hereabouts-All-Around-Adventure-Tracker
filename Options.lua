@@ -254,7 +254,7 @@ local function PageTracker(p)
     return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
       function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
   end
-  for i, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests to Pick Up" },
+  for i, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests Nearby" },
       { "training", "Training" }, { "dungeons", "Dungeons" } }) do
     local ry = y - (i - 1) * 20
     Text(p, "line", sec[2]):SetPoint("TOPLEFT", 0, ry - 2)
@@ -290,7 +290,7 @@ local function PageLists(p)
   Row("Active Quests", "showActive", "maxQuests", 20, y)
   Sub("Only quests in my current zone", "activeZoneOnly", "showActive", y - 24)
   Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20, y - 54)
-  Row("Quests to Pick Up", "showPickup", "maxPickup", 20, y - 84)
+  Row("Quests Nearby", "showPickup", "maxPickup", 20, y - 84)
   Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 114)
   Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 138)
   Row("Training (What's Training)", "showTraining", "maxTraining", 30, y - 168)
@@ -320,7 +320,7 @@ local function PagePicking(p)
   count:SetPoint("TOPLEFT", 0, y - 4)
   local manage = Button(p, "Manage...", 120, function() ns.OpenIgnored() end)
   manage:SetPoint("TOPLEFT", COL2, y)
-  Note(p, "Right-click a quest under Quests to Pick Up to ignore it.", 0, y - 30, PAGE_W)
+  Note(p, "Right-click a quest under Quests Nearby to ignore it.", 0, y - 30, PAGE_W)
   ignUpdate = function()
     local n = 0
     for _ in pairs(ns.db.ignoredQuests or {}) do n = n + 1 end
@@ -354,7 +354,7 @@ local function PageStatus(p)
 
   statusUpdate = function()
     local q = ns.Questie
-    if not q.Installed() then set("Questie", GREY, "Not installed: Quests to Pick Up uses the map's nearby quests.")
+    if not q.Installed() then set("Questie", GREY, "Not installed: Quests Nearby uses the map's nearby quests.")
     elseif not q.Available() then set("Questie", YELLOW, "Loading...")
     elseif q.IsScanning() then set("Questie", YELLOW, "Scanning quests...")
     else set("Questie", GREEN, format("Connected: %d quests you can pick up.", q.Count())) end
@@ -488,7 +488,7 @@ function ns.CreateOptions()
 end
 
 ---------------------------------------------------------------------------
--- Ignored Quests window: every quest you ignored from "Quests to Pick Up".
+-- Ignored Quests window: every quest you ignored from "Quests Nearby".
 -- Remove one and it returns to the list right away if it still qualifies.
 ---------------------------------------------------------------------------
 local ignWin, ignRows = nil, {}
@@ -498,7 +498,7 @@ local function BuildIgnored()
   ignWin = Window("XPPlannerIgnoredWindow", 360, 380)
   ignWin:SetPoint("CENTER", 300, 0)
   Text(ignWin, "title", "Ignored Quests"):SetPoint("TOPLEFT", 22, -20)
-  Note(ignWin, "Removed quests come back to Quests to Pick Up if they still qualify.", 22, -44, 316)
+  Note(ignWin, "Removed quests come back to Quests Nearby if they still qualify.", 22, -44, 316)
   local line = ignWin:CreateTexture(nil, "ARTWORK")
   line:SetPoint("TOPLEFT", 22, -70); line:SetPoint("TOPRIGHT", -22, -70); line:SetHeight(1)
   Skin(function(th) line:SetColorTexture(RGB(th.accent, 0.5)) end)
