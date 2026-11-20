@@ -909,6 +909,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
   end
   if event == "PLAYER_LOGIN" then
     ns.ApplyBackdrop() -- FlareUI's media is registered by now
+    ns.Print("loaded. Type |cffffff00/hab|r to set up Hereabouts.")
     if ns.Questie.Init() then ns.Print("using Questie's quest database.") end
     if ns.Training.Init() then ns.Print("using What's Training for spells to train.") end
     ns.Session.Reset()

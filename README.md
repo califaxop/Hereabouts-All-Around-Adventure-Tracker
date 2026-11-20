@@ -47,6 +47,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **0.22.2:** Says hello on login ("Type /hab to set up Hereabouts"); feedback button links to the new repo.
 - **0.22.1:** New short command `/hab` (also `/hereabouts`); the old `/xpp` still works.
 - **0.22.0:** XP Planner is now **Hereabouts**: same addon, same settings, a name that says what it does.
 - **0.21.2:** Fix: the tracker shrinks again in combat when sections hide (the quest item buttons had locked its size).
