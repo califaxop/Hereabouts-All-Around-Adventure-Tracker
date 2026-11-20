@@ -58,6 +58,7 @@ end
 function ns.UsingFlare() return ns.db and ns.db.useFlareStyle and ns.FlareBorder() ~= nil end
 
 local frame = CreateFrame("Frame", "XPPlannerFrame", UIParent)
+ns.TrackerFrame = frame
 frame:SetSize(WIDTH, 30)
 frame:SetMovable(true)
 frame:SetClampedToScreen(true)
@@ -105,6 +106,7 @@ local center = Piece(MID[1], MID[2], MID[1], MID[2]); center:SetAllPoints(inner)
 -- Bordered style: a thin brown border around the whole list (FlareUI-style), with the
 -- dark background filling it right up to the border, so nothing bleeds past the edge.
 local boxed = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+ns.TrackerBox = boxed -- the session bar hangs under it
 boxed:SetFrameLevel(frame:GetFrameLevel() - 1)
 boxed:SetPoint("TOPLEFT", inner, "TOPLEFT", -1, 1)
 boxed:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", 1, -1)
@@ -666,6 +668,9 @@ function ns.Render(s)
   y = 0
   shownSomething = false
 
+  if ns.QuestItems then ns.QuestItems.Update(s.questItems) end
+  if ns.Session then ns.Session.Paint() end
+
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
   local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
   if not SectionHidden("quests") and (#s.quests > 0 or qElse > 0) and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
@@ -863,7 +868,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
       "PLAYER_LEVEL_UP", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "QUESTLINE_UPDATE", "PLAYER_LOGIN",
       "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED",
-      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
       pcall(ev.RegisterEvent, ev, e)
     end
     return
@@ -876,12 +881,20 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     ns.ApplyBackdrop() -- FlareUI's media is registered by now
     if ns.Questie.Init() then ns.Print("using Questie's quest database.") end
     if ns.Training.Init() then ns.Print("using What's Training for spells to train.") end
+    ns.Session.Reset()
+  elseif event == "PLAYER_XP_UPDATE" then
+    ns.Session.OnXP(); return
+  elseif event == "PLAYER_MONEY" then
+    ns.Session.OnMoney(); return
+  elseif event == "UPDATE_EXHAUSTION" then
+    return
   elseif event == "QUEST_ACCEPTED" then
     ns.Questie.Remove((...) or arg1) -- modern: (questID); older clients: (logIndex, questID)
   elseif event == "QUEST_REMOVED" then
     -- e.g. abandoned: it can be picked up again, so let Questie list it again.
     ns.Questie.RescanSoon()
   elseif event == "QUEST_TURNED_IN" or event == "PLAYER_LEVEL_UP" then
+    if event == "QUEST_TURNED_IN" then ns.Session.OnQuest(select(2, ...)) end
     -- New quests may have unlocked (follow-ups, level requirements).
     C_Timer.After(1, ns.Questie.Scan)
   end
@@ -924,6 +937,8 @@ SlashCmdList.XPPLANNER = function(msg)
     ns.Print("Questie sources for quest " .. id .. ":")
     for _, l in ipairs(ns.Questie.Inspect(id)) do print("  " .. l) end
     return
+  elseif cmd == "session" then
+    ns.Session.Reset(); ns.Print("session stats reset.")
   elseif cmd == "questie" then
     ns.Questie.Diagnose(ns.Print)
   elseif cmd == "zone" then
@@ -937,7 +952,7 @@ SlashCmdList.XPPLANNER = function(msg)
     end
     return
   else
-    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
+    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp session (reset)  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
     return
   end
   ns.Refresh()

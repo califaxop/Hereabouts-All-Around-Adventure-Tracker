@@ -339,6 +339,7 @@ local function PageLists(p)
   track(Check(p, "XP reward", COL2, y, Setting("showXP"), 224))
   track(Check(p, "Quest giver and zone", COL2, y - 24, Setting("showStarter"), 224))
   track(Check(p, "Training prices by city", COL2, y - 48, Setting("showCityPrices"), 224))
+  track(Check(p, "Quest item buttons", 0, y - 72, Setting("showQuestItems"), 230))
 end
 
 local function PagePicking(p)
@@ -421,10 +422,33 @@ local function PageStatus(p)
   Note(p, "Opens a link to copy: a short form for bugs or ideas.", 190, y - 5, 270)
 end
 
+local function PageSession(p)
+  local y = Section(p, "Session bar", 0, 0, PAGE_W)
+  local function repaint() if ns.Session then ns.Session.Paint() end end
+  track(Check(p, "Show the session bar under the tracker", 0, y, Setting("showSession", repaint), 320))
+  Note(p, "A small bar under XP Planner with this session's numbers. Hover it for all of them, right-click it to reset.", 0, y - 26, PAGE_W)
+  y = Section(p, "What it shows", 0, y - 70, PAGE_W)
+  for i, st in ipairs(ns.Session.STATS) do
+    local key = st[1]
+    local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+    local c = track(Check(p, st[2], col == 0 and 0 or COL2, y - row * 24, {
+      function() return (ns.db.sessionStats or {})[key] and true or false end,
+      function(v) ns.db.sessionStats = ns.db.sessionStats or {}; ns.db.sessionStats[key] = v or nil; repaint() end }, 220))
+    local r = c.Refresh
+    c.Refresh = function() r(); c.SetActive(ns.db.showSession and true or false) end
+  end
+  local rows = math.ceil(#ns.Session.STATS / 2)
+  Note(p, "Gold counts what comes in (loot, quest rewards, sales), not what you spend. Rates start after the first minute.",
+    0, y - rows * 24 - 8, PAGE_W)
+  local reset = Button(p, "Reset session", 130, function() ns.Session.Reset(); ns.Print("session stats reset.") end)
+  reset:SetPoint("TOPLEFT", 0, y - rows * 24 - 46)
+end
+
 local TABS = {
   { "Tracker", PageTracker },
   { "Lists", PageLists },
   { "Picking Quests", PagePicking },
+  { "Session", PageSession },
   { "Status", PageStatus },
 }
 

@@ -27,6 +27,15 @@ end
 ---------------------------------------------------------------------------
 -- Quests in your log
 ---------------------------------------------------------------------------
+-- a quest's usable item (the one Blizzard's tracker shows a button for), if it has one
+local function QuestItem(logIndex)
+  if not GetQuestLogSpecialItemInfo then return nil end
+  local link, icon = Safe(GetQuestLogSpecialItemInfo, logIndex)
+  if not (Readable(link) and type(link) == "string") then return nil end
+  local id = tonumber(link:match("item:(%d+)"))
+  if id then return { itemID = id, icon = icon } end
+end
+
 local function LogQuests()
   local out = {}
   if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return out end
@@ -47,6 +56,7 @@ local function LogQuests()
           and Safe(C_SuperTrack.GetSuperTrackedQuestID) == id or false,
         objectives = Objectives(id),
         zone = header,
+        item = QuestItem(i),
       }
     end
   end
@@ -166,6 +176,21 @@ function ns.BuildSuggestions()
   result.turnin = {}
   if db.showTurnIn then
     for i = 1, math.min(db.maxTurnIn or 20, #turnin) do result.turnin[i] = turnin[i] end
+  end
+
+  -- Quest items: usable items of your quests in this zone, the focused quest's first
+  result.questItems = {}
+  if db.showQuestItems then
+    if not db.activeZoneOnly then RefreshZone() end
+    local seen = {}
+    local function add(q)
+      if q.item and not seen[q.item.itemID] and #result.questItems < 3 then
+        seen[q.item.itemID] = true
+        result.questItems[#result.questItems + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title }
+      end
+    end
+    for _, q in ipairs(quests) do if q.focused then add(q) end end
+    for _, q in ipairs(quests) do if not q.complete and InZone(q) then add(q) end end
   end
 
   -- Quests Nearby: Questie's available quests (needs Questie; the game has no such list)

@@ -38,6 +38,9 @@ ns.DEFAULTS = {
   hideDoneObjectives = true, -- ...only the ones still to do
   showXP      = true,   -- XP line under quests
   showStarter = true,   -- quest giver + zone line under quests to pick up
+  showSession = true,    -- the session bar under the tracker
+  sessionStats = { xph = true, ttl = true, gph = true }, -- what it shows (see Session.lua's STATS)
+  showQuestItems = true, -- buttons for the usable items of your quests in this zone
   showTurnIn = true,     -- Quests to Turn In: finished quests get their own section (and leave Active Quests)
   maxTurnIn = 20,
   turninZoneOnly = false, -- ...only the ones turned in where you are

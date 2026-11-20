@@ -10,6 +10,8 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 - **Quests to Turn In:** everything ready to hand in, in its own section.
 - **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
 - **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
+- **Quest item buttons:** one click (or a keybind) for the usable items of your quests in this zone, focused quest first.
+- **Session bar:** a small bar under the tracker with XP per hour, time to level, gold per hour and more, your pick.
 - **Dungeons:** the ones that fit your level, here or everywhere.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 
@@ -32,6 +34,7 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 | `/xpp lock` / `unlock` | Lock or move the list |
 | `/xpp replace` | Replace Blizzard's quest tracker |
 | `/xpp zone` | Why each quest counts as in this zone or not |
+| `/xpp session` | Reset the session bar's numbers |
 | `/xpp questie` | What XP Planner sees of Questie |
 
 ## Good to know
@@ -44,6 +47,7 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **0.21.0:** Quest item buttons (with keybinds) and a session bar: XP per hour, time to level, gold per hour and more.
 - **0.20.1:** Quests Nearby fills in by itself once Questie is ready (no more Rescan). New "Report a bug / suggest" button in the settings.
 - **0.20.0:** Quests to Pick Up is now Quests Nearby, with distances in yards, and follows Questie's own settings. Active quests and turn-ins no longer need Questie.
 - **0.19.0:** Quest tracking ticks no longer hide or dim quests (the Zone / All switch decides); "Show every quest I can take" for Quests to Pick Up (any level you can take, repeatable, no XP). Quests above your level to accept no longer show.
