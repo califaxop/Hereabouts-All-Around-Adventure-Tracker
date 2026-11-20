@@ -18,6 +18,9 @@ local LINE_FONT   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFo
 -- so switching style recolours everything on the next draw.
 local TITLE_COLOR, TITLE_HOVER_COLOR, LINE_COLOR, DONE_COLOR = {}, {}, {}, {}
 local FOCUS_COLOR, DIM_TITLE, DIM_LINE, HEADER_COLOR = {}, {}, {}, {}
+-- low-level (grey) quests: the game's own colour for them
+local GRAY_TITLE = (QuestDifficultyColors and QuestDifficultyColors.trivial
+  and { QuestDifficultyColors.trivial.r, QuestDifficultyColors.trivial.g, QuestDifficultyColors.trivial.b }) or { 0.5, 0.5, 0.5 }
 local BEST_COLOR = { 0.25, 1, 0.25 } -- cheapest city price (green, like What's Training)
 
 local PALETTES = {
@@ -550,6 +553,15 @@ function ns.SetWaypoint(loc, title)
 end
 
 -- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
+-- low level (grey) for you? the game's own flag for the quest when it has one, else its level rule
+local function IsLowLevel(q)
+  if C_QuestLog and C_QuestLog.IsQuestTrivial and q.id then
+    local ok, v = pcall(C_QuestLog.IsQuestTrivial, q.id)
+    if ok and type(v) == "boolean" then return v end
+  end
+  return ns.IsTrivial(q.level)
+end
+
 local function ShowPickupOnMap(q)
   local loc = q.loc or ns.Questie.Location(q.id)
   local who = q.starter or q.name
@@ -597,7 +609,8 @@ local function AddEntry(title, level, sub, onClick, style)
   t.text:SetText(lvl .. (title or "?"))
   t.spellID = style and style.spellID or nil
   if style and style.focused then t.baseColor = FOCUS_COLOR
-  elseif style and style.dim then t.baseColor = DIM_TITLE end
+  elseif style and style.dim then t.baseColor = DIM_TITLE
+  elseif style and style.gray then t.baseColor = GRAY_TITLE end
   t.text:SetTextColor(unpack(t.baseColor))
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   t:SetScript("OnClick", onClick)
@@ -742,7 +755,7 @@ function ns.Render(s)
           return
         end
         ShowPickupOnMap(q)
-      end)
+      end, { gray = IsLowLevel(q) }) -- low-level quests in the game's grey
     end
   end
 
