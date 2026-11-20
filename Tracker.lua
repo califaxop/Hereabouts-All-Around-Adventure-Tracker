@@ -504,6 +504,10 @@ end
 
 -- open the map on a quest giver and put a waypoint there (and TomTom's arrow if installed)
 local function ShowPickupOnMap(q)
+  if q.fromMap then -- the game's own list: its map already marks the quest giver
+    if ToggleWorldMap and not (WorldMapFrame and WorldMapFrame:IsShown()) then pcall(ToggleWorldMap) end
+    return
+  end
   local loc = ns.Questie.Location(q.id)
   local who = q.starter or q.name
   if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
@@ -658,7 +662,9 @@ function ns.Render(s)
   if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests to Pick Up", #s.pickup, "pickup", "pickupZoneOnly") then
     for _, q in ipairs(s.pickup) do
       local sub = {}
-      if ns.db.showXP then
+      if q.fromMap then
+        sub[1] = { text = "On the map near you" } -- the game's own list (no Questie): no XP figure
+      elseif ns.db.showXP then
         local xpText = q.xp > 0 and ((BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP") or "No XP"
         sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
       elseif q.repeatable then
@@ -689,13 +695,6 @@ function ns.Render(s)
     AddNote(format("None in this zone (%d elsewhere)", pElse))
   end
 
-  if not SectionHidden("nearby") and #s.nearby > 0 and Section("Available Nearby", #s.nearby, "nearby") then
-    for _, q in ipairs(s.nearby) do
-      AddEntry(q.title, q.level, { { text = "Not picked up yet (see map)" } }, function()
-        if ToggleWorldMap then pcall(ToggleWorldMap) end
-      end)
-    end
-  end
 
   if not SectionHidden("training") and s.training and #s.training > 0 and Section("Training", #s.training, "training") then
     local money = function(c)
@@ -867,8 +866,6 @@ SlashCmdList.XPPLANNER = function(msg)
     db.pos = nil; ns.PlaceFrame(); ns.Print("moved back under the quest tracker.")
   elseif cmd == "quests" and tonumber(arg) then
     db.maxQuests = math.max(1, math.min(20, tonumber(arg)))
-  elseif cmd == "nearby" then
-    db.showNearby = not db.showNearby; ns.Print("nearby quests " .. (db.showNearby and "on" or "off"))
   elseif cmd == "dungeons" then
     db.showDungeons = not db.showDungeons; ns.Print("dungeons " .. (db.showDungeons and "on" or "off"))
   elseif cmd == "qinfo" and tonumber(arg) then
@@ -890,7 +887,7 @@ SlashCmdList.XPPLANNER = function(msg)
     end
     return
   else
-    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp nearby  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
+    ns.Print("/xpp (settings)  -  /xpp lock | unlock  -  /xpp replace  -  /xpp toggle  -  /xpp reset (position)  -  /xpp quests <n>  -  /xpp dungeons  -  /xpp zone  -  /xpp questie")
     return
   end
   ns.Refresh()

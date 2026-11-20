@@ -193,7 +193,7 @@ function ns.BuildSuggestions()
     for i = 1, math.min(db.maxTurnIn or 20, #turnin) do result.turnin[i] = turnin[i] end
   end
 
-  -- Quests to pick up: from Questie when installed, otherwise the map's nearby quests.
+  -- Quests to pick up: Questie's available quests when installed, otherwise the game map's.
   if ns.Questie.Available() then
     if db.showPickup then
       -- which quests: the best XP (as before); in what order: highest level first
@@ -205,16 +205,20 @@ function ns.BuildSuggestions()
         end)
       end
     end
-  elseif db.showNearby then
-    local near = {}
+  elseif db.showPickup then
+    -- without Questie: the quests the game's map offers around you (your current map only,
+    -- no XP figures), in the same section
+    local near, ignored = {}, db.ignoredQuests or {}
     for _, q in ipairs(NearbyQuests()) do
-      if not ns.IsTrivial(q.level) then near[#near + 1] = q end
+      if not ignored[q.questID] then
+        near[#near + 1] = { id = q.questID, name = q.title, level = q.level, xp = 0, here = true, fromMap = true }
+      end
     end
     table.sort(near, function(a, b)
       if db.sortByLevel then return (a.level or 0) > (b.level or 0) end
       return math.abs((a.level or me) - me) < math.abs((b.level or me) - me)
     end)
-    for i = 1, math.min(db.maxQuests, #near) do result.nearby[i] = near[i] end
+    for i = 1, math.min(db.maxPickup, #near) do result.pickup[i] = near[i] end
   end
 
   -- Dungeons whose level range you're in (at least its minimum, not past its top).

@@ -10,7 +10,7 @@ local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, start
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
 
-local QDB, QXP, TU, ZDB, QP, QM, QL
+local QDB, QXP, TU, ZDB, QP, QM, QL, QA
 local function Bind()
   if not (QuestieLoader and QuestieLoader.ImportModule) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
@@ -26,13 +26,21 @@ local function Bind()
   QM = ok6 and qm or nil
   local ok7, ql = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieLib")
   QL = (ok7 and ql and ql.GetEffectiveQuestLevel) and ql or nil
+  -- Questie's own "available quests" set (what it draws on the map, by its settings)
+  local ok8, qa = pcall(QuestieLoader.ImportModule, QuestieLoader, "AvailableQuests")
+  QA = (ok8 and qa) or nil
+  if QA and type(QA.CalculateAndDrawAll) == "function" and not QA.xppHooked then
+    QA.xppHooked = true
+    -- Questie recalculates (level up, settings, quest turned in...): follow it shortly after
+    hooksecurefunc(QA, "CalculateAndDrawAll", function() C_Timer.After(2, function() Q.RescanSoon() end) end)
+  end
   return true
 end
 
 function Q.Available() return ready end
 function Q.Count()
   local n, ignored = 0, ns.db.ignoredQuests or {}
-  for id, c in pairs(candidates) do if not ignored[id] and (ns.db.pickupAllLevels or not c.extra) then n = n + 1 end end
+  for id in pairs(candidates) do if not ignored[id] then n = n + 1 end end
   return n
 end
 function Q.IsScanning() return scanning end
@@ -192,7 +200,7 @@ local function AddSpawns(maps, kind, id, why)
   end
 end
 local function Field(id, key)
-  if not QDB.QueryQuestSingle then return nil end
+  if not (QDB and QDB.QueryQuestSingle) then return nil end
   local ok, v = pcall(QDB.QueryQuestSingle, id, key)
   return ok and v or nil
 end
@@ -384,10 +392,18 @@ function Q.Inspect(id)
   return out
 end
 
-local function Consider(id)
+-- The quests Questie lists as available right now (nil if this Questie doesn't expose them)
+local function QuestieSet()
+  local set = QA and QA.__availableQuests
+  if type(set) == "table" then return set end
+end
+
+local function Consider(id, fromQuestie)
   if InLogOrDone(id) then return end
-  local okD, doable = pcall(QDB.IsDoable, id)
-  if not (okD and doable) then return end
+  if not fromQuestie then -- Questie's set is already filtered by its own rules and settings
+    local okD, doable = pcall(QDB.IsDoable, id)
+    if not (okD and doable) then return end
+  end
   local okQ, quest = pcall(QDB.GetQuest, id)
   if not (okQ and quest) or quest.isHidden then return end
   -- keep every level (Questie already drops what you can't take yet); the level range, or
@@ -401,16 +417,17 @@ local function Consider(id)
   else
     reqLvl = Field(id, "requiredLevel")
   end
-  if type(reqLvl) == "number" and reqLvl > me then return end              -- too low to take it yet
-  if type(reqMax) == "number" and reqMax > 0 and me > reqMax then return end -- too high for it
+  if not fromQuestie then
+    if type(reqLvl) == "number" and reqLvl > me then return end              -- too low to take it yet
+    if type(reqMax) == "number" and reqMax > 0 and me > reqMax then return end -- too high for it
+  end
   local okX, xp = pcall(QXP.GetQuestLogRewardXP, QXP, id, false)
   xp = (okX and Readable(xp) and type(xp) == "number") and xp or 0
-  -- repeatable and no-XP quests are kept too, but only listed with "Show every quest I can take"
+  -- (repeatable and no-XP quests: listed when Questie lists them, i.e. by Questie's settings)
   local starter, starterZone = StarterInfo(quest)
   local zoneID = quest.zoneOrSort
   candidates[id] = {
     id = id, name = quest.name, level = quest.level, xp = xp,
-    extra = (quest.IsRepeatable or xp <= 0) and true or nil,
     repeatable = quest.IsRepeatable and true or nil,
     zoneID = (zoneID and zoneID > 0) and zoneID or nil,
     zone = starterZone or ZoneName(zoneID),
@@ -426,13 +443,16 @@ function Q.Scan()
   if not ready or scanning then return end
   scanning = true
   local ids = {}
-  for id in pairs(QDB.QuestPointers or {}) do ids[#ids + 1] = id end
+  local set = QuestieSet()
+  -- Questie's available quests when it exposes them; otherwise its whole database, checked here
+  for id in pairs(set or QDB.QuestPointers or {}) do ids[#ids + 1] = id end
+  local fromQuestie = set ~= nil
   local fresh, i = {}, 1
   local old = candidates
   candidates = fresh
   local function step()
     local stop = math.min(i + 250, #ids)
-    for n = i, stop do Consider(ids[n]) end
+    for n = i, stop do Consider(ids[n], fromQuestie) end
     i = stop + 1
     if i <= #ids then
       C_Timer.After(0, step)
@@ -441,7 +461,11 @@ function Q.Scan()
       if Q.onUpdate then Q.onUpdate() end
     end
   end
-  if #ids == 0 then candidates = old; scanning = false; return end
+  if #ids == 0 then
+    candidates = fromQuestie and fresh or old; scanning = false
+    if fromQuestie and Q.onUpdate then Q.onUpdate() end
+    return
+  end
   step()
 end
 
@@ -453,16 +477,12 @@ function Q.Remove(id) if id then candidates[id] = nil end end
 -- range), best XP first. Quests in your zone get the zone bonus when the zone filter is off.
 function Q.Ranked(limit)
   local db = ns.db
-  local me = UnitLevel("player")
-  local lo, hi = me + (db.levelMin or -5), me + (db.levelMax or 3)
   local hereMap = CurrentZoneMap()
   local ignored = db.ignoredQuests or {}
   local list, elsewhere = {}, 0
   for _, c in pairs(candidates) do
-    local lvl = c.level
-    local inRange = db.pickupAllLevels or not lvl or lvl <= 0 or (lvl >= lo and lvl <= hi) -- unknown/scaling levels: kept
     c.here = (hereMap and c.maps and c.maps[hereMap]) or false
-    if not ignored[c.id] and inRange and (db.pickupAllLevels or not c.extra) then
+    if not ignored[c.id] then -- which quests at all: Questie's settings decide
       if c.here or not db.pickupZoneOnly then
         c.score = c.xp * (c.here and db.zoneBonus or 1)
         list[#list + 1] = c

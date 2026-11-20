@@ -6,15 +6,16 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 
 ## Highlights
 - **Active Quests:** only what's left to do, highest level first, focused quest pinned.
-- **Zone / All switch:** one click between this zone and everywhere, on quests, pickups and dungeons.
-- **Quests to Pick Up:** the best XP nearby (via Questie). Click for a map waypoint on the quest giver.
-- **Training:** what your trainer has for you, with costs (via What's Training).
+- **Quests to Turn In:** everything ready to hand in, in its own section.
+- **Zone / All switch:** one click between this zone and everywhere, on quests, turn-ins, pickups and dungeons.
+- **Quests to Pick Up:** the best XP around you. With Questie, its own list (by its settings) with map waypoints; without it, what the game's map offers nearby.
+- **Training:** what your trainer has for you, and what each city charges with your reputation (via What's Training).
 - **Dungeons:** the ones that fit your level.
-- **Smart zone filter:** follows the game's own quest map and Questie, dungeons included.
+- **Smart zone filter:** follows the game's own quest map (and Questie, when installed), dungeons included.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 
 ## Quick start
-1. Install **Questie** (and **What's Training** for the Training section).
+1. Optional: **Questie** for richer quest pickups, **What's Training** for the Training section. XP Planner works without either.
 2. Type `/xpp` to set it up; drag a heading to move the list when unlocked.
 
 ## Commands
@@ -27,11 +28,13 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 | `/xpp questie` | What XP Planner sees of Questie |
 
 ## Good to know
-- Without Questie, Quests to Pick Up uses the map's nearby quests (no XP ranking or waypoints).
+- With Questie, which quests can be picked up follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
+- Without Questie, Quests to Pick Up uses the game map's nearby quests (no XP ranking or waypoints).
 - Dungeon level ranges are the classic ones; WoW: Forever may differ.
 - Works on English clients for dungeon zone matching.
 
 ## Recent changes
+- **0.20.0:** Questie is optional: Quests to Pick Up follows Questie's own settings when it's installed, and the game map's nearby quests otherwise.
 - **0.19.0:** Quest tracking ticks no longer hide or dim quests (the Zone / All switch decides); "Show every quest I can take" for Quests to Pick Up (any level you can take, repeatable, no XP). Quests above your level to accept no longer show.
 - **0.18.1:** Your focused quest stays in Active Quests, even when it's ready to turn in.
 - **0.18.0:** New Quests to Turn In section, with its own Zone / All switch.

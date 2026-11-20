@@ -9,9 +9,6 @@ function ns.Print(...) print("|cffffd200XP Planner:|r", ...) end
 ns.DEFAULTS = {
   maxQuests   = 8,      -- quest-log suggestions shown
   maxPickup   = 6,      -- "quests to pick up" shown (needs Questie)
-  pickupAllLevels = false, -- Quests to Pick Up: every quest you can take (any level, repeatable, no XP)
-  levelMin    = -5,     -- Quests to Pick Up: lowest quest level, relative to yours (-8..+8)
-  levelMax    = 3,      -- Quests to Pick Up: highest quest level, relative to yours (-8..+8)
   pickupZoneOnly = true,-- Quests to Pick Up: only quests whose quest giver is in your current zone
   zoneBonus   = 1.5,    -- quests in your current zone count as this much more XP (less travel)
   maxDungeons = 3,      -- dungeon suggestions shown
@@ -20,7 +17,6 @@ ns.DEFAULTS = {
   hideInInstance = {},
   hideInCombat = {},
   sortByLevel = true,   -- list every section by level, highest first (off: XP / best-fit order)
-  showNearby  = true,   -- include quests the map shows as available near you
   showDungeons = true,
   showTraining = true,  -- "Training" section (needs What's Training)
   maxTraining = 10,     -- spells shown in it
