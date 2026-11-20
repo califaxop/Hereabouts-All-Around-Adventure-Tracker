@@ -552,7 +552,7 @@ function ns.SetWaypoint(loc, title)
     end
   end
   if TomTom and TomTom.AddWaypoint then
-    if pcall(TomTom.AddWaypoint, TomTom, loc.map, loc.x, loc.y, { title = title, from = "XP Planner" }) then
+    if pcall(TomTom.AddWaypoint, TomTom, loc.map, loc.x, loc.y, { title = title, from = "Hereabouts" }) then
       placed = true
     end
   end
@@ -935,6 +935,7 @@ end)
 -- Slash
 ---------------------------------------------------------------------------
 SLASH_XPPLANNER1 = "/xpp"
+SLASH_XPPLANNER2 = "/hereabouts"
 SlashCmdList.XPPLANNER = function(msg)
   local cmd, arg = (msg or ""):lower():match("^(%S*)%s*(.-)$")
   local db = ns.db

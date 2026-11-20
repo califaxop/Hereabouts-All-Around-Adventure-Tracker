@@ -416,7 +416,7 @@ local function PageStatus(p)
 
   y = Section(p, "Feedback", 0, y - 44, PAGE_W)
   local fb = Button(p, "Report a bug / suggest", 180, function()
-    ShowLink("XP Planner: bugs and ideas", "https://github.com/califaxop/xp-planner/issues/new/choose")
+    ShowLink("Hereabouts: bugs and ideas", "https://github.com/califaxop/xp-planner/issues/new/choose")
   end)
   fb:SetPoint("TOPLEFT", 0, y)
   Note(p, "Opens a link to copy: a short form for bugs or ideas.", 190, y - 5, 270)
@@ -426,7 +426,7 @@ local function PageSession(p)
   local y = Section(p, "Session bar", 0, 0, PAGE_W)
   local function repaint() if ns.Session then ns.Session.Paint() end end
   track(Check(p, "Show the session bar under the tracker", 0, y, Setting("showSession", repaint), 320))
-  Note(p, "A small bar under XP Planner with this session's numbers. Hover it for all of them, right-click it to reset.", 0, y - 26, PAGE_W)
+  Note(p, "A small bar under Hereabouts with this session's numbers. Hover it for all of them, right-click it to reset.", 0, y - 26, PAGE_W)
   y = Section(p, "What it shows", 0, y - 70, PAGE_W)
   for i, st in ipairs(ns.Session.STATS) do
     local key = st[1]
@@ -455,9 +455,9 @@ local TABS = {
 local function BuildWindow()
   window = Window("XPPlannerOptionsWindow", 520, 500)
   window:SetPoint("CENTER")
-  local title = Text(window, "title", "XP Planner")
+  local title = Text(window, "title", "Hereabouts")
   title:SetPoint("TOPLEFT", 26, -20)
-  local sub = Text(window, "note", "Where your next XP is: quests, dungeons and training.")
+  local sub = Text(window, "note", "Your quests, filtered to where you are.")
   sub:SetPoint("LEFT", title, "RIGHT", 10, -1)
 
   -- tabs: text in the heading font, the active one underlined in bronze
@@ -531,13 +531,13 @@ local settingsPanel
 function ns.CreateOptions()
   if settingsPanel then return end
   settingsPanel = CreateFrame("Frame")
-  settingsPanel.name = "XP Planner"
+  settingsPanel.name = "Hereabouts"
   pcall(function()
     local title = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16); title:SetText("XP Planner")
+    title:SetPoint("TOPLEFT", 16, -16); title:SetText("Hereabouts")
     local b = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
     b:SetSize(200, 24); b:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
-    b:SetText("Open XP Planner settings")
+    b:SetText("Open Hereabouts settings")
     b:SetScript("OnClick", function()
       if SettingsPanel and SettingsPanel.Close then pcall(SettingsPanel.Close, SettingsPanel, true) end
       if not (window and window:IsShown()) then ns.OpenOptions() end

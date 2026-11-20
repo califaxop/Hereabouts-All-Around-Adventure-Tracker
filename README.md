@@ -1,8 +1,8 @@
-# XP Planner
+# Hereabouts: Zone Quest Tracker
 
 **Your quest tracker, filtered to where you are.**
 
-XP Planner shows only the quests you can work on in the zone you're in, judged by where their objectives and turn-ins are, not just the quest log heading. It also shows what to hand in, what to train and which dungeons fit your level. It works on its own; Questie and What's Training add more.
+Hereabouts shows only the quests you can work on in the zone you're in, judged by where their objectives and turn-ins are, not just the quest log heading. It also shows what to hand in, what to train and which dungeons fit your level. It works on its own; Questie and What's Training add more.
 
 ## Highlights
 - **Zone-aware tracking:** active quests with objectives here, and quests ready to turn in here. One click on Zone / All switches to everywhere.
@@ -30,12 +30,12 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 ## Commands
 | Command | Does |
 |---|---|
-| `/xpp` | Open settings |
+| `/xpp` (or `/hereabouts`) | Open settings |
 | `/xpp lock` / `unlock` | Lock or move the list |
 | `/xpp replace` | Replace Blizzard's quest tracker |
 | `/xpp zone` | Why each quest counts as in this zone or not |
 | `/xpp session` | Reset the session bar's numbers |
-| `/xpp questie` | What XP Planner sees of Questie |
+| `/xpp questie` | What Hereabouts sees of Questie |
 
 ## Good to know
 - With Questie, which quests show in Quests Nearby follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
@@ -47,6 +47,7 @@ XP Planner shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **0.22.0:** XP Planner is now **Hereabouts**: same addon, same settings and `/xpp`, a name that says what it does.
 - **0.21.2:** Fix: the tracker shrinks again in combat when sections hide (the quest item buttons had locked its size).
 - **0.21.1:** Quest colors (low-level grey, ready-to-turn-in green, far quest givers dimmed); Quests Nearby's distance moves to the right of the quest name.
 - **0.21.0:** Quest item buttons (with keybinds) and session bars: XP per hour, time to level, gold per hour and more.

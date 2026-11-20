@@ -11,7 +11,7 @@ Q.buttons = buttons
 local pending -- the list to show once combat ends
 
 -- keybinding labels (Key Bindings > AddOns > XP Planner)
-_G.BINDING_HEADER_XPPLANNER = "XP Planner"
+_G.BINDING_HEADER_XPPLANNER = "Hereabouts"
 _G["BINDING_NAME_CLICK XPPlannerQuestItem1:LeftButton"] = "Use quest item"
 _G["BINDING_NAME_CLICK XPPlannerQuestItem2:LeftButton"] = "Use second quest item"
 _G["BINDING_NAME_CLICK XPPlannerQuestItem3:LeftButton"] = "Use third quest item"

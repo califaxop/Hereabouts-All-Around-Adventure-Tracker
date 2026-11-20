@@ -4,7 +4,7 @@ ns.name = ADDON
 
 ns.isSecret = issecretvalue or function() return false end
 function ns.Readable(v) return v ~= nil and not ns.isSecret(v) end
-function ns.Print(...) print("|cffffd200XP Planner:|r", ...) end
+function ns.Print(...) print("|cffffd200Hereabouts:|r", ...) end
 
 ns.DEFAULTS = {
   maxQuests   = 8,      -- quest-log suggestions shown
