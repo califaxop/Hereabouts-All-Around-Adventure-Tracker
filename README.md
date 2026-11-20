@@ -29,7 +29,7 @@ A quest tracker built for leveling. It shows what's worth doing right where you 
 
 ## Good to know
 - With Questie, which quests show in Quests Nearby follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
-- Without Questie, Quests Nearby uses the game map's nearby quests (no XP ranking or waypoints).
+- Without Questie, Quests Nearby uses the game map's nearby quests (no XP figures).
 - Dungeon level ranges are the classic ones; WoW: Forever may differ.
 - Works on English clients for dungeon zone matching.
 
