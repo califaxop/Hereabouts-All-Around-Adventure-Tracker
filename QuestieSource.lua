@@ -557,6 +557,23 @@ function Q.Init()
   return true
 end
 
+-- Items Questie's database ties to a quest: the item it starts you with, items it gives you to
+-- use, and its item objectives. (The quest item button keeps only the usable ones you carry.)
+function Q.QuestItemIds(id)
+  if not (ready and QDB and QDB.GetQuest) then return nil end
+  local ok, quest = pcall(QDB.GetQuest, id)
+  if not (ok and type(quest) == "table") then return nil end
+  local out = {}
+  if type(quest.sourceItemId) == "number" and quest.sourceItemId > 0 then out[#out + 1] = quest.sourceItemId end
+  for _, item in pairs(type(quest.requiredSourceItems) == "table" and quest.requiredSourceItems or {}) do
+    if type(item) == "number" then out[#out + 1] = item end
+  end
+  for _, o in pairs(type(quest.ObjectiveData) == "table" and quest.ObjectiveData or {}) do
+    if type(o) == "table" and o.Type == "item" and type(o.Id) == "number" then out[#out + 1] = o.Id end
+  end
+  return out
+end
+
 ---------------------------------------------------------------------------
 -- Where to pick a quest up: the quest giver's spawn (map ID, x, y in 0-1).
 -- With several spawns, the one in the zone you're in wins.

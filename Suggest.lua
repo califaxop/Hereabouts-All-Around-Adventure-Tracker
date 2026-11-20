@@ -183,10 +183,47 @@ function ns.BuildSuggestions()
   if db.showQuestItems then
     if not db.activeZoneOnly then RefreshZone() end
     local seen = {}
+    local bag -- usable items in your bags, by id and by name (read once, only when needed)
+    local function Bag()
+      if bag then return bag end
+      bag = { byId = {}, byName = {} }
+      if not (C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemID) then return bag end
+      for b = 0, (NUM_BAG_SLOTS or 4) do
+        for slot = 1, (Safe(C_Container.GetContainerNumSlots, b) or 0) do
+          local id = Safe(C_Container.GetContainerItemID, b, slot)
+          if id and bag.byId[id] == nil then
+            local usable = C_Item and C_Item.GetItemSpell and Safe(C_Item.GetItemSpell, id) -- has a "Use:" effect
+            bag.byId[id] = usable and true or false
+            if usable then
+              local name = (C_Item.GetItemNameByID and Safe(C_Item.GetItemNameByID, id)) or (GetItemInfo and Safe(GetItemInfo, id))
+              if Readable(name) and name then bag.byName[name] = id end
+            end
+          end
+        end
+      end
+      return bag
+    end
+    -- the quest's item: the one Blizzard flags for it, else a usable item in your bags that
+    -- Questie ties to the quest, else one its objectives name ("1/1 Snufflenose Command Stick")
+    local function ItemFor(q)
+      if q.item then return q.item.itemID, q.item.icon end
+      local B = Bag()
+      for _, id in ipairs(ns.Questie.QuestItemIds and ns.Questie.QuestItemIds(q.questID) or {}) do
+        if B.byId[id] then return id end
+      end
+      for _, o in ipairs(q.objectives or {}) do
+        for name, id in pairs(B.byName) do
+          if o.text:find(name, 1, true) then return id end
+        end
+      end
+    end
     local function add(q)
-      if q.item and not seen[q.item.itemID] and #result.questItems < 3 then
-        seen[q.item.itemID] = true
-        result.questItems[#result.questItems + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title }
+      if #result.questItems >= 3 then return end
+      local id, icon = ItemFor(q)
+      if id and not seen[id] then
+        seen[id] = true
+        icon = icon or (C_Item and C_Item.GetItemIconByID and Safe(C_Item.GetItemIconByID, id))
+        result.questItems[#result.questItems + 1] = { itemID = id, icon = icon, title = q.title }
       end
     end
     for _, q in ipairs(quests) do if q.focused then add(q) end end
