@@ -416,7 +416,7 @@ local function PageStatus(p)
 
   y = Section(p, "Feedback", 0, y - 44, PAGE_W)
   local fb = Button(p, "Report a bug / suggest", 180, function()
-    ShowLink("Hereabouts: bugs and ideas", "https://github.com/califaxop/xp-planner/issues/new/choose")
+    ShowLink("Hereabouts: bugs and ideas", "https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose")
   end)
   fb:SetPoint("TOPLEFT", 0, y)
   Note(p, "Opens a link to copy: a short form for bugs or ideas.", 190, y - 5, 270)

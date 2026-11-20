@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in XP Planner doesn't work as it should
+description: Something in Hereabouts doesn't work as it should
 labels: ["bug"]
 body:
   - type: markdown
@@ -23,7 +23,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: XP Planner version
+      label: Hereabouts version
       description: Shown in your addon list, or on the CurseForge file you installed.
       placeholder: e.g. 1.2.3
     validations:

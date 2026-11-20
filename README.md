@@ -44,7 +44,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - Works on English clients for dungeon zone matching.
 
 ## Feedback
-Found a bug or have an idea? [Open an issue](https://github.com/califaxop/xp-planner/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
+Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
 - **0.22.1:** New short command `/hab` (also `/hereabouts`); the old `/xpp` still works.
