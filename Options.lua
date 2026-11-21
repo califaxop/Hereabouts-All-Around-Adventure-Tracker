@@ -294,9 +294,13 @@ local function PageTracker(p)
   local border = track(Check(p, "Border (without FlareUI style)", COL2, y - 24, Setting("showBorder", Restyle), 224))
   local r = border.Refresh
   border.Refresh = function() r(); border.SetActive(not ns.UsingFlare()) end
-  track(Slider(p, "Scale", COL2, y - 58, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
-  track(Slider(p, "Background opacity", COL2, y - 100, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
-  track(Slider(p, "Max height (then scrolls)", COL2, y - 142, 224, 120, 900, 10, Setting("maxHeight"),
+  -- the earlier section headings (the quest tracker's header art), for those who prefer them
+  local classic = track(Check(p, "Classic section headings", COL2, y - 48, Setting("classicHeaders", function() ns.Refresh() end), 224))
+  local rc = classic.Refresh
+  classic.Refresh = function() rc(); classic.SetActive(not ns.UsingFlare()) end
+  track(Slider(p, "Scale", COL2, y - 76, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
+  track(Slider(p, "Background opacity", COL2, y - 112, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
+  track(Slider(p, "Max height (then scrolls)", COL2, y - 148, 224, 120, 900, 10, Setting("maxHeight"),
     function(v) return v .. " px" end))
 
   -- which sections show in dungeons and in combat (ticked = shown)

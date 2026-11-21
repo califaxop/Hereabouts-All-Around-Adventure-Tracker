@@ -252,6 +252,7 @@ scroll:SetScript("OnMouseWheel", function(self, delta) ScrollTo(self:GetVertical
 -- Pools
 ---------------------------------------------------------------------------
 local headers, titles, lines = {}, {}, {}
+ns._headers = headers -- (for checks)
 local used = { h = 0, t = 0, l = 0 }
 
 local function GetHeader()
@@ -310,6 +311,32 @@ local function GetHeader()
       if on then z.text:SetTextColor(TITLE_COLOR[1], TITLE_COLOR[2], TITLE_COLOR[3])
       else z.text:SetTextColor(LINE_COLOR[1], LINE_COLOR[2], LINE_COLOR[3]) end
     end
+    -- the clean look (default): one bronze line under the heading, fading out to the right
+    h.line = h:CreateTexture(nil, "ARTWORK")
+    h.line:SetTexture("Interface\\Buttons\\WHITE8X8")
+    h.line:SetHeight(1)
+    h.line:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", 2, 0); h.line:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", 0, 0)
+    if h.line.SetGradient and CreateColor then
+      h.line:SetGradient("HORIZONTAL", CreateColor(0.86, 0.66, 0.36, 0.9), CreateColor(0.86, 0.66, 0.36, 0))
+    else
+      h.line:SetVertexColor(0.86, 0.66, 0.36, 0.6)
+    end
+    -- ...the game's own round +/- for collapsing (lit while the heading is hovered)
+    h.plus = h:CreateTexture(nil, "OVERLAY")
+    h.plus:SetSize(14, 14); h.plus:SetPoint("RIGHT", -2, 0)
+    h.plusHi = h:CreateTexture(nil, "HIGHLIGHT")
+    h.plusHi:SetAllPoints(h.plus); h.plusHi:SetBlendMode("ADD")
+    -- ...and the game's standard red button for Zone / All, so it reads as a button
+    h.zoneBtn = CreateFrame("Button", nil, h, "UIPanelButtonTemplate")
+    h.zoneBtn:SetSize(42, 18); h.zoneBtn:SetPoint("RIGHT", h.plus, "LEFT", -6, 0)
+    if h.zoneBtn.SetNormalFontObject then
+      h.zoneBtn:SetNormalFontObject("GameFontNormalSmall"); h.zoneBtn:SetHighlightFontObject("GameFontHighlightSmall")
+    end
+    for _, s in ipairs({ "OnClick", "OnEnter", "OnLeave" }) do h.zoneBtn:SetScript(s, h.zone:GetScript(s)) end
+    h.zoneBtn.Paint = function()
+      local z = h.zoneBtn
+      z:SetText((z.key and ns.db[z.key]) and "Zone" or "All")
+    end
     -- FlareUI style: a divider line under the heading instead of Blizzard's header art
     h.divider = h:CreateTexture(nil, "ARTWORK")
     h.divider:SetTexture(FLARE_DIVIDER)
@@ -335,8 +362,13 @@ local function GetHeader()
     headers[used.h] = h
   end
   local flare = ns.UsingFlare()
-  h.bg:SetShown(not flare)
+  local clean = not flare and not ns.db.classicHeaders
+  h.clean = clean
+  h.bg:SetShown(not flare and not clean)
   h.divider:SetShown(flare)
+  h.line:SetShown(clean)
+  h.plus:SetShown(clean); h.plusHi:SetShown(clean)
+  h.toggle:SetShown(not clean)
   h.text:SetTextColor(HEADER_COLOR[1], HEADER_COLOR[2], HEADER_COLOR[3])
   if flare then h.toggle:SetTextColor(FLARE_BOX[1], FLARE_BOX[2], FLARE_BOX[3])
   else h.toggle:SetTextColor(1, 0.82, 0) end
@@ -687,11 +719,18 @@ ns.SectionHidden = SectionHidden
 local function Section(name, count, key, zoneKey)
   local h = GetHeader()
   h.text:SetText(name)
-  h.zone.key = zoneKey
-  h.zone:SetShown(zoneKey ~= nil)
-  if zoneKey then h.zone.Paint() end
+  -- the Zone / All switch: the red button (clean headings) or the small box (classic / FlareUI)
+  local z, other = h.zone, h.zoneBtn
+  if h.clean then z, other = h.zoneBtn, h.zone end
+  other:Hide()
+  z.key = zoneKey
+  z:SetShown(zoneKey ~= nil)
+  if zoneKey then z.Paint() end
   local collapsed = ns.db.collapsedSections and ns.db.collapsedSections[key]
   h.toggle:SetText(collapsed and "+" or "-")
+  local sign = collapsed and "Plus" or "Minus"
+  h.plus:SetTexture("Interface\\Buttons\\UI-" .. sign .. "Button-Up")
+  h.plusHi:SetTexture("Interface\\Buttons\\UI-PlusButton-Hilight")
   h:SetScript("OnClick", function()
     ns.db.collapsedSections = ns.db.collapsedSections or {}
     ns.db.collapsedSections[key] = not collapsed

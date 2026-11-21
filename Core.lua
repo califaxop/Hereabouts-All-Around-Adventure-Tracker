@@ -28,6 +28,7 @@ ns.DEFAULTS = {
   scale       = 1.0,
   bgAlpha     = 0.5,    -- backdrop opacity behind the list (0 = none)
   showBorder  = true,   -- tooltip-style border; off = soft faded edges instead
+  classicHeaders = false, -- section headings: the quest tracker's header art (the earlier look) instead of the clean line
   useFlareStyle = true, -- match FlareUI's look when FlareUI is installed
   borderColor = { 0.40, 0.33, 0.22 },  -- brown, FlareUI-style
   maxHeight   = 400,    -- px; taller content scrolls
