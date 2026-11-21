@@ -41,6 +41,11 @@ local FLARE_BRONZE   = { 0.65, 0.49, 0.27 }  -- FlareUI's frame-border bronze (#
 local FLARE_BOX      = { 0.50, 0.38, 0.21 }  -- FlareUI's darker bronze (buttons, scroll thumb)
 local FLARE_DIVIDER  = "Interface\\Common\\UI-TooltipDivider-Transparent"
 local DIALOG_BG      = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
+-- the plain style's border: the game's own tooltip border, so the tracker looks native
+local BLIZZ_EDGE     = "Interface\\Tooltips\\UI-Tooltip-Border"
+local BLIZZ_BG       = "Interface\\Tooltips\\UI-Tooltip-Background"
+ns.BLIZZ_EDGE, ns.BLIZZ_BG = BLIZZ_EDGE, BLIZZ_BG
+ns.BLIZZ_BORDER_COLOR = { 0.8, 0.8, 0.8 } -- the tooltip border's own silver-grey
 
 local function Fill(dst, src) dst[1], dst[2], dst[3] = src[1], src[2], src[3] end
 do -- start on the Blizzard palette until settings are loaded
@@ -146,10 +151,10 @@ function ns.ApplyBackdrop()
     return
   end
   boxed:ClearAllPoints()
-  boxed:SetPoint("TOPLEFT", inner, "TOPLEFT", -1, 1)
-  boxed:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", 1, -1)
-  boxed:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
-    edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+  boxed:SetPoint("TOPLEFT", inner, "TOPLEFT", -3, 3)
+  boxed:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", 3, -3)
+  boxed:SetBackdrop({ bgFile = BLIZZ_BG, edgeFile = BLIZZ_EDGE, tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 } })
   -- soft fade only when there's no border
   for _, t in ipairs(pieces) do
     t:SetVertexColor(0, 0, 0, a)
@@ -158,7 +163,7 @@ function ns.ApplyBackdrop()
   boxed:SetShown(border)
   if border then
     boxed:SetBackdropColor(0, 0, 0, a)
-    local c = ns.db.borderColor
+    local c = ns.BLIZZ_BORDER_COLOR
     boxed:SetBackdropBorderColor(c[1], c[2], c[3], 1)
   end
 end
@@ -184,12 +189,14 @@ function ns.SkinWindow(f, alpha)
     f:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), tile = false, tileSize = 0, edgeSize = 16,
       insets = { left = 3, right = 3, top = 3, bottom = 3 } })
     f:SetBackdropColor(1, 1, 1, alpha)
+    f:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
   else
-    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
-      edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    f:SetBackdrop({ bgFile = BLIZZ_BG, edgeFile = BLIZZ_EDGE, tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 } })
     f:SetBackdropColor(0.03, 0.03, 0.03, alpha)
+    local c = ns.BLIZZ_BORDER_COLOR
+    f:SetBackdropBorderColor(c[1], c[2], c[3], 1)
   end
-  f:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
 end
 
 ---------------------------------------------------------------------------

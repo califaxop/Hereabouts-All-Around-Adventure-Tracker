@@ -86,29 +86,32 @@ S.STATS = {
   { "rested", "Rested XP" },
   { "gold",   "Gold this session" },
 }
-function S.Values()
+-- Each stat's text, with its number(s) wrapped in `hl` ... "|r" (the bars show numbers in the
+-- quest-title gold; the tooltip passes no colour). The labels keep the line colour.
+function S.Values(hl)
   if not start then S.Reset() end
   local v = {}
+  local function N(s) return hl and (hl .. s .. "|r") or s end
   local elapsed = math.max(1, Now() - start)
   local warm = elapsed >= 60 -- the first minute says little about a rate
   local maxed = AtMax()
   local left = math.max(0, (UnitXPMax("player") or 0) - (UnitXP("player") or 0))
   local rate = gained / elapsed * 3600
   if not maxed then
-    v.xph = (warm and gained > 0) and (Short(rate) .. " XP/h") or "-- XP/h"
-    v.ttl = (warm and gained > 0) and ("Level in " .. Duration(left / (rate / 3600))) or "Level in --"
-    v.xp = Short(gained) .. " XP"
+    v.xph = ((warm and gained > 0) and N(Short(rate)) or N("--")) .. " XP/h"
+    v.ttl = "Level in " .. ((warm and gained > 0) and N(Duration(left / (rate / 3600))) or N("--"))
+    v.xp = N(Short(gained)) .. " XP"
     if quests > 0 then
-      v.quests = format("%d quest%s", quests, quests == 1 and "" or "s")
-      if questXP > 0 then v.quests = v.quests .. format(" (~%d to level)", math.ceil(left / (questXP / quests))) end
+      v.quests = format("%s quest%s", N(quests), quests == 1 and "" or "s")
+      if questXP > 0 then v.quests = v.quests .. format(" (~%s to level)", N(math.ceil(left / (questXP / quests)))) end
     else
-      v.quests = "0 quests"
+      v.quests = N("0") .. " quests"
     end
     local rested = GetXPExhaustion and GetXPExhaustion()
-    v.rested = (type(rested) == "number" and rested > 0) and ("Rested " .. Short(rested)) or nil
+    v.rested = (type(rested) == "number" and rested > 0) and ("Rested " .. N(Short(rested))) or nil
   end
-  v.gph = warm and (Money(earned / elapsed * 3600) .. "/h") or "--/h"
-  v.gold = "+" .. Money(earned)
+  v.gph = (warm and N(Money(earned / elapsed * 3600)) or N("--")) .. "/h"
+  v.gold = N("+" .. Money(earned))
   v.elapsed = Duration(elapsed)
   return v
 end
@@ -137,12 +140,14 @@ local function Skin(bar)
     if th.flare then
       bar:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
       bar:SetBackdropColor(1, 1, 1, a)
-    else
-      bar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+      bar:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
+    else -- the game's tooltip border, like the tracker
+      bar:SetBackdrop({ bgFile = ns.BLIZZ_BG, edgeFile = ns.BLIZZ_EDGE, tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 } })
       bar:SetBackdropColor(0.03, 0.03, 0.03, a)
+      local c = ns.BLIZZ_BORDER_COLOR
+      bar:SetBackdropBorderColor(c[1], c[2], c[3], 1)
     end
-    bar:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
   end
   bar.text:SetFontObject(th.lineFont)
   bar.text:SetTextColor(th.line[1], th.line[2], th.line[3])
@@ -181,7 +186,8 @@ function S.Paint()
   if not (ns.db and ns.TrackerFrame) then return end
   local used = 0
   if ns.db.showSession then
-    local v, on = S.Values(), ns.db.sessionStats or {}
+    local t = ns.Theme().title -- the quest names' gold, for the numbers
+    local v, on = S.Values(format("|cff%02x%02x%02x", math.floor(t[1] * 255 + 0.5), math.floor(t[2] * 255 + 0.5), math.floor(t[3] * 255 + 0.5))), ns.db.sessionStats or {}
     local lines = {}
     for _, row in ipairs(S.ROWS) do
       local parts = {}
