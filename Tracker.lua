@@ -45,7 +45,7 @@ local DIALOG_BG      = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
 local BLIZZ_EDGE     = "Interface\\Tooltips\\UI-Tooltip-Border"
 local BLIZZ_BG       = "Interface\\Tooltips\\UI-Tooltip-Background"
 ns.BLIZZ_EDGE, ns.BLIZZ_BG = BLIZZ_EDGE, BLIZZ_BG
-ns.BLIZZ_BORDER_COLOR = { 0.8, 0.8, 0.8 } -- the tooltip border's own silver-grey
+ns.BLIZZ_BORDER_COLOR = { 0.86, 0.66, 0.36 } -- bronze, like the default frames' borders (the artwork is light grey, so tinted a bit brighter)
 
 local function Fill(dst, src) dst[1], dst[2], dst[3] = src[1], src[2], src[3] end
 do -- start on the Blizzard palette until settings are loaded
