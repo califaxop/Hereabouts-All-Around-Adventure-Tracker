@@ -43,6 +43,9 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - Dungeon level ranges are the classic ones; WoW: Forever may differ.
 - Works on English clients for dungeon zone matching.
 
+## Updates
+New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 AM US Eastern). Urgent fixes ship sooner.
+
 ## Feedback
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
