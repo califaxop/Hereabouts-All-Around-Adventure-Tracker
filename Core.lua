@@ -49,11 +49,11 @@ ns.DEFAULTS = {
 
 function ns.ResetDB()
   -- "Reset to defaults" keeps where the list is and the quests you've ignored
-  local pos, ignored = XPPlannerDB.pos, XPPlannerDB.ignoredQuests
-  wipe(XPPlannerDB)
+  local pos, ignored = HereaboutsDB.pos, HereaboutsDB.ignoredQuests
+  wipe(HereaboutsDB)
   ns.LoadDB()
-  XPPlannerDB.pos = pos
-  XPPlannerDB.ignoredQuests = ignored or {}
+  HereaboutsDB.pos = pos
+  HereaboutsDB.ignoredQuests = ignored or {}
 end
 
 -- Ignore list for "Quests to Pick Up": questID -> { name, level }
@@ -69,17 +69,29 @@ function ns.UnignoreQuest(id)
 end
 
 function ns.LoadDB()
-  XPPlannerDB = XPPlannerDB or {}
+  -- first run after the rename: bring over the settings saved under the old XPPlanner folder
+  -- (the small "XPPlanner" carry-over addon that ships alongside loads them for us)
+  if HereaboutsDB == nil and type(XPPlannerDB) == "table" then
+    local function copy(v)
+      if type(v) ~= "table" then return v end
+      local t = {}
+      for k, x in pairs(v) do t[k] = copy(x) end
+      return t
+    end
+    HereaboutsDB = copy(XPPlannerDB)
+    ns.carriedOver = true
+  end
+  HereaboutsDB = HereaboutsDB or {}
   for k, v in pairs(ns.DEFAULTS) do
-    if XPPlannerDB[k] == nil then XPPlannerDB[k] = v end
+    if HereaboutsDB[k] == nil then HereaboutsDB[k] = v end
   end
   -- one-time: switch the old gray border to the new brown default
-  if (XPPlannerDB.borderVersion or 1) < 2 then
-    XPPlannerDB.borderColor = { 0.40, 0.33, 0.22 }
-    XPPlannerDB.borderVersion = 2
+  if (HereaboutsDB.borderVersion or 1) < 2 then
+    HereaboutsDB.borderColor = { 0.40, 0.33, 0.22 }
+    HereaboutsDB.borderVersion = 2
   end
-  XPPlannerDB.ignoredQuests = XPPlannerDB.ignoredQuests or {}
-  ns.db = XPPlannerDB
+  HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
+  ns.db = HereaboutsDB
 end
 
 -- Quest difficulty color for a level, the same colors the quest log uses.

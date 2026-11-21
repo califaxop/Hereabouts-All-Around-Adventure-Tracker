@@ -1,0 +1,3 @@
+-- XP Planner was renamed to Hereabouts (folder "Hereabouts"). This tiny addon only exists so the
+-- game still loads the settings saved under the old XPPlanner name; Hereabouts copies them over
+-- on its first run. Nothing else happens here. Safe to delete once Hereabouts has your settings.

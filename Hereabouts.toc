@@ -1,12 +1,12 @@
 ## Interface: 16001
 ## Title: Hereabouts
 ## Notes: A quest tracker filtered to where you are: active quests, turn-ins, nearby quests, training and dungeons.
-## IconTexture: Interface\AddOns\XPPlanner\media\Logo
+## IconTexture: Interface\AddOns\Hereabouts\media\Logo
 ## Author: You
-## Version: 1.0.0
+## Version: 1.1.0
 ## X-Curse-Project-ID: 1811757
-## SavedVariables: XPPlannerDB
-## OptionalDeps: Questie, QuestieDB, FlareUI, WhatsTraining
+## SavedVariables: HereaboutsDB
+## OptionalDeps: XPPlanner, Questie, QuestieDB, FlareUI, WhatsTraining
 
 Core.lua
 Dungeons.lua
