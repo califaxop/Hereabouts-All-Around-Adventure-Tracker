@@ -877,15 +877,32 @@ end
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
-local pending = false
-function ns.Refresh()
+-- Updates are gathered for 0.2 s, then done once, as lightly as they allow:
+--   "redraw": only how the list is shown changed (e.g. combat hides sections): draw the last list again
+--   "log":    the quest log may have changed: rebuild only if what we show from it really did
+--   (none):   anything else: rebuild
+local LEVEL = { redraw = 1, log = 2, full = 3 }
+local pending, need, lastStamp, lastList = false, 0, nil, nil
+local function Run()
+  pending = false
+  local level = need; need = 0
+  if level == LEVEL.redraw and lastList then
+    local ok, e = pcall(ns.Render, lastList)
+    if not ok then ns.Print("error: " .. tostring(e)) end
+    return
+  end
+  local ok, stamp, quests = pcall(ns.QuestLogStamp)
+  if not ok then stamp, quests = nil, nil end
+  if level == LEVEL.log and stamp and stamp == lastStamp and lastList then return end -- nothing we show changed
+  local ok2, s = pcall(ns.BuildSuggestions, quests)
+  if ok2 then lastStamp, lastList = stamp, s; ns.Render(s) else ns.Print("error: " .. tostring(s)) end
+end
+function ns.Refresh(kind)
+  local level = LEVEL[kind or "full"] or LEVEL.full
+  if level > need then need = level end
   if pending then return end
   pending = true
-  C_Timer.After(0.2, function()
-    pending = false
-    local ok, s = pcall(ns.BuildSuggestions)
-    if ok then ns.Render(s) else ns.Print("error: " .. tostring(s)) end
-  end)
+  C_Timer.After(0.2, Run)
 end
 
 local ev = CreateFrame("Frame")
@@ -928,6 +945,10 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     if event == "QUEST_TURNED_IN" then ns.Session.OnQuest(select(2, ...)) end
     -- New quests may have unlocked (follow-ups, level requirements).
     C_Timer.After(1, ns.Questie.Scan)
+  elseif event == "QUEST_LOG_UPDATE" then
+    ns.Refresh("log"); return     -- fires often, often for nothing we show
+  elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+    ns.Refresh("redraw"); return  -- combat only changes which sections show
   end
   ns.Refresh()
 end)

@@ -125,13 +125,27 @@ end
 ns.QuestInZone = function(q) RefreshZone(); return InZone(q) end
 ns.LogQuests = function() return LogQuests() end
 
-function ns.BuildSuggestions()
+-- The quest log as the tracker sees it, and a fingerprint of everything it shows from it
+-- (quests, completion, tracking, focus, objective progress, items, zone headers). When a
+-- "quest log changed" event leaves this the same, there's nothing to rebuild.
+function ns.QuestLogStamp()
+  local quests = LogQuests()
+  local parts = {}
+  for _, q in ipairs(quests) do
+    parts[#parts + 1] = table.concat({ q.questID, q.complete and 1 or 0, q.tracked and 1 or 0, q.focused and 1 or 0,
+      q.item and q.item.itemID or 0, tostring(q.zone), q.xp, q.level or 0 }, ",")
+    for _, o in ipairs(q.objectives) do parts[#parts + 1] = (o.done and "+" or "-") .. o.text end
+  end
+  return table.concat(parts, "|"), quests
+end
+
+function ns.BuildSuggestions(logQuests)
   local db = ns.db
   local me = UnitLevel("player")
   local result = { quests = {}, turnin = {}, nearby = {}, pickup = {}, dungeons = {}, training = {} }
 
   -- Log quests: ready-to-turn-in first, then most XP. Gray quests are dropped.
-  local quests = LogQuests()
+  local quests = logQuests or LogQuests()
   if db.activeZoneOnly then RefreshZone() end
   if db.turninZoneOnly and db.showTurnIn and not db.activeZoneOnly then RefreshZone() end
   local keep, turnin = {}, {}
