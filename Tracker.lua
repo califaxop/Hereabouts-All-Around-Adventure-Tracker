@@ -911,7 +911,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     ns.ApplyBackdrop() -- FlareUI's media is registered by now
     ns.Print("loaded. Type |cffffff00/hab|r to set up Hereabouts.")
     if ns.carriedOver then
-      ns.Print("brought over your XP Planner settings. You can delete the old XPPlanner folder from your AddOns now.")
+      ns.Print("brought over your XP Planner settings.")
     end
     if ns.Questie.Init() then ns.Print("using Questie's quest database.") end
     if ns.Training.Init() then ns.Print("using What's Training for spells to train.") end

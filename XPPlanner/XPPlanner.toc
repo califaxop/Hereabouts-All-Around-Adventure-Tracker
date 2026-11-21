@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Hereabouts (carry-over)
-## Notes: Brings your old XP Planner settings over to Hereabouts. Safe to delete after you've logged in once with Hereabouts.
+## Notes: Brings your old XP Planner settings over to Hereabouts. Nothing to do: a later update removes it on its own.
 ## Author: You
 ## Version: 1.0
 ## SavedVariables: XPPlannerDB
