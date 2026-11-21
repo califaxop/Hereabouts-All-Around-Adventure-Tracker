@@ -47,6 +47,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.1.2:** The "Report a bug / suggest" link box is solid now and stays put over the settings window until you close it.
 - **1.1.1:** The old XPPlanner carry-over folder is gone (the CurseForge app removes it for you). If you never logged in with 1.1.0, your settings start fresh.
 - **1.1.0:** The addon folder is now **Hereabouts**. Your settings come over automatically on first login (a small "XPPlanner" carry-over addon shipped alongside for that). Quest item keybinds stay as they were.
 - **1.0.0:** First full release as Hereabouts: says hello on login ("Type /hab to set up Hereabouts") and the feedback button links to the new repo.

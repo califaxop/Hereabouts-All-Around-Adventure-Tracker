@@ -207,11 +207,21 @@ local function Window(name, width, height)
 end
 
 -- A small window with a link, selected and ready to copy (addons can't open a browser).
-local linkWin
+local linkWin, linkHost -- linkHost: the settings window, once built
 local function ShowLink(title, url)
   if not linkWin then
     linkWin = Window("XPPlannerLinkWindow", 400, 118)
-    linkWin:SetPoint("CENTER", 0, 120)
+    -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
+    linkWin:SetFrameStrata("FULLSCREEN_DIALOG")
+    linkWin:SetMovable(false); linkWin:SetScript("OnDragStart", nil); linkWin:SetScript("OnDragStop", nil)
+    local solid = linkWin:CreateTexture(nil, "BACKGROUND", nil, -8)
+    solid:SetColorTexture(0.04, 0.035, 0.03, 1)
+    solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
+    linkWin.shade = CreateFrame("Frame", nil, linkWin)
+    linkWin.shade:EnableMouse(true)
+    local dim = linkWin.shade:CreateTexture(nil, "BACKGROUND")
+    dim:SetAllPoints(); dim:SetColorTexture(0, 0, 0, 0.55)
+    linkWin:Hide()
     linkWin.title = Text(linkWin, "title", "")
     linkWin.title:SetPoint("TOPLEFT", 20, -18)
     Note(linkWin, "Press Ctrl+C to copy, then paste it into your browser.", 20, -44, 360)
@@ -234,6 +244,17 @@ local function ShowLink(title, url)
   linkWin.url = url
   linkWin.title:SetText(title)
   linkWin.edit:SetText(url)
+  linkWin:ClearAllPoints()
+  if linkHost and linkHost:IsShown() then
+    linkWin:SetScale(linkHost:GetScale())
+    linkWin:SetPoint("CENTER", linkHost, "CENTER", 0, 40)
+    linkWin.shade:ClearAllPoints(); linkWin.shade:SetAllPoints(linkHost); linkWin.shade:Show()
+  else
+    linkWin:SetScale(1)
+    linkWin:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+    linkWin.shade:Hide()
+  end
+  linkWin.shade:SetFrameLevel(math.max(0, linkWin:GetFrameLevel() - 1))
   linkWin:Show()
   linkWin.edit:SetFocus()
   linkWin.edit:HighlightText()
@@ -455,6 +476,8 @@ local TABS = {
 local function BuildWindow()
   window = Window("XPPlannerOptionsWindow", 520, 500)
   window:SetPoint("CENTER")
+  linkHost = window
+  window:HookScript("OnHide", function() if linkWin then linkWin:Hide() end end)
   local title = Text(window, "title", "Hereabouts")
   title:SetPoint("TOPLEFT", 26, -20)
   local sub = Text(window, "note", "Your quests, filtered to where you are.")
