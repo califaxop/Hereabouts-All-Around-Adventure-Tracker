@@ -69,18 +69,6 @@ function ns.UnignoreQuest(id)
 end
 
 function ns.LoadDB()
-  -- first run after the rename: bring over the settings saved under the old XPPlanner folder
-  -- (the small "XPPlanner" carry-over addon that ships alongside loads them for us)
-  if HereaboutsDB == nil and type(XPPlannerDB) == "table" then
-    local function copy(v)
-      if type(v) ~= "table" then return v end
-      local t = {}
-      for k, x in pairs(v) do t[k] = copy(x) end
-      return t
-    end
-    HereaboutsDB = copy(XPPlannerDB)
-    ns.carriedOver = true
-  end
   HereaboutsDB = HereaboutsDB or {}
   for k, v in pairs(ns.DEFAULTS) do
     if HereaboutsDB[k] == nil then HereaboutsDB[k] = v end

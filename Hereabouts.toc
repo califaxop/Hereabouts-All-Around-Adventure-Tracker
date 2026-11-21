@@ -6,7 +6,7 @@
 ## Version: 1.1.1
 ## X-Curse-Project-ID: 1811757
 ## SavedVariables: HereaboutsDB
-## OptionalDeps: XPPlanner, Questie, QuestieDB, FlareUI, WhatsTraining
+## OptionalDeps: Questie, QuestieDB, FlareUI, WhatsTraining
 
 Core.lua
 Dungeons.lua
