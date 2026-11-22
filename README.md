@@ -50,6 +50,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.3.0:** In combat, Active Quests lists just your target's quests when it's something a quest of yours needs (to kill it, or for what it drops), under its name; fighting anything else, the list stays as you set it. Back to normal when combat ends (Lists, "In combat: just my target's quests", on by default).
 - **1.2.1:** Session stats survive a `/reload`: they only start over when you log in again (or reset them yourself).
 - **1.2.0:** Cleaner section headings: the title with one bronze line under it, the game's own +/- to collapse, and Zone / All as a proper button. Prefer the earlier look? Tick "Classic section headings" in /hab, Tracker.
 - **1.1.4:** Native look: the tracker, session bars and settings use the game's own tooltip border in bronze (without FlareUI style), and the session numbers are in the quest names' gold so they stand out from their labels.

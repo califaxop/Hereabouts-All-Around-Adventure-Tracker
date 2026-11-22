@@ -139,6 +139,33 @@ function ns.QuestLogStamp()
   return table.concat(parts, "|"), quests
 end
 
+-- In combat: the quests your target is part of. Its tooltip lists them, readable in combat on
+-- Forever: a quest title line, then your progress ("Hostile Takeover", "1/8 Tumbled Crystal").
+-- In a group, lines after another member's name are theirs, not yours.
+-- Returns { [title] = true } and the target's name, or nil (not in combat, no target, no quests).
+function ns.CombatQuests()
+  if not (ns.db.combatFocus and UnitAffectingCombat and UnitAffectingCombat("player")) then return nil end
+  if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+  local ok, d = pcall(C_TooltipInfo.GetUnit, "target")
+  if not (ok and type(d) == "table" and type(d.lines) == "table") then return nil end
+  local T = Enum and Enum.TooltipDataLineType or {}
+  local TITLE, PLAYER = T.QuestTitle or 17, T.QuestPlayer or 18
+  local me = UnitName and UnitName("player")
+  local mine, titles, name, any = true, {}, nil, false
+  for i, l in ipairs(d.lines) do
+    local text, kind = l.leftText, l.type
+    if Readable(text) and Readable(kind) then
+      if i == 1 then name = text end
+      if kind == PLAYER then
+        mine = Readable(me) and (text == me or text:sub(1, #me + 1) == me .. " ") -- ("Name Surname")
+      elseif kind == TITLE and mine then
+        titles[text] = true; any = true
+      end
+    end
+  end
+  if any then return titles, name end
+end
+
 function ns.BuildSuggestions(logQuests)
   local db = ns.db
   local me = UnitLevel("player")
@@ -146,6 +173,13 @@ function ns.BuildSuggestions(logQuests)
 
   -- Log quests: ready-to-turn-in first, then most XP. Gray quests are dropped.
   local quests = logQuests or LogQuests()
+  -- in combat with a quest's creature: Active Quests lists just its quests (unfinished ones)
+  local focus, focusName = ns.CombatQuests()
+  if focus then
+    local hit = false
+    for _, q in ipairs(quests) do if focus[q.title] and not q.complete then hit = true end end
+    if hit then result.combatFocus = focusName or "your target" else focus = nil end
+  end
   if db.activeZoneOnly then RefreshZone() end
   if db.turninZoneOnly and db.showTurnIn and not db.activeZoneOnly then RefreshZone() end
   local keep, turnin = {}, {}
@@ -162,10 +196,11 @@ function ns.BuildSuggestions(logQuests)
     else
       -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
       local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
+      if focus then otherZone = not focus[q.title] end -- (combat: only the target's quests, wherever they are)
       -- (Blizzard's tracking ticks don't matter here: the Zone / All switch decides what shows)
       local wanted = q.complete or not q.trivial or db.replaceTracker or q.focused
       if wanted and not otherZone then keep[#keep + 1] = q
-      elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
+      elseif wanted and not focus then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
     end
   end
   table.sort(keep, function(a, b)

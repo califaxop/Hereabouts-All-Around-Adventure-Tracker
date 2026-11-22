@@ -751,7 +751,10 @@ function ns.Render(s)
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
   local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
-  if not SectionHidden("quests") and (#s.quests > 0 or qElse > 0) and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
+  -- in combat with a quest's creature: just its quests, under its name (even if the section is hidden in combat)
+  local qTitle = s.combatFocus and ("Active Quests: " .. s.combatFocus) or "Active Quests"
+  if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
+    and Section(qTitle, #s.quests, "quests", (not s.combatFocus) and "activeZoneOnly" or nil) then
     for _, q in ipairs(s.quests) do
       local sub = {}
       if q.complete then
@@ -961,7 +964,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
       "PLAYER_LEVEL_UP", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "QUESTLINE_UPDATE", "PLAYER_LOGIN",
       "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED",
-      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
+      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_TARGET_CHANGED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
       pcall(ev.RegisterEvent, ev, e)
     end
     return
@@ -1000,7 +1003,11 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
   elseif event == "QUEST_LOG_UPDATE" then
     ns.Refresh("log"); return     -- fires often, often for nothing we show
   elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-    ns.Refresh("redraw"); return  -- combat only changes which sections show
+    -- combat changes which sections show, and (with combat focus) which quests
+    ns.Refresh(ns.db.combatFocus and "full" or "redraw"); return
+  elseif event == "PLAYER_TARGET_CHANGED" then
+    if ns.db.combatFocus and UnitAffectingCombat("player") then ns.Refresh("full") end
+    return
   end
   ns.Refresh()
 end)

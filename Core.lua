@@ -34,6 +34,7 @@ ns.DEFAULTS = {
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
   activeZoneOnly = false, -- Active Quests: only quests in the zone you're in (focused quest always shown)
+  combatFocus = true,     -- in combat with a quest's creature (your target): Active Quests lists just its quests
   showPickup  = true,   -- "Quests to Pick Up" section (Questie)
   showObjectives = true,-- objective lines under active quests
   hideDoneObjectives = true, -- ...only the ones still to do
