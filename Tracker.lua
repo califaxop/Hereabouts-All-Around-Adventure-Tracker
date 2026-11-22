@@ -954,6 +954,19 @@ function ns.Refresh(kind)
   C_Timer.After(0.2, Run)
 end
 
+-- Combat focus: what you're fighting changes often (threat events fire a lot), so check at most
+-- twice a second, and rebuild the list only when the quests to show change.
+local focusKey, focusPending = "", false
+function ns.CheckCombatFocus()
+  if focusPending then return end
+  focusPending = true
+  C_Timer.After(0.5, function()
+    focusPending = false
+    local ok, key = pcall(ns.CombatFocusKey)
+    if ok and key ~= focusKey then focusKey = key; ns.Refresh("full") end
+  end)
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("ADDON_LOADED")
 ev:SetScript("OnEvent", function(_, event, arg1, ...)
@@ -964,7 +977,8 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
       "PLAYER_LEVEL_UP", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "QUESTLINE_UPDATE", "PLAYER_LOGIN",
       "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED",
-      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_TARGET_CHANGED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
+      "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_TARGET_CHANGED", "UNIT_THREAT_LIST_UPDATE",
+      "NAME_PLATE_UNIT_ADDED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
       pcall(ev.RegisterEvent, ev, e)
     end
     return
@@ -1004,9 +1018,15 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     ns.Refresh("log"); return     -- fires often, often for nothing we show
   elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
     -- combat changes which sections show, and (with combat focus) which quests
-    ns.Refresh(ns.db.combatFocus and "full" or "redraw"); return
-  elseif event == "PLAYER_TARGET_CHANGED" then
-    if ns.db.combatFocus and UnitAffectingCombat("player") then ns.Refresh("full") end
+    if event == "PLAYER_REGEN_ENABLED" then focusKey = "" end
+    ns.Refresh(ns.db.combatFocus and "full" or "redraw")
+    if event == "PLAYER_REGEN_DISABLED" and ns.db.combatFocus then
+      C_Timer.After(1, ns.CheckCombatFocus) -- (a mob that pulled you: its threat line shows a moment later)
+    end
+    return
+  elseif event == "PLAYER_TARGET_CHANGED" or event == "UNIT_THREAT_LIST_UPDATE" or event == "NAME_PLATE_UNIT_ADDED" then
+    -- in combat: rebuild only when what you're fighting changes the quests to show
+    if ns.db.combatFocus and UnitAffectingCombat("player") then ns.CheckCombatFocus() end
     return
   end
   ns.Refresh()

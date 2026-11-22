@@ -139,31 +139,69 @@ function ns.QuestLogStamp()
   return table.concat(parts, "|"), quests
 end
 
--- In combat: the quests your target is part of. Its tooltip lists them, readable in combat on
+-- In combat: the quests of what you're fighting. A unit's tooltip lists them, readable in combat on
 -- Forever: a quest title line, then your progress ("Hostile Takeover", "1/8 Tumbled Crystal").
 -- In a group, lines after another member's name are theirs, not yours.
--- Returns { [title] = true } and the target's name, or nil (not in combat, no target, no quests).
-function ns.CombatQuests()
-  if not (ns.db.combatFocus and UnitAffectingCombat and UnitAffectingCombat("player")) then return nil end
-  if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
-  local ok, d = pcall(C_TooltipInfo.GetUnit, "target")
-  if not (ok and type(d) == "table" and type(d.lines) == "table") then return nil end
+-- Your target first; with no quest target, every enemy nameplate whose tooltip has a threat line
+-- ("100% Threat": it's fighting you), so a mob that jumps you counts too.
+local function UnitQuests(unit, titles)
+  local ok, d = pcall(C_TooltipInfo.GetUnit, unit)
+  if not (ok and type(d) == "table" and type(d.lines) == "table") then return false end
   local T = Enum and Enum.TooltipDataLineType or {}
   local TITLE, PLAYER = T.QuestTitle or 17, T.QuestPlayer or 18
   local me = UnitName and UnitName("player")
-  local mine, titles, name, any = true, {}, nil, false
+  local mine, name, threat, found = true, nil, false, {}
   for i, l in ipairs(d.lines) do
     local text, kind = l.leftText, l.type
-    if Readable(text) and Readable(kind) then
+    if Readable(text) and Readable(kind) and type(text) == "string" then
       if i == 1 then name = text end
       if kind == PLAYER then
         mine = Readable(me) and (text == me or text:sub(1, #me + 1) == me .. " ") -- ("Name Surname")
       elseif kind == TITLE and mine then
-        titles[text] = true; any = true
+        found[#found + 1] = text
+      elseif text:find("^%s*%d+%% [Tt]hreat") then
+        threat = true
       end
     end
   end
-  if any then return titles, name end
+  return threat, name, found
+end
+
+-- { [title] = true } and who it's for (a name, or "3 enemies"), or nil
+function ns.CombatQuests()
+  if not (ns.db.combatFocus and UnitAffectingCombat and UnitAffectingCombat("player")) then return nil end
+  if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+  local titles, any = {}, false
+  local _, name, found = UnitQuests("target")
+  if found and #found > 0 then
+    for _, t in ipairs(found) do titles[t] = true end
+    return titles, name
+  end
+  -- no quest target: the enemies fighting you
+  local plates = C_NamePlate and C_NamePlate.GetNamePlates and C_NamePlate.GetNamePlates()
+  local names, n = nil, 0
+  for _, plate in ipairs(type(plates) == "table" and plates or {}) do
+    local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
+    if type(unit) == "string" then
+      local threat, nm, q = UnitQuests(unit)
+      if threat and q and #q > 0 then
+        for _, t in ipairs(q) do titles[t] = true end
+        any = true
+        if nm ~= names then n = n + 1; names = names or nm end
+      end
+    end
+  end
+  if any then return titles, (n > 1) and (n .. " enemies") or names end
+end
+
+-- what the focus is now, as a string (to tell when it changes)
+function ns.CombatFocusKey()
+  local titles, name = ns.CombatQuests()
+  if not titles then return "" end
+  local t = {}
+  for k in pairs(titles) do t[#t + 1] = k end
+  table.sort(t)
+  return (name or "") .. "|" .. table.concat(t, "|")
 end
 
 function ns.BuildSuggestions(logQuests)
