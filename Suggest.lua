@@ -139,6 +139,11 @@ function ns.QuestLogStamp()
   return table.concat(parts, "|"), quests
 end
 
+-- an objective's words without its count: "1/8 Tumbled Crystal" and "Tumbled Crystal: 1/8" match
+function ns.ObjectiveKey(text)
+  return ((text or ""):lower():gsub("[%d%%/:%-%.,%(%)]", " "):gsub("slain", " "):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
+end
+
 -- In combat: the quests of what you're fighting. A unit's tooltip lists them, readable in combat on
 -- Forever: a quest title line, then your progress ("Hostile Takeover", "1/8 Tumbled Crystal").
 -- In a group, lines after another member's name are theirs, not yours.
@@ -148,9 +153,9 @@ local function UnitQuests(unit, titles)
   local ok, d = pcall(C_TooltipInfo.GetUnit, unit)
   if not (ok and type(d) == "table" and type(d.lines) == "table") then return false end
   local T = Enum and Enum.TooltipDataLineType or {}
-  local TITLE, PLAYER = T.QuestTitle or 17, T.QuestPlayer or 18
+  local TITLE, PLAYER, OBJ = T.QuestTitle or 17, T.QuestPlayer or 18, T.QuestObjective or 8
   local me = UnitName and UnitName("player")
-  local mine, name, threat, found = true, nil, false, {}
+  local mine, name, threat, found, current = true, nil, false, {}, nil
   for i, l in ipairs(d.lines) do
     local text, kind = l.leftText, l.type
     if Readable(text) and Readable(kind) and type(text) == "string" then
@@ -158,7 +163,10 @@ local function UnitQuests(unit, titles)
       if kind == PLAYER then
         mine = Readable(me) and (text == me or text:sub(1, #me + 1) == me .. " ") -- ("Name Surname")
       elseif kind == TITLE and mine then
-        found[#found + 1] = text
+        current = { title = text, objectives = {} }
+        found[#found + 1] = current
+      elseif kind == OBJ and mine and current then
+        current.objectives[ns.ObjectiveKey(text)] = true -- ("1/8 Tumbled Crystal")
       elseif text:find("^%s*%d+%% [Tt]hreat") then
         threat = true
       end
@@ -167,14 +175,20 @@ local function UnitQuests(unit, titles)
   return threat, name, found
 end
 
--- { [title] = true } and who it's for (a name, or "3 enemies"), or nil
+-- { [title] = { [objective key] = true } } and who it's for (a name, or "3 enemies"), or nil
 function ns.CombatQuests()
   if not (ns.db.combatFocus and UnitAffectingCombat and UnitAffectingCombat("player")) then return nil end
   if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
   local titles, any = {}, false
   local _, name, found = UnitQuests("target")
+  local function merge(list)
+    for _, q in ipairs(list) do
+      titles[q.title] = titles[q.title] or {}
+      for k in pairs(q.objectives) do titles[q.title][k] = true end
+    end
+  end
   if found and #found > 0 then
-    for _, t in ipairs(found) do titles[t] = true end
+    merge(found)
     return titles, name
   end
   -- no quest target: the enemies fighting you
@@ -185,7 +199,7 @@ function ns.CombatQuests()
     if type(unit) == "string" then
       local threat, nm, q = UnitQuests(unit)
       if threat and q and #q > 0 then
-        for _, t in ipairs(q) do titles[t] = true end
+        merge(q)
         any = true
         if nm ~= names then n = n + 1; names = names or nm end
       end
@@ -211,12 +225,13 @@ function ns.BuildSuggestions(logQuests)
 
   -- Log quests: ready-to-turn-in first, then most XP. Gray quests are dropped.
   local quests = logQuests or LogQuests()
-  -- in combat with a quest's creature: Active Quests lists just its quests (unfinished ones)
+  -- in combat with a quest's creature: its quests are marked (and listed first, wherever they are)
   local focus, focusName = ns.CombatQuests()
-  if focus then
-    local hit = false
-    for _, q in ipairs(quests) do if focus[q.title] and not q.complete then hit = true end end
-    if hit then result.combatFocus = focusName or "your target" else focus = nil end
+  for _, q in ipairs(quests) do
+    local objs = focus and not q.complete and focus[q.title]
+    q.combat = objs and true or nil
+    q.combatObjectives = objs or nil
+    if objs then result.combatFocus = focusName or "your target" end
   end
   if db.activeZoneOnly then RefreshZone() end
   if db.turninZoneOnly and db.showTurnIn and not db.activeZoneOnly then RefreshZone() end
@@ -234,14 +249,15 @@ function ns.BuildSuggestions(logQuests)
     else
       -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
       local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
-      if focus then otherZone = not focus[q.title] end -- (combat: only the target's quests, wherever they are)
+      if q.combat then otherZone = false end -- (what you're fighting: shown wherever it is)
       -- (Blizzard's tracking ticks don't matter here: the Zone / All switch decides what shows)
       local wanted = q.complete or not q.trivial or db.replaceTracker or q.focused
       if wanted and not otherZone then keep[#keep + 1] = q
-      elseif wanted and not focus then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
+      elseif wanted then result.questsElsewhere = (result.questsElsewhere or 0) + 1 end
     end
   end
   table.sort(keep, function(a, b)
+    if (a.combat or false) ~= (b.combat or false) then return a.combat or false end -- what you're fighting first
     if a.focused ~= b.focused then return a.focused end   -- focused quest pinned on top
     if db.sortByLevel then                                 -- highest level first
       if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end

@@ -18,6 +18,7 @@ local LINE_FONT   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFo
 -- so switching style recolours everything on the next draw.
 local TITLE_COLOR, TITLE_HOVER_COLOR, LINE_COLOR, DONE_COLOR = {}, {}, {}, {}
 local FOCUS_COLOR, DIM_TITLE, DIM_LINE, HEADER_COLOR = {}, {}, {}, {}
+local COMBAT_COLOR = { 1, 0.38, 0.3 } -- the quest (and objective) of what you're fighting
 -- low-level (grey) quests: the game's own colour for them
 local GRAY_TITLE = (QuestDifficultyColors and QuestDifficultyColors.trivial
   and { QuestDifficultyColors.trivial.r, QuestDifficultyColors.trivial.g, QuestDifficultyColors.trivial.b }) or { 0.5, 0.5, 0.5 }
@@ -426,9 +427,10 @@ local function GetLine()
   return l
 end
 
--- Focus mark: a gold bar down the left of the focused quest, with a soft gold glow behind it.
+-- Focus mark: a gold bar down the left of the focused quest, with a soft gold glow behind it
+-- (red for the quest of what you're fighting, in combat).
 local marks, usedMarks = {}, 0
-local function GetMark()
+local function GetMark(color)
   usedMarks = usedMarks + 1
   local m = marks[usedMarks]
   if not m then
@@ -442,9 +444,9 @@ local function GetMark()
     m.bar:SetWidth(2)
     marks[usedMarks] = m
   end
-  m.bar:SetVertexColor(FOCUS_COLOR[1], FOCUS_COLOR[2], FOCUS_COLOR[3], 0.9)
-  m.bg:SetGradient("HORIZONTAL", CreateColor(FOCUS_COLOR[1], FOCUS_COLOR[2], FOCUS_COLOR[3], 0.18),
-    CreateColor(FOCUS_COLOR[1], FOCUS_COLOR[2], FOCUS_COLOR[3], 0))
+  local c = color or FOCUS_COLOR
+  m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
+  m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
   m.bg:Show(); m.bar:Show()
   return m
 end
@@ -688,8 +690,8 @@ local function AddEntry(title, level, sub, onClick, style)
     l:SetHeight(l:GetStringHeight())
     Place(l, 20 + (s.indent or 0) * 10, 1)
   end
-  if style and style.focused then
-    local m = GetMark()
+  if style and (style.focused or style.combat) then
+    local m = GetMark(style.combat and COMBAT_COLOR or nil) -- (what you're fighting: red, over the focus gold)
     local top, h = startY + VIEW_T - 2, (y - startY) + 4
     m.bar:ClearAllPoints(); m.bar:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top); m.bar:SetHeight(h)
     m.bg:ClearAllPoints(); m.bg:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top)
@@ -751,11 +753,13 @@ function ns.Render(s)
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
   local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
-  -- in combat with a quest's creature: just its quests, under its name (even if the section is hidden in combat)
-  local qTitle = s.combatFocus and ("Active Quests: " .. s.combatFocus) or "Active Quests"
+  -- in combat with a quest's creature: its quests are marked red (and still show when the section
+  -- is hidden in combat: then only they do)
+  local onlyCombat = s.combatFocus and SectionHidden("quests")
   if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
-    and Section(qTitle, #s.quests, "quests", (not s.combatFocus) and "activeZoneOnly" or nil) then
+    and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
     for _, q in ipairs(s.quests) do
+     if q.combat or not onlyCombat then
       local sub = {}
       if q.complete then
         sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 } }
@@ -763,14 +767,21 @@ function ns.Render(s)
         if ns.db.showObjectives then
           for _, o in ipairs(q.objectives) do
             if #sub >= 3 then break end
-            if not (ns.db.hideDoneObjectives and o.done) then sub[#sub + 1] = o end
+            if not (ns.db.hideDoneObjectives and o.done) then
+              -- the objective what you're fighting counts for: lit up
+              if q.combatObjectives and q.combatObjectives[ns.ObjectiveKey(o.text)] and not o.done then
+                o = { text = o.text, color = COMBAT_COLOR }
+              end
+              sub[#sub + 1] = o
+            end
           end
         end
       end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
       AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = q.complete, gray = IsLowLevel(q) })
+        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat })
+     end
     end
   end
 
