@@ -25,6 +25,34 @@ function S.Reset()
   if S.Paint then S.Paint() end
 end
 
+-- A /reload keeps the session going: it's saved just before (PLAYER_LOGOUT fires on a reload too)
+-- and restored after, when the game says the load is a UI reload. A real login starts afresh.
+-- Saved per character (HereaboutsCharDB), so alts keep their own.
+function S.Save()
+  if not start then return end
+  HereaboutsCharDB = HereaboutsCharDB or {}
+  HereaboutsCharDB.session = {
+    elapsed = Now() - start, savedAt = time and time() or 0,
+    gained = gained, quests = quests, questXP = questXP, earned = earned,
+    lastXP = lastXP, lastMax = lastMax, lastLevel = lastLevel, lastMoney = lastMoney,
+  }
+end
+
+-- after a /reload: carry on from the saved session (true), or false if there's none to carry on
+function S.Restore()
+  local s = HereaboutsCharDB and HereaboutsCharDB.session
+  if type(s) ~= "table" or type(s.elapsed) ~= "number" then return false end
+  local now = time and time() or 0
+  local gap = math.max(0, now - (s.savedAt or now)) -- the loading screen's few seconds count too
+  if gap > 15 * 60 then return false end -- not a reload: something left it behind long ago
+  start = Now() - s.elapsed - gap
+  gained, quests, questXP, earned = s.gained or 0, s.quests or 0, s.questXP or 0, s.earned or 0
+  lastXP, lastMax, lastLevel, lastMoney = s.lastXP, s.lastMax, s.lastLevel, s.lastMoney
+  S.OnXP(); S.OnMoney() -- anything gained while the UI reloaded
+  if S.Paint then S.Paint() end
+  return true
+end
+
 -- money changed: only what came in counts (loot, quest rewards, sales), not what you spent
 function S.OnMoney()
   if not start then S.Reset(); return end

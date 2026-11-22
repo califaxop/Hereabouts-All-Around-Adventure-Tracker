@@ -50,6 +50,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.2.1:** Session stats survive a `/reload`: they only start over when you log in again (or reset them yourself).
 - **1.2.0:** Cleaner section headings: the title with one bronze line under it, the game's own +/- to collapse, and Zone / All as a proper button. Prefer the earlier look? Tick "Classic section headings" in /hab, Tracker.
 - **1.1.4:** Native look: the tracker, session bars and settings use the game's own tooltip border in bronze (without FlareUI style), and the session numbers are in the quest names' gold so they stand out from their labels.
 - **1.1.3:** Lighter: the tracker skips rebuilding when a quest log update changes nothing it shows, and entering or leaving combat only redraws it.

@@ -958,7 +958,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     if arg1 ~= ns.name then return end
     ns.LoadDB(); ns.PlaceFrame(); ns.CreateOptions()
     ns.Questie.onUpdate = ns.Refresh
-    for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
+    for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
       "PLAYER_LEVEL_UP", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "QUESTLINE_UPDATE", "PLAYER_LOGIN",
       "SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED", "QUEST_REMOVED",
       "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_MONEY" }) do
@@ -966,9 +966,15 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     end
     return
   end
+  if event == "PLAYER_LOGOUT" then
+    ns.Session.Save(); return -- (also fires on /reload: the session carries over)
+  end
   if event == "PLAYER_ENTERING_WORLD" then
     -- re-apply our top-left anchor after the game has finished placing frames
     ns.PlaceFrame()
+    -- (isInitialLogin, isReloadingUi): after a /reload, carry the session on
+    local isReload = select(1, ...)
+    if isReload and not arg1 then ns.Session.Restore() end
   end
   if event == "PLAYER_LOGIN" then
     ns.ApplyBackdrop() -- FlareUI's media is registered by now

@@ -3,9 +3,10 @@
 ## Notes: A quest tracker filtered to where you are: active quests, turn-ins, nearby quests, training and dungeons.
 ## IconTexture: Interface\AddOns\Hereabouts\media\Logo
 ## Author: You
-## Version: 1.2.0
+## Version: 1.2.1
 ## X-Curse-Project-ID: 1811757
 ## SavedVariables: HereaboutsDB
+## SavedVariablesPerCharacter: HereaboutsCharDB
 ## OptionalDeps: Questie, QuestieDB, FlareUI, WhatsTraining
 
 Core.lua
