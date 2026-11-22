@@ -18,7 +18,7 @@ local LINE_FONT   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFo
 -- so switching style recolours everything on the next draw.
 local TITLE_COLOR, TITLE_HOVER_COLOR, LINE_COLOR, DONE_COLOR = {}, {}, {}, {}
 local FOCUS_COLOR, DIM_TITLE, DIM_LINE, HEADER_COLOR = {}, {}, {}, {}
-local COMBAT_COLOR = { 1, 0.38, 0.3 } -- the quest (and objective) of what you're fighting
+local COMBAT_COLOR = { 0.45, 0.85, 1 } -- the quest (and objective) of what you're fighting
 -- low-level (grey) quests: the game's own colour for them
 local GRAY_TITLE = (QuestDifficultyColors and QuestDifficultyColors.trivial
   and { QuestDifficultyColors.trivial.r, QuestDifficultyColors.trivial.g, QuestDifficultyColors.trivial.b }) or { 0.5, 0.5, 0.5 }
@@ -428,7 +428,7 @@ local function GetLine()
 end
 
 -- Focus mark: a gold bar down the left of the focused quest, with a soft gold glow behind it
--- (red for the quest of what you're fighting, in combat).
+-- (light blue for the quest of what you're fighting, in combat).
 local marks, usedMarks = {}, 0
 local function GetMark(color)
   usedMarks = usedMarks + 1
@@ -691,7 +691,7 @@ local function AddEntry(title, level, sub, onClick, style)
     Place(l, 20 + (s.indent or 0) * 10, 1)
   end
   if style and (style.focused or style.combat) then
-    local m = GetMark(style.combat and COMBAT_COLOR or nil) -- (what you're fighting: red, over the focus gold)
+    local m = GetMark(style.combat and COMBAT_COLOR or nil) -- (what you're fighting: light blue, over the focus gold)
     local top, h = startY + VIEW_T - 2, (y - startY) + 4
     m.bar:ClearAllPoints(); m.bar:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top); m.bar:SetHeight(h)
     m.bg:ClearAllPoints(); m.bg:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top)
@@ -753,7 +753,7 @@ function ns.Render(s)
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
   local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
-  -- in combat with a quest's creature: its quests are marked red (and still show when the section
+  -- in combat with a quest's creature: its quests are marked light blue (and still show when the section
   -- is hidden in combat: then only they do)
   local onlyCombat = s.combatFocus and SectionHidden("quests")
   if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
