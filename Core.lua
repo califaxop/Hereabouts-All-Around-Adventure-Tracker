@@ -35,6 +35,7 @@ ns.DEFAULTS = {
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
   activeZoneOnly = false, -- Active Quests: only quests in the zone you're in (focused quest always shown)
+  animations = true,     -- soft animations: a progressed objective flashes, the combat mark fades in and out
   combatFocus = true,     -- in combat with a quest's creature: its quests highlighted light blue (in place)
   showPickup  = true,   -- "Quests to Pick Up" section (Questie)
   showObjectives = true,-- objective lines under active quests

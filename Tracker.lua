@@ -492,6 +492,7 @@ local function GetTitle()
   return b
 end
 
+local lineGlow = {} -- line -> its flash glow (see Soft animations)
 local function GetLine()
   used.l = used.l + 1
   local l = lines[used.l]
@@ -502,6 +503,7 @@ local function GetLine()
     lines[used.l] = l
   end
   l:SetWidth(WIDTH - 20) -- (every time: a quest line can be narrower, see AddEntry)
+  if lineGlow[l] then lineGlow[l]:Hide() end
   l:Show()
   return l
 end
@@ -526,6 +528,7 @@ local function GetMark(color)
   local c = color or FOCUS_COLOR
   m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
   m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
+  m.bg:SetAlpha(1); m.bar:SetAlpha(1)
   m.bg:Show(); m.bar:Show()
   return m
 end
@@ -735,8 +738,122 @@ end
 
 
 -- style: nil, or { focused = true } / { dim = true }
+---------------------------------------------------------------------------
+-- Soft animations: an objective that progressed flashes (its count lights up, a soft gold glow behind
+-- it), and a quest that becomes your combat quest fades its light blue mark in (and out after).
+-- Keyed by quest, not by line: lines are pooled and re-dealt on every render, so each render tells
+-- the running animations which line or mark is theirs now.
+---------------------------------------------------------------------------
+local FLASH_TIME, FADE_TIME = 0.9, 0.35
+local FLASH_COLOR = { 1, 0.95, 0.55 }
+local anims = {}      -- key -> start time (flash: "f:quest:objective", fade in: "c:quest", fade out: "u:quest")
+local targets = {}    -- key -> what this render drew for it
+local prevObj, prevCombat = {}, {}
+local animDriver = CreateFrame("Frame")
+animDriver:Hide()
+
+local function Mix(a, b, t) return a + (b - a) * t end
+local function Hex(c) return format("%02x%02x%02x", math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5)) end
+
+local function Paint(key, p)
+  local tg = targets[key]
+  if not tg then return end
+  if tg.line then -- objective flash: up quickly, then eases back
+    local k = p < 0.15 and p / 0.15 or (1 - (p - 0.15) / 0.85) ^ 2
+    if p >= 1 then k = 0 end
+    local b, c = tg.base, {}
+    for i = 1, 3 do c[i] = Mix(b[i], FLASH_COLOR[i], k) end
+    if tg.num then -- just the count lights up
+      tg.line:SetText(k > 0 and ("- " .. tg.pre .. "|cff" .. Hex(c) .. tg.num .. "|r" .. tg.post) or ("- " .. tg.text))
+    else
+      tg.line:SetTextColor(c[1], c[2], c[3])
+    end
+    local g = lineGlow[tg.line]
+    if k > 0 then g:SetAlpha(0.35 * k); g:Show() else g:Hide() end
+  elseif tg.mark then -- combat mark: fades in (or out)
+    local e = 1 - (1 - math.min(p, 1)) ^ 2
+    local m = tg.mark
+    if tg.out then e = 1 - e end
+    if tg.from then -- (the focused quest: gold to light blue and back, rather than a fade)
+      local c = {}
+      for i = 1, 3 do c[i] = Mix(tg.from[i], COMBAT_COLOR[i], e) end
+      m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
+      m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
+    else
+      m.bar:SetAlpha(e); m.bg:SetAlpha(e)
+      if tg.out and p >= 1 then m.bar:Hide(); m.bg:Hide() end
+    end
+    for _, l in ipairs(tg.lines or {}) do -- the lit objective eases into its light blue
+      local c = {}
+      for i = 1, 3 do c[i] = Mix(LINE_COLOR[i], COMBAT_COLOR[i], e) end
+      l:SetTextColor(c[1], c[2], c[3])
+    end
+  end
+end
+
+animDriver:SetScript("OnUpdate", function(self)
+  local now, any = GetTime(), false
+  for key, start in pairs(anims) do
+    local p = (now - start) / (key:sub(1, 1) == "f" and FLASH_TIME or FADE_TIME)
+    Paint(key, math.min(p, 1))
+    if p >= 1 then anims[key] = nil; targets[key] = nil else any = true end
+  end
+  if not any then self:Hide() end
+end)
+
+local function Animate(key)
+  if not ns.db.animations then return end
+  anims[key] = GetTime()
+  animDriver:Show()
+end
+
+-- Before a render: what changed since the last one starts its animation.
+local function DiffQuests(quests)
+  wipe(targets)
+  local combat = {}
+  for _, q in ipairs(quests or {}) do
+    local id = q.questID
+    for i, o in ipairs(q.objectives or {}) do
+      local k = id .. ":" .. i
+      if prevObj[k] and o.text and prevObj[k] ~= o.text then Animate("f:" .. k) end
+      prevObj[k] = o.text
+    end
+    local done = q.complete and true or false
+    if prevObj[id .. ":c"] == false and done then Animate("f:" .. id .. ":c") end
+    prevObj[id .. ":c"] = done
+    if q.combat then
+      combat[id] = true
+      if not prevCombat[id] then anims["u:" .. id] = nil; Animate("c:" .. id) end
+    end
+  end
+  for id in pairs(prevCombat) do
+    if not combat[id] then anims["c:" .. id] = nil; Animate("u:" .. id) end
+  end
+  prevCombat = combat
+end
+
+-- During a render: this line is the objective `key`; if it's flashing, take the line over.
+local function FlashLine(key, l, text, base)
+  if not anims[key] then return end
+  local g = lineGlow[l]
+  if not g then
+    g = content:CreateTexture(nil, "BACKGROUND", nil, 2)
+    g:SetTexture("Interface\\Buttons\\WHITE8X8")
+    g:SetGradient("HORIZONTAL", CreateColor(1, 0.85, 0.3, 1), CreateColor(1, 0.85, 0.3, 0))
+    lineGlow[l] = g
+  end
+  g:ClearAllPoints()
+  g:SetPoint("TOPLEFT", l, "TOPLEFT", -6, 1)
+  g:SetPoint("BOTTOMRIGHT", l, "BOTTOMRIGHT", 0, -1)
+  local pre, num, post = text:match("^(.-)(%d+%s*/%s*%d+)(.*)$")
+  if not num then pre, num, post = text:match("^(.-)(%d+%%)(.*)$") end
+  targets[key] = { line = l, text = text, base = base, pre = pre, num = num, post = post }
+  Paint(key, (GetTime() - anims[key]) / FLASH_TIME)
+end
+
 local function AddEntry(title, level, sub, onClick, style)
   local startY = y
+  local lit -- (objectives lit for combat: they ease in with the mark)
   local t = GetTitle()
   local indent = style and style.indent or 0 -- (room for a quest item button, see QuestItems.lua)
   t:SetWidth(WIDTH - 10 - indent) -- (as wide as before less the room, so long titles still end at the edge)
@@ -771,13 +888,21 @@ local function AddEntry(title, level, sub, onClick, style)
     l:SetTextColor(unpack(c))
     l:SetHeight(l:GetStringHeight())
     Place(l, 20 + indent + (s.indent or 0) * 10, 1)
+    if s.flashKey and not s.loc then FlashLine(s.flashKey, l, s.text, c) end
+    if s.lit then lit = lit or {}; lit[#lit + 1] = l end
   end
-  if style and (style.focused or style.combat) then
-    local m = GetMark(style.combat and COMBAT_COLOR or nil) -- (what you're fighting: light blue, over the focus gold)
+  local fadeKey = style and style.fadeKey
+  local out = fadeKey and fadeKey:sub(1, 1) == "u"
+  if style and (style.focused or style.combat or out) then
+    local m = GetMark((style.combat or out) and COMBAT_COLOR or nil) -- (what you're fighting: light blue, over the focus gold)
     local top, h = startY + VIEW_T - 2, (y - startY) + 4
     m.bar:ClearAllPoints(); m.bar:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top); m.bar:SetHeight(h)
     m.bg:ClearAllPoints(); m.bg:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top)
     m.bg:SetSize(WIDTH - 8, h)
+    if fadeKey then
+      targets[fadeKey] = { mark = m, out = out, from = style.focused and FOCUS_COLOR or nil, lines = not out and lit or nil }
+      Paint(fadeKey, (GetTime() - anims[fadeKey]) / FADE_TIME)
+    end
   end
   y = y + 6
   return t
@@ -845,22 +970,23 @@ function ns.Render(s)
   -- in combat with a quest's creature: its quests are marked light blue (and still show when the section
   -- is hidden in combat: then only they do)
   local onlyCombat = s.combatFocus and SectionHidden("quests")
+  DiffQuests(s.quests)
   if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
     and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
     for _, q in ipairs(s.quests) do
      if q.combat or not onlyCombat then
       local sub = {}
       if q.complete then
-        sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 } }
+        sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 }, flashKey = "f:" .. q.questID .. ":c" }
       else
         if ns.db.showObjectives then
-          for _, o in ipairs(q.objectives) do
+          for i, o in ipairs(q.objectives) do
             if #sub >= 3 then break end
             if not (ns.db.hideDoneObjectives and o.done) then
-              -- the objective what you're fighting counts for: lit up
-              if q.combatObjectives and q.combatObjectives[ns.ObjectiveKey(o.text)] and not o.done then
-                o = { text = o.text, color = COMBAT_COLOR }
-              end
+              local lit = q.combatObjectives and q.combatObjectives[ns.ObjectiveKey(o.text)] and not o.done
+              -- (a copy: the objective what you're fighting counts for is lit up, and a progressed one flashes)
+              o = { text = o.text, done = o.done, color = lit and COMBAT_COLOR or o.color,
+                flashKey = "f:" .. q.questID .. ":" .. i, lit = lit and anims["c:" .. q.questID] and true or nil }
               sub[#sub + 1] = o
             end
           end
@@ -869,7 +995,8 @@ function ns.Render(s)
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
       local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent })
+        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent,
+          fadeKey = (anims["c:" .. q.questID] and "c:" .. q.questID) or (anims["u:" .. q.questID] and "u:" .. q.questID) or nil })
       if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, row = row } end
      end
     end

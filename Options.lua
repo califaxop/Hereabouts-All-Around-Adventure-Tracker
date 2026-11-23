@@ -381,6 +381,7 @@ local function PageLists(p)
     GameTooltip:Show()
   end)
   cf:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  track(Check(p, "Soft animations (objective progress, combat mark)", 0, y - 96, Setting("animations"), 300))
 end
 
 local function PagePicking(p)
