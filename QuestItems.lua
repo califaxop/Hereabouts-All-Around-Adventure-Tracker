@@ -8,8 +8,9 @@ local _, ns = ...
 local Q = {}
 ns.QuestItems = Q
 
--- The button sits in a column of its own just left of the [level]: when any quest in the list has an
--- item, every quest row moves right by Q.INDENT (the tracker does it), so titles stay aligned.
+-- The button sits in a column of its own just left of the [level]: when any quest in Active Quests has an
+-- item, every row there moves right by Q.INDENT (the tracker does it), so titles stay aligned. Quests to
+-- Turn In get no button (nothing left to use) and keep their place.
 local MAX, SIZE, GAP = 12, 14, 3
 Q.INDENT = SIZE + GAP + 1
 local buttons = {}

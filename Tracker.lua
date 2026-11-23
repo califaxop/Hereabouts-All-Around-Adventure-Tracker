@@ -832,12 +832,11 @@ function ns.Render(s)
   shownSomething = false
 
   local items = {} -- quests with a usable item: { itemID, icon, title, row } (buttons beside them)
-  -- room for the item buttons: every quest row moves right when any of them has one (titles stay aligned)
+  -- room for the item buttons: every Active Quests row moves right when any of them has one (titles stay
+  -- aligned). Quests to Turn In have nothing left to use, so they get no button and keep their place.
   local qIndent = 0
   if ns.db.showQuestItems and ns.QuestItems then
-    for _, list in ipairs({ s.quests or {}, s.turnin or {} }) do
-      for _, q in ipairs(list) do if q.item then qIndent = ns.QuestItems.INDENT end end
-    end
+    for _, q in ipairs(s.quests or {}) do if q.item then qIndent = ns.QuestItems.INDENT end end
   end
   if ns.Session then ns.Session.Paint() end
 
@@ -886,9 +885,8 @@ function ns.Render(s)
     for _, q in ipairs(turnin) do
       local sub = {}
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
-      local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = true, indent = qIndent }) -- green: ready to turn in
-      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, row = row } end
+      AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+        { focused = q.focused, done = true }) -- green: ready to turn in
     end
   end
   if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
