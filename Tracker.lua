@@ -528,7 +528,7 @@ local function GetMark(color)
   local c = color or FOCUS_COLOR
   m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
   m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
-  m.bg:SetAlpha(1); m.bar:SetAlpha(1); m.bar:SetWidth(2)
+  m.bg:SetAlpha(1); m.bar:SetAlpha(1); m.bar:SetWidth(2); m.bg:SetBlendMode("BLEND")
   m.bg:Show(); m.bar:Show()
   return m
 end
@@ -785,6 +785,7 @@ local function Paint(key, p)
       tg.line:SetTextColor(c[1], c[2], c[3])
     end
     local g = Glow(tg.line, 1, 0.85, 0.3)
+    g:SetBlendMode("BLEND")
     if k > 0 then g:SetAlpha(0.35 * k); g:Show() else g:Hide() end
   elseif tg.mark then -- combat mark: arrives with a bright pulse (twice, settling), fades out after
     p = math.min(p, 1)
@@ -793,15 +794,19 @@ local function Paint(key, p)
       e = (1 - p) ^ 2
     else
       e = 1 - (1 - math.min(p / 0.15, 1)) ^ 2 -- (in quickly)
-      local q = p < 0.08 and 0 or (p - 0.08) / 0.92
-      k = p < 0.08 and p / 0.08 or (1 - q) ^ 1.5 * (0.55 + 0.45 * math.cos(q * 4 * math.pi)) -- (flare, two pulses)
+      local q
+      -- (flare, held a moment at full, then a second pulse and settle)
+      if p < 0.06 then k = p / 0.06
+      elseif p < 0.2 then k = 1
+      else q = (p - 0.2) / 0.8; k = (1 - q) ^ 1.5 * (0.55 + 0.45 * math.cos(q * 4 * math.pi)) end
       if p >= 1 then k = 0 end
     end
     local c = {}
     for i = 1, 3 do c[i] = Mix(tg.from and tg.from[i] or COMBAT_COLOR[i], COMBAT_COLOR[i], tg.from and e or 1) end
-    m.bar:SetVertexColor(Mix(c[1], 1, k * 0.5), Mix(c[2], 1, k * 0.5), Mix(c[3], 1, k * 0.5), 0.9)
-    m.bar:SetWidth(2 + 2 * k)
-    m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2 + 0.4 * k), CreateColor(c[1], c[2], c[3], 0.08 * k))
+    m.bar:SetVertexColor(Mix(c[1], 1, k), Mix(c[2], 1, k), Mix(c[3], 1, k), Mix(0.9, 1, k)) -- (white at the peak)
+    m.bar:SetWidth(2 + 4 * k)
+    m.bg:SetBlendMode(k > 0 and "ADD" or "BLEND") -- (added light: it glows, rather than tints)
+    m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2 + 0.8 * k), CreateColor(c[1], c[2], c[3], 0.35 * k))
     if not tg.from then -- (the focused quest: gold to light blue and back, rather than a fade)
       m.bar:SetAlpha(e); m.bg:SetAlpha(e)
       if tg.out and p >= 1 then m.bar:Hide(); m.bg:Hide() end
@@ -811,7 +816,12 @@ local function Paint(key, p)
       for i = 1, 3 do lc[i] = Mix(Mix(LINE_COLOR[i], COMBAT_COLOR[i], e), ALERT_COLOR[i], k) end
       l:SetTextColor(lc[1], lc[2], lc[3])
       local g = Glow(l, COMBAT_COLOR[1], COMBAT_COLOR[2], COMBAT_COLOR[3])
-      if k > 0 then g:SetAlpha(0.45 * k); g:Show() else g:Hide() end
+      g:SetBlendMode(k > 0 and "ADD" or "BLEND")
+      if k > 0 then g:SetAlpha(0.9 * k); g:Show() else g:Hide() end
+    end
+    if tg.title then -- the quest's name flashes too
+      local b = tg.title.baseColor
+      tg.title.text:SetTextColor(Mix(b[1], ALERT_COLOR[1], k), Mix(b[2], ALERT_COLOR[2], k), Mix(b[3], ALERT_COLOR[3], k))
     end
   end
 end
@@ -916,7 +926,8 @@ local function AddEntry(title, level, sub, onClick, style)
     m.bg:ClearAllPoints(); m.bg:SetPoint("TOPLEFT", content, "TOPLEFT", VIEW_L + 4, -top)
     m.bg:SetSize(WIDTH - 8, h)
     if fadeKey then
-      targets[fadeKey] = { mark = m, out = out, from = style.focused and FOCUS_COLOR or nil, lines = not out and lit or nil }
+      targets[fadeKey] = { mark = m, out = out, from = style.focused and FOCUS_COLOR or nil, lines = not out and lit or nil,
+        title = not out and t or nil }
       Paint(fadeKey, (GetTime() - anims[fadeKey]) / (out and FADE_TIME or ALERT_TIME))
     end
   end
