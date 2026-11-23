@@ -813,11 +813,11 @@ local function Paint(key, p)
     end
     for _, l in ipairs(tg.lines or {}) do -- the lit objective lights up bright, then settles to its light blue
       local lc = {}
-      for i = 1, 3 do lc[i] = Mix(Mix(LINE_COLOR[i], COMBAT_COLOR[i], e), ALERT_COLOR[i], k) end
+      for i = 1, 3 do lc[i] = Mix(Mix(LINE_COLOR[i], COMBAT_COLOR[i], e), ALERT_COLOR[i], k * 0.6) end -- (softer than the mark)
       l:SetTextColor(lc[1], lc[2], lc[3])
       local g = Glow(l, COMBAT_COLOR[1], COMBAT_COLOR[2], COMBAT_COLOR[3])
       g:SetBlendMode(k > 0 and "ADD" or "BLEND")
-      if k > 0 then g:SetAlpha(0.9 * k); g:Show() else g:Hide() end
+      if k > 0 then g:SetAlpha(0.5 * k); g:Show() else g:Hide() end
     end
     if tg.title then -- the quest's name flashes too
       local b = tg.title.baseColor
