@@ -1038,6 +1038,11 @@ function ns.Render(s)
   if not SectionHidden("turnin") and (#turnin > 0 or tElse > 0) and Section("Quests to Turn In", #turnin, "turnin", "turninZoneOnly") then
     for _, q in ipairs(turnin) do
       local sub = {}
+      -- with All zones: where to turn it in
+      if not ns.db.turninZoneOnly and ns.Questie.TurnInZone then
+        local where, here = ns.Questie.TurnInZone(q.questID)
+        if where then sub[#sub + 1] = { text = "Turn in: " .. where .. (here and " (here)" or "") } end
+      end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
         { focused = q.focused, done = true }) -- green: ready to turn in

@@ -362,6 +362,55 @@ function Q.ActiveQuestMaps(id, complete, logObjectives)
   return maps or nil
 end
 
+-- Where a finished quest is turned in, as zone names (for Quests to Turn In with All zones):
+-- Questie's turn-in NPC or object, else the game's own map for the quest. Returns the text
+-- ("Westfall", or "Stormwind City or Ironforge") and whether that's where you are; nil if unknown.
+local turnInMaps = {} -- quest -> { map IDs } (Questie's data doesn't change while you play)
+local function MapName(m)
+  local info = m and C_Map.GetMapInfo and C_Map.GetMapInfo(m)
+  return info and type(info.name) == "string" and info.name ~= "" and info.name or nil
+end
+function Q.TurnInZone(id)
+  if not id then return nil end
+  local list = turnInMaps[id]
+  if not list and ready and QDB then
+    local set = {}
+    local fb = Field(id, "finishedBy") -- { npc IDs, object IDs }
+    if type(fb) == "table" then
+      for kind, ids in pairs({ npc = fb[1], object = fb[2] }) do
+        local query = (kind == "npc") and QDB.QueryNPCSingle or QDB.QueryObjectSingle
+        for _, oid in ipairs(type(ids) == "table" and ids or {}) do
+          local ok, sp = pcall(query, oid, "spawns")
+          if ok and type(sp) == "table" then
+            for areaId in pairs(sp) do
+              local m = ZoneLevel(UiMapFor(areaId))
+              if m then set[m] = true end
+            end
+          end
+        end
+      end
+    end
+    list = {}
+    for m in pairs(set) do list[#list + 1] = m end
+    table.sort(list)
+    turnInMaps[id] = list
+  end
+  if not list or #list == 0 then -- the game's own map for the quest
+    local gz = Q.GameQuestZone(id)
+    list = gz and { gz } or nil
+  end
+  if not list then return nil end
+  local here = CurrentZoneMap()
+  local names = {}
+  for _, m in ipairs(list) do
+    if m == here then return MapName(m), true end -- turned in where you are
+    local n = MapName(m)
+    if n and #names < 2 then names[#names + 1] = n end
+  end
+  if #names == 0 then return nil end
+  return table.concat(names, " or ") .. (#list > 2 and " ..." or ""), false
+end
+
 -- /xpp qinfo <questID>: what each source holds, as short lines
 function Q.Inspect(id)
   local out = {}
