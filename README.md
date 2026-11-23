@@ -10,7 +10,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - **Quests to Turn In:** everything ready to hand in, in its own section.
 - **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
 - **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
-- **Quest item buttons:** one click (or a keybind) for the usable items of your quests in this zone, focused quest first.
+- **Quest item buttons:** a small button beside each quest with a usable item, left of its [level]: one click (or a keybind for the first three) uses it.
 - **Session bars:** slim bars under the tracker: XP per hour and time to level, gold per hour and this session, XP and quests this session, rested XP. Your pick.
 - **Dungeons:** the ones that fit your level, here or everywhere.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
@@ -50,6 +50,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.5.0:** Quest item buttons now sit beside their quest: a small button left of the quest's [level] (the quests move over a little to make room, all aligned), instead of a separate bar. In combat, the quest of what you're fighting is highlighted where it is instead of moving to the top.
 - **1.4.0:** Works with FlareUI and EllesmereUI: Hereabouts takes over their quest trackers (it turns itself on the first time it finds one; /hab to change), and in EllesmereUI's style the tracker, session bar and settings use its panel colour, accent and font (the settings window painted by EllesmereUI's own skinning API).
 - **1.3.0:** In combat, the quest of what you're fighting (to kill it, or for what it drops) is marked light blue and moved to the top of Active Quests, with the objective it counts for lit up: your target first, else the enemies fighting you (from their nameplates, so a mob that jumps you counts too). Back to normal when combat ends (Lists, "In combat: mark my enemy's quests", on by default).
 - **1.2.1:** Session stats survive a `/reload`: they only start over when you log in again (or reset them yourself).

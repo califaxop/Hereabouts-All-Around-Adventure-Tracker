@@ -35,7 +35,7 @@ ns.DEFAULTS = {
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
   activeZoneOnly = false, -- Active Quests: only quests in the zone you're in (focused quest always shown)
-  combatFocus = true,     -- in combat with a quest's creature: its quests marked light blue and listed first
+  combatFocus = true,     -- in combat with a quest's creature: its quests highlighted light blue (in place)
   showPickup  = true,   -- "Quests to Pick Up" section (Questie)
   showObjectives = true,-- objective lines under active quests
   hideDoneObjectives = true, -- ...only the ones still to do
@@ -43,7 +43,7 @@ ns.DEFAULTS = {
   showStarter = true,   -- quest giver + zone line under quests to pick up
   showSession = true,    -- the session bar under the tracker
   sessionStats = { xph = true, ttl = true, gph = true }, -- what it shows (see Session.lua's STATS)
-  showQuestItems = true, -- buttons for the usable items of your quests in this zone
+  showQuestItems = true, -- a small button for a quest's usable item, left of its [level] in the list
   showTurnIn = true,     -- Quests to Turn In: finished quests get their own section (and leave Active Quests)
   maxTurnIn = 20,
   turninZoneOnly = false, -- ...only the ones turned in where you are

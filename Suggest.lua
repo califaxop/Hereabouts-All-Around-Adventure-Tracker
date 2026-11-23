@@ -225,7 +225,7 @@ function ns.BuildSuggestions(logQuests)
 
   -- Log quests: ready-to-turn-in first, then most XP. Gray quests are dropped.
   local quests = logQuests or LogQuests()
-  -- in combat with a quest's creature: its quests are marked (and listed first, wherever they are)
+  -- in combat with a quest's creature: its quests are marked (highlighted where they are; nothing moves)
   local focus, focusName = ns.CombatQuests()
   for _, q in ipairs(quests) do
     local objs = focus and not q.complete and focus[q.title]
@@ -249,7 +249,6 @@ function ns.BuildSuggestions(logQuests)
     else
       -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
       local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
-      if q.combat then otherZone = false end -- (what you're fighting: shown wherever it is)
       -- (Blizzard's tracking ticks don't matter here: the Zone / All switch decides what shows)
       local wanted = q.complete or not q.trivial or db.replaceTracker or q.focused
       if wanted and not otherZone then keep[#keep + 1] = q
@@ -257,7 +256,6 @@ function ns.BuildSuggestions(logQuests)
     end
   end
   table.sort(keep, function(a, b)
-    if (a.combat or false) ~= (b.combat or false) then return a.combat or false end -- what you're fighting first
     if a.focused ~= b.focused then return a.focused end   -- focused quest pinned on top
     if db.sortByLevel then                                 -- highest level first
       if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
@@ -279,21 +277,6 @@ function ns.BuildSuggestions(logQuests)
   result.turnin = {}
   if db.showTurnIn then
     for i = 1, math.min(db.maxTurnIn or 20, #turnin) do result.turnin[i] = turnin[i] end
-  end
-
-  -- Quest items: usable items of your quests in this zone, the focused quest's first
-  result.questItems = {}
-  if db.showQuestItems then
-    if not db.activeZoneOnly then RefreshZone() end
-    local seen = {}
-    local function add(q)
-      if q.item and not seen[q.item.itemID] and #result.questItems < 3 then
-        seen[q.item.itemID] = true
-        result.questItems[#result.questItems + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title }
-      end
-    end
-    for _, q in ipairs(quests) do if q.focused then add(q) end end
-    for _, q in ipairs(quests) do if not q.complete and InZone(q) then add(q) end end
   end
 
   -- Quests Nearby: Questie's available quests (needs Questie; the game has no such list)

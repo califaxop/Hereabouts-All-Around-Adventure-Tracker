@@ -322,7 +322,10 @@ local function ScrollTo(v)
   UpdateThumb()
 end
 scroll:EnableMouseWheel(true)
-scroll:SetScript("OnMouseWheel", function(self, delta) ScrollTo(self:GetVerticalScroll() - delta * 40) end)
+scroll:SetScript("OnMouseWheel", function(self, delta)
+  ScrollTo(self:GetVerticalScroll() - delta * 40)
+  if ns.QuestItems and ns.lastItems then ns.QuestItems.Update(ns.lastItems) end -- (the buttons follow their rows)
+end)
 
 ---------------------------------------------------------------------------
 -- Pools
@@ -495,9 +498,10 @@ local function GetLine()
   if not l then
     l = content:CreateFontString(nil, "OVERLAY")
     l:SetFontObject(LINE_FONT)
-    l:SetWidth(WIDTH - 20); l:SetJustifyH("LEFT")
+    l:SetJustifyH("LEFT")
     lines[used.l] = l
   end
+  l:SetWidth(WIDTH - 20) -- (every time: a quest line can be narrower, see AddEntry)
   l:Show()
   return l
 end
@@ -734,6 +738,8 @@ end
 local function AddEntry(title, level, sub, onClick, style)
   local startY = y
   local t = GetTitle()
+  local indent = style and style.indent or 0 -- (room for a quest item button, see QuestItems.lua)
+  t:SetWidth(WIDTH - 10 - indent) -- (as wide as before less the room, so long titles still end at the edge)
   local lvl = level and format("[%d] ", level) or ""
   t.text:SetText(lvl .. (title or "?"))
   t.spellID = style and style.spellID or nil
@@ -749,9 +755,10 @@ local function AddEntry(title, level, sub, onClick, style)
   t.text:SetTextColor(unpack(t.baseColor))
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   t:SetScript("OnClick", onClick)
-  Place(t, 10, 0)
+  Place(t, 10 + indent, 0)
   for _, s in ipairs(sub) do
     local l = GetLine()
+    l:SetWidth(WIDTH - 20 - indent)
     if s.loc then -- this line also shows how far away the quest giver is
       local d = { line = l, base = s.text, loc = s.loc }
       distLines[#distLines + 1] = d
@@ -763,7 +770,7 @@ local function AddEntry(title, level, sub, onClick, style)
     if style and style.dim and not s.color then c = DIM_LINE end
     l:SetTextColor(unpack(c))
     l:SetHeight(l:GetStringHeight())
-    Place(l, 20 + (s.indent or 0) * 10, 1)
+    Place(l, 20 + indent + (s.indent or 0) * 10, 1)
   end
   if style and (style.focused or style.combat) then
     local m = GetMark(style.combat and COMBAT_COLOR or nil) -- (what you're fighting: light blue, over the focus gold)
@@ -773,6 +780,7 @@ local function AddEntry(title, level, sub, onClick, style)
     m.bg:SetSize(WIDTH - 8, h)
   end
   y = y + 6
+  return t
 end
 
 local function AddNote(text)
@@ -823,7 +831,14 @@ function ns.Render(s)
   y = 0
   shownSomething = false
 
-  if ns.QuestItems then ns.QuestItems.Update(s.questItems) end
+  local items = {} -- quests with a usable item: { itemID, icon, title, row } (buttons beside them)
+  -- room for the item buttons: every quest row moves right when any of them has one (titles stay aligned)
+  local qIndent = 0
+  if ns.db.showQuestItems and ns.QuestItems then
+    for _, list in ipairs({ s.quests or {}, s.turnin or {} }) do
+      for _, q in ipairs(list) do if q.item then qIndent = ns.QuestItems.INDENT end end
+    end
+  end
   if ns.Session then ns.Session.Paint() end
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
@@ -854,8 +869,9 @@ function ns.Render(s)
       end
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
       -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
-      AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat })
+      local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent })
+      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, row = row } end
      end
     end
   end
@@ -870,8 +886,9 @@ function ns.Render(s)
     for _, q in ipairs(turnin) do
       local sub = {}
       if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
-      AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = true }) -- green: ready to turn in
+      local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+        { focused = q.focused, done = true, indent = qIndent }) -- green: ready to turn in
+      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, row = row } end
     end
   end
   if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
@@ -971,6 +988,15 @@ function ns.Render(s)
   ScrollTo(scroll:GetVerticalScroll()) -- keep your place, clamped to the new size
   if ns.db.pos and ns.db.pos[1] ~= "TOPLEFT" then ns.LockTopLeft() end
   frame:SetShown(shownSomething and not ns.db.hidden)
+  -- quest item buttons, each left of its quest's [level] (placed now the list is laid out)
+  ns.lastItems = items
+  if ns.QuestItems then ns.QuestItems.Update(items) end
+end
+
+-- where the list's visible area is on screen (for the item buttons: rows scrolled out of view get none)
+function ns.TrackerView()
+  local top, bottom = scroll:GetTop(), scroll:GetBottom()
+  return top, bottom
 end
 
 -- Save and anchor by the top-left corner, so the list only ever grows downward.

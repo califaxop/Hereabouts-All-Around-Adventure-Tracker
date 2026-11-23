@@ -1,16 +1,22 @@
--- Quest Item Button: one-click buttons for the usable items of your quests in this zone
--- (your focused quest's item first). They're Blizzard's secure item buttons, which can only be
--- set up or changed out of combat: changes during combat wait for it to end.
+-- Quest item buttons: a small button left of a quest's [level] in the list, for the usable item
+-- of that quest (click to use it). They're Blizzard's secure item buttons, which the game only lets
+-- addons set up, move or hide out of combat: so they're placed by screen position (NOT anchored to
+-- the rows: anchoring secure buttons would lock the tracker's rows in combat), placed again after
+-- every redraw and scroll out of combat, and in combat they stay where they are until it ends.
+-- Combat focus only highlights quests (nothing moves), so they stay beside their quests in a fight.
 local _, ns = ...
 local Q = {}
 ns.QuestItems = Q
 
-local MAX, SIZE, GAP = 3, 36, 6
-local buttons, holder = {}, nil
+-- The button sits in a column of its own just left of the [level]: when any quest in the list has an
+-- item, every quest row moves right by Q.INDENT (the tracker does it), so titles stay aligned.
+local MAX, SIZE, GAP = 12, 14, 3
+Q.INDENT = SIZE + GAP + 1
+local buttons = {}
 Q.buttons = buttons
 local pending -- the list to show once combat ends
 
--- keybinding labels (Key Bindings > AddOns > XP Planner)
+-- keybinding labels (Key Bindings > AddOns > Hereabouts): the first three buttons, top to bottom
 _G.BINDING_HEADER_XPPLANNER = "Hereabouts"
 _G["BINDING_NAME_CLICK XPPlannerQuestItem1:LeftButton"] = "Use quest item"
 _G["BINDING_NAME_CLICK XPPlannerQuestItem2:LeftButton"] = "Use second quest item"
@@ -25,20 +31,18 @@ local function Count(itemID)
 end
 
 local function MakeButton(i)
-  local b = CreateFrame("Button", "XPPlannerQuestItem" .. i, holder, "SecureActionButtonTemplate, BackdropTemplate")
+  local b = CreateFrame("Button", "XPPlannerQuestItem" .. i, UIParent, "SecureActionButtonTemplate, BackdropTemplate")
   b:SetSize(SIZE, SIZE)
   b:RegisterForClicks("AnyUp", "AnyDown")
   b:SetAttribute("type", "item")
   b:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
   b:SetBackdropColor(0, 0, 0, 0.6)
-  b:SetBackdropBorderColor(0.65, 0.49, 0.27, 1)
+  b:SetBackdropBorderColor(0, 0, 0, 1)
   b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetPoint("TOPLEFT", 2, -2); b.icon:SetPoint("BOTTOMRIGHT", -2, 2)
+  b.icon:SetPoint("TOPLEFT", 1, -1); b.icon:SetPoint("BOTTOMRIGHT", -1, 1)
   b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
-  b.count:SetPoint("BOTTOMRIGHT", -2, 2)
-  b.hotkey = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmallGray")
-  b.hotkey:SetPoint("TOPRIGHT", -2, -2)
+  b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+  b.count:SetPoint("BOTTOMRIGHT", 2, -2)
   b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
   b.cd:SetAllPoints(b.icon)
   b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
@@ -47,6 +51,8 @@ local function MakeButton(i)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     pcall(GameTooltip.SetItemByID, GameTooltip, self.itemID)
     if self.quest then GameTooltip:AddLine("For: " .. self.quest, 0.6, 0.8, 1) end
+    local key = GetBindingKey and GetBindingKey("CLICK " .. self:GetName() .. ":LeftButton")
+    if key then GameTooltip:AddLine("Key: " .. (GetBindingText and GetBindingText(key, true) or key), 0.6, 0.6, 0.6) end
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -59,43 +65,46 @@ local function Paint(b)
   b.count:SetText((n and n > 1) and n or "")
   b.icon:SetDesaturated(not n or n == 0)
   if C_Container and C_Container.GetItemCooldown then
-    local ok, s, d, e = pcall(C_Container.GetItemCooldown, b.itemID)
+    local ok, s, d = pcall(C_Container.GetItemCooldown, b.itemID)
     if ok and type(s) == "number" and type(d) == "number" then b.cd:SetCooldown(s, d) end
   end
-  local key = GetBindingKey and GetBindingKey("CLICK " .. b:GetName() .. ":LeftButton")
-  b.hotkey:SetText(key and (GetBindingText and GetBindingText(key, true) or key) or "")
+end
+
+-- where a row's left edge and middle are on screen, in UIParent's units; nil if the row is scrolled
+-- out of the list's visible area
+local function Spot(row)
+  if not (row and row:IsVisible()) then return nil end
+  local left, top, bottom = row:GetLeft(), row:GetTop(), row:GetBottom()
+  if not (left and top and bottom) then return nil end
+  local vTop, vBottom = ns.TrackerView and ns.TrackerView()
+  local mid = (top + bottom) / 2
+  if vTop and vBottom and (mid > vTop or mid < vBottom) then return nil end
+  local k = row:GetEffectiveScale() / UIParent:GetEffectiveScale()
+  return left * k, mid * k, k
 end
 
 local function Apply(list)
-  if not holder then
-    holder = CreateFrame("Frame", "XPPlannerQuestItems", UIParent)
-    holder:SetSize(SIZE, SIZE)
-  end
-  holder:ClearAllPoints()
-  -- beside the tracker, on its left, at the top. Placed by screen position, NOT anchored to the
-  -- tracker: anchoring secure buttons to it would make the game lock the tracker's size in combat
-  -- (it couldn't shrink when sections hide). Re-placed on every update out of combat.
-  local box = ns.TrackerBox or ns.TrackerFrame
-  local left, top = box and box:GetLeft(), box and box:GetTop()
-  if left and top then
-    local k = box:GetEffectiveScale() / UIParent:GetEffectiveScale()
-    holder:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", left * k - 6, top * k)
-  else
-    holder:SetPoint("CENTER", UIParent, "CENTER", -300, 200)
-  end
+  local strata = ns.TrackerFrame and ns.TrackerFrame:GetFrameStrata() or "MEDIUM"
+  local level = (ns.TrackerFrame and ns.TrackerFrame:GetFrameLevel() or 5) + 20
+
   for i = 1, MAX do
     local it = list[i]
     local b = buttons[i]
-    if it and not b then b = MakeButton(i); buttons[i] = b end
+    local x, y, k
+    if it then x, y, k = Spot(it.row) end
+    if x and not b then b = MakeButton(i); buttons[i] = b end
     if b then
-      if it then
+      if x then
         b.itemID, b.quest = it.itemID, it.title
         b:SetAttribute("item", "item:" .. it.itemID)
         b.icon:SetTexture(it.icon or (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.itemID)))
+        b:SetFrameStrata(strata); b:SetFrameLevel(level)
+        b:SetScale(math.max(0.5, k or 1)) -- (the list's scale)
         b:ClearAllPoints()
-        b:SetPoint("TOPRIGHT", holder, "TOPRIGHT", 0, -(i - 1) * (SIZE + GAP))
+        b:SetPoint("RIGHT", UIParent, "BOTTOMLEFT", (x - GAP) / b:GetScale(), y / b:GetScale())
         b:Show()
         Paint(b)
+
       else
         b.itemID, b.quest = nil, nil
         b:SetAttribute("item", nil)
@@ -105,7 +114,7 @@ local function Apply(list)
   end
 end
 
--- list: { { itemID, icon, title }, ... } (focused quest's first), or {} to hide them
+-- list: { { itemID, icon, title, row }, ... } in list order, or {} to hide them
 function Q.Update(list)
   list = (ns.db and ns.db.showQuestItems and not ns.db.hidden) and (list or {}) or {}
   if InCombatLockdown and InCombatLockdown() then pending = list; return end
@@ -115,7 +124,7 @@ end
 
 -- counts and cooldowns can change any time (not protected); the buttons themselves wait for combat to end
 local ev = CreateFrame("Frame")
-for _, e in ipairs({ "PLAYER_REGEN_ENABLED", "BAG_UPDATE_DELAYED", "BAG_UPDATE_COOLDOWN", "UPDATE_BINDINGS" }) do
+for _, e in ipairs({ "PLAYER_REGEN_ENABLED", "BAG_UPDATE_DELAYED", "BAG_UPDATE_COOLDOWN" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 ev:SetScript("OnEvent", function(_, event)
