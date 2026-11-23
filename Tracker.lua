@@ -528,7 +528,7 @@ local function GetMark(color)
   local c = color or FOCUS_COLOR
   m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
   m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
-  m.bg:SetAlpha(1); m.bar:SetAlpha(1)
+  m.bg:SetAlpha(1); m.bar:SetAlpha(1); m.bar:SetWidth(2)
   m.bg:Show(); m.bar:Show()
   return m
 end
@@ -744,7 +744,8 @@ end
 -- Keyed by quest, not by line: lines are pooled and re-dealt on every render, so each render tells
 -- the running animations which line or mark is theirs now.
 ---------------------------------------------------------------------------
-local FLASH_TIME, FADE_TIME = 0.9, 0.35
+local FLASH_TIME, FADE_TIME, ALERT_TIME = 0.9, 0.35, 1.4 -- (alert: the combat mark arriving, made to be noticed)
+local ALERT_COLOR = { 0.8, 0.97, 1 }
 local FLASH_COLOR = { 1, 0.95, 0.55 }
 local anims = {}      -- key -> start time (flash: "f:quest:objective", fade in: "c:quest", fade out: "u:quest")
 local targets = {}    -- key -> what this render drew for it
@@ -754,6 +755,21 @@ animDriver:Hide()
 
 local function Mix(a, b, t) return a + (b - a) * t end
 local function Hex(c) return format("%02x%02x%02x", math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5)) end
+
+-- the soft glow behind a line (gold for progress, light blue for combat)
+local function Glow(l, r, g, b)
+  local t = lineGlow[l]
+  if not t then
+    t = content:CreateTexture(nil, "BACKGROUND", nil, 2)
+    t:SetTexture("Interface\\Buttons\\WHITE8X8")
+    lineGlow[l] = t
+  end
+  t:SetGradient("HORIZONTAL", CreateColor(r, g, b, 1), CreateColor(r, g, b, 0))
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", l, "TOPLEFT", -6, 1)
+  t:SetPoint("BOTTOMRIGHT", l, "BOTTOMRIGHT", 0, -1)
+  return t
+end
 
 local function Paint(key, p)
   local tg = targets[key]
@@ -768,25 +784,34 @@ local function Paint(key, p)
     else
       tg.line:SetTextColor(c[1], c[2], c[3])
     end
-    local g = lineGlow[tg.line]
+    local g = Glow(tg.line, 1, 0.85, 0.3)
     if k > 0 then g:SetAlpha(0.35 * k); g:Show() else g:Hide() end
-  elseif tg.mark then -- combat mark: fades in (or out)
-    local e = 1 - (1 - math.min(p, 1)) ^ 2
-    local m = tg.mark
-    if tg.out then e = 1 - e end
-    if tg.from then -- (the focused quest: gold to light blue and back, rather than a fade)
-      local c = {}
-      for i = 1, 3 do c[i] = Mix(tg.from[i], COMBAT_COLOR[i], e) end
-      m.bar:SetVertexColor(c[1], c[2], c[3], 0.9)
-      m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2), CreateColor(c[1], c[2], c[3], 0))
+  elseif tg.mark then -- combat mark: arrives with a bright pulse (twice, settling), fades out after
+    p = math.min(p, 1)
+    local m, e, k = tg.mark, 0, 0
+    if tg.out then
+      e = (1 - p) ^ 2
     else
+      e = 1 - (1 - math.min(p / 0.15, 1)) ^ 2 -- (in quickly)
+      local q = p < 0.08 and 0 or (p - 0.08) / 0.92
+      k = p < 0.08 and p / 0.08 or (1 - q) ^ 1.5 * (0.55 + 0.45 * math.cos(q * 4 * math.pi)) -- (flare, two pulses)
+      if p >= 1 then k = 0 end
+    end
+    local c = {}
+    for i = 1, 3 do c[i] = Mix(tg.from and tg.from[i] or COMBAT_COLOR[i], COMBAT_COLOR[i], tg.from and e or 1) end
+    m.bar:SetVertexColor(Mix(c[1], 1, k * 0.5), Mix(c[2], 1, k * 0.5), Mix(c[3], 1, k * 0.5), 0.9)
+    m.bar:SetWidth(2 + 2 * k)
+    m.bg:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 0.2 + 0.4 * k), CreateColor(c[1], c[2], c[3], 0.08 * k))
+    if not tg.from then -- (the focused quest: gold to light blue and back, rather than a fade)
       m.bar:SetAlpha(e); m.bg:SetAlpha(e)
       if tg.out and p >= 1 then m.bar:Hide(); m.bg:Hide() end
     end
-    for _, l in ipairs(tg.lines or {}) do -- the lit objective eases into its light blue
-      local c = {}
-      for i = 1, 3 do c[i] = Mix(LINE_COLOR[i], COMBAT_COLOR[i], e) end
-      l:SetTextColor(c[1], c[2], c[3])
+    for _, l in ipairs(tg.lines or {}) do -- the lit objective lights up bright, then settles to its light blue
+      local lc = {}
+      for i = 1, 3 do lc[i] = Mix(Mix(LINE_COLOR[i], COMBAT_COLOR[i], e), ALERT_COLOR[i], k) end
+      l:SetTextColor(lc[1], lc[2], lc[3])
+      local g = Glow(l, COMBAT_COLOR[1], COMBAT_COLOR[2], COMBAT_COLOR[3])
+      if k > 0 then g:SetAlpha(0.45 * k); g:Show() else g:Hide() end
     end
   end
 end
@@ -794,7 +819,8 @@ end
 animDriver:SetScript("OnUpdate", function(self)
   local now, any = GetTime(), false
   for key, start in pairs(anims) do
-    local p = (now - start) / (key:sub(1, 1) == "f" and FLASH_TIME or FADE_TIME)
+    local kind = key:sub(1, 1)
+    local p = (now - start) / (kind == "f" and FLASH_TIME or kind == "c" and ALERT_TIME or FADE_TIME)
     Paint(key, math.min(p, 1))
     if p >= 1 then anims[key] = nil; targets[key] = nil else any = true end
   end
@@ -835,16 +861,6 @@ end
 -- During a render: this line is the objective `key`; if it's flashing, take the line over.
 local function FlashLine(key, l, text, base)
   if not anims[key] then return end
-  local g = lineGlow[l]
-  if not g then
-    g = content:CreateTexture(nil, "BACKGROUND", nil, 2)
-    g:SetTexture("Interface\\Buttons\\WHITE8X8")
-    g:SetGradient("HORIZONTAL", CreateColor(1, 0.85, 0.3, 1), CreateColor(1, 0.85, 0.3, 0))
-    lineGlow[l] = g
-  end
-  g:ClearAllPoints()
-  g:SetPoint("TOPLEFT", l, "TOPLEFT", -6, 1)
-  g:SetPoint("BOTTOMRIGHT", l, "BOTTOMRIGHT", 0, -1)
   local pre, num, post = text:match("^(.-)(%d+%s*/%s*%d+)(.*)$")
   if not num then pre, num, post = text:match("^(.-)(%d+%%)(.*)$") end
   targets[key] = { line = l, text = text, base = base, pre = pre, num = num, post = post }
@@ -901,7 +917,7 @@ local function AddEntry(title, level, sub, onClick, style)
     m.bg:SetSize(WIDTH - 8, h)
     if fadeKey then
       targets[fadeKey] = { mark = m, out = out, from = style.focused and FOCUS_COLOR or nil, lines = not out and lit or nil }
-      Paint(fadeKey, (GetTime() - anims[fadeKey]) / FADE_TIME)
+      Paint(fadeKey, (GetTime() - anims[fadeKey]) / (out and FADE_TIME or ALERT_TIME))
     end
   end
   y = y + 6
