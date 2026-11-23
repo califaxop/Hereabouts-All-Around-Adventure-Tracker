@@ -162,10 +162,17 @@ local DIALOG_BG = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
 local function Skin(bar)
   local th = ns.Theme()
   local a = math.max(ns.db.bgAlpha or 0, 0.55)
-  local key = tostring(th.flare) .. a .. th.accent[1]
+  local key = tostring(th.flare) .. tostring(th.eui) .. a .. th.accent[1]
   if bar.skinKey ~= key then
     bar.skinKey = key
-    if th.flare then
+    if th.eui then -- EllesmereUI: its flat panel, a thin grey border
+      bar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+      local okP, r, g, b = pcall(ns.euiSkin.GetPanelColor)
+      if not (okP and r) then r, g, b = 0.07, 0.07, 0.08 end
+      bar:SetBackdropColor(r, g, b, a)
+      bar:SetBackdropBorderColor(0.28, 0.28, 0.28, 1)
+    elseif th.flare then
       bar:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
       bar:SetBackdropColor(1, 1, 1, a)
       bar:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)

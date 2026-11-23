@@ -10,9 +10,33 @@ local function FontObj(...)
     if f then return f end
   end
 end
-local HEADER_FONT = FontObj("ObjectiveTrackerHeaderFont", "GameFontNormalMed2", "GameFontNormal")
-local TITLE_FONT  = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontNormal")
-local LINE_FONT   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontHighlightSmall")
+-- our own font objects, copied from the tracker's (or set to EllesmereUI's font in its style), so a
+-- style change re-fonts every line at once
+local HEADER_BASE = FontObj("ObjectiveTrackerHeaderFont", "GameFontNormalMed2", "GameFontNormal")
+local TITLE_BASE  = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontNormal")
+local LINE_BASE   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontHighlightSmall")
+local HEADER_FONT = CreateFont("HereaboutsHeaderFont"); HEADER_FONT:CopyFontObject(HEADER_BASE)
+local TITLE_FONT  = CreateFont("HereaboutsTitleFont");  TITLE_FONT:CopyFontObject(TITLE_BASE)
+local LINE_FONT   = CreateFont("HereaboutsLineFont");   LINE_FONT:CopyFontObject(LINE_BASE)
+
+-- EllesmereUI style: EllesmereUI's skinning API (EllesmereUI.RegisterSkin, its SKINNING_API.md) paints
+-- the settings windows' shells in the player's theme; the tracker takes its accent, panel colour and font.
+if type(EllesmereUI) == "table" and EllesmereUI.RegisterSkin then
+  EllesmereUI.RegisterSkin("Hereabouts", function(S)
+    ns.euiSkin = S
+    local function again() if ns.db then ns.ApplyBackdrop(); if ns.RestyleOptions then ns.RestyleOptions() end; ns.Refresh() end end
+    if S.OnLooksChanged then S.OnLooksChanged(again) end
+    again()
+  end)
+end
+function ns.UsingEUI()
+  local S = ns.euiSkin
+  if S and ns.db and ns.db.euiStyle ~= false and (not S.IsEnabled or S.IsEnabled()) then return S end
+end
+local function EUIAccent(S)
+  local ok, r, g, b = pcall(S.GetAccentColor)
+  return ok and r and { r, g, b } or { 0.047, 0.824, 0.616 }
+end
 
 -- Colours. These tables are filled from one of the two palettes below (ns.ApplyStyle),
 -- so switching style recolours everything on the next draw.
@@ -65,7 +89,7 @@ function ns.FlareBorder()
   return path or "Interface/AddOns/FlareUI/Media/Borders/FlareUI-Frames.tga"
 end
 
-function ns.UsingFlare() return ns.db and ns.db.useFlareStyle and ns.FlareBorder() ~= nil end
+function ns.UsingFlare() return ns.db and ns.db.useFlareStyle and ns.FlareBorder() ~= nil and not ns.UsingEUI() end
 
 local frame = CreateFrame("Frame", "XPPlannerFrame", UIParent)
 ns.TrackerFrame = frame
@@ -129,6 +153,23 @@ boxed:SetBackdrop({
 
 local function ApplyStyle()
   local p = ns.UsingFlare() and PALETTES.flare or PALETTES.blizzard
+  local S = ns.UsingEUI()
+  if S then -- EllesmereUI: white titles, its accent for headings, focus and hover
+    local acc = EUIAccent(S)
+    p = { title = { 0.95, 0.95, 0.95 }, hover = acc, line = { 0.80, 0.80, 0.80 }, done = { 0.55, 0.55, 0.55 },
+      focus = acc, dimTitle = { 0.6, 0.6, 0.6 }, dimLine = { 0.5, 0.5, 0.5 }, header = acc }
+  end
+  -- fonts: EllesmereUI's in its style (at the tracker's sizes), else the tracker's own
+  local ok, path, flag = false
+  if S then ok, path, flag = pcall(S.GetFont) end
+  for _, pair in ipairs({ { HEADER_FONT, HEADER_BASE }, { TITLE_FONT, TITLE_BASE }, { LINE_FONT, LINE_BASE } }) do
+    if ok and type(path) == "string" then
+      local _, size = pair[2]:GetFont()
+      pair[1]:SetFont(path, size or 12, flag or "")
+    else
+      pair[1]:CopyFontObject(pair[2])
+    end
+  end
   Fill(TITLE_COLOR, p.title); Fill(TITLE_HOVER_COLOR, p.hover); Fill(LINE_COLOR, p.line); Fill(DONE_COLOR, p.done)
   Fill(FOCUS_COLOR, p.focus); Fill(DIM_TITLE, p.dimTitle); Fill(DIM_LINE, p.dimLine); Fill(HEADER_COLOR, p.header)
 end
@@ -137,6 +178,22 @@ function ns.ApplyBackdrop()
   ApplyStyle()
   local a = ns.db.bgAlpha or 0
   local border = ns.db.showBorder
+  local S = ns.UsingEUI()
+  if S then
+    -- EllesmereUI: its flat panel colour, a thin grey border
+    for _, t in ipairs(pieces) do t:Hide() end
+    boxed:ClearAllPoints()
+    boxed:SetPoint("TOPLEFT", inner, "TOPLEFT", -1, 1)
+    boxed:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", 1, -1)
+    boxed:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    local okP, r, g, b = pcall(S.GetPanelColor)
+    if not (okP and r) then r, g, b = 0.07, 0.07, 0.08 end
+    boxed:SetBackdropColor(r, g, b, a)
+    boxed:SetBackdropBorderColor(0.28, 0.28, 0.28, border and 1 or 0)
+    boxed:Show()
+    return
+  end
   if ns.UsingFlare() then
     -- FlareUI's window: dark dialog background, FlareUI Frames border tinted bronze (16 px edge, 3 px inset)
     for _, t in ipairs(pieces) do t:Hide() end
@@ -173,19 +230,37 @@ end
 function ns.Theme()
   ApplyStyle()
   local flare = ns.UsingFlare()
+  local S = ns.UsingEUI()
   local accent = flare and FLARE_BRONZE or (ns.db.borderColor or { 0.40, 0.33, 0.22 })
-  return {
+  local th = {
     flare = flare, header = HEADER_COLOR, title = TITLE_COLOR, hover = TITLE_HOVER_COLOR,
     line = LINE_COLOR, dim = DIM_LINE, focus = FOCUS_COLOR, accent = accent,
     box = flare and FLARE_BOX or accent, divider = FLARE_DIVIDER,
     headerFont = HEADER_FONT, titleFont = TITLE_FONT, lineFont = LINE_FONT,
   }
+  if S then -- EllesmereUI: flat dark controls, thin grey borders, its accent for what's selected
+    th.eui = true; th.accent = EUIAccent(S); th.box = { 0.16, 0.16, 0.16 }; th.edge = { 0.28, 0.28, 0.28 }
+    th.mark = th.accent; th.title = { 1, 1, 1 }; th.header = { 1, 1, 1 }
+  end
+  th.edge = th.edge or th.accent
+  th.mark = th.mark or th.title
+  return th
 end
 
 -- A window drawn like the tracker's box: FlareUI's dialog background and bronze border,
 -- or the dark panel with the thin brown border.
+local shelled = setmetatable({}, { __mode = "k" }) -- windows EllesmereUI has painted
 function ns.SkinWindow(f, alpha)
   local th = ns.Theme()
+  if th.eui then
+    -- EllesmereUI paints the shell itself (once; it keeps it in step with the player's theme)
+    if not shelled[f] then
+      f:SetBackdrop(nil)
+      shelled[f] = pcall(ns.euiSkin.Shell, f)
+      if not shelled[f] then f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" }); f:SetBackdropColor(0.06, 0.06, 0.06, alpha) end
+    end
+    return
+  end
   if th.flare then
     f:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), tile = false, tileSize = 0, edgeSize = 16,
       insets = { left = 3, right = 3, top = 3, bottom = 3 } })
@@ -1064,7 +1139,7 @@ SlashCmdList.XPPLANNER = function(msg)
   elseif cmd == "replace" then
     db.replaceTracker = not db.replaceTracker
     ns.ApplyReplace()
-    ns.Print(db.replaceTracker and "replacing Blizzard's quest tracker." or "Blizzard's quest tracker is back.")
+    ns.Print(db.replaceTracker and "replacing the quest tracker." or "the quest tracker is back.")
     if InCombatLockdown() then ns.Print("(takes effect when you leave combat)") end
     if ns.RefreshOptions then ns.RefreshOptions() end
   elseif cmd == "toggle" or cmd == "hide" or cmd == "show" then

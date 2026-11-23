@@ -43,6 +43,8 @@ local function Section(parent, str, x, y, width)
   Skin(function(th)
     if th.flare then
       div:SetTexture(th.divider); div:SetVertexColor(1, 1, 1, 1); div:SetHeight(8)
+    elseif th.eui then
+      div:SetColorTexture(RGB(th.edge, 1)); div:SetHeight(1)
     else
       div:SetColorTexture(RGB(th.accent, 0.7)); div:SetHeight(1)
     end
@@ -83,8 +85,8 @@ local function Check(parent, label, x, y, opt, width)
   local function paint(th)
     th = th or ns.Theme()
     box:SetBackdropColor(0, 0, 0, 0.55)
-    box:SetBackdropBorderColor(RGB(th.accent, hover and active and 1 or 0.8))
-    mark:SetVertexColor(RGB(th.title))
+    box:SetBackdropBorderColor(RGB((hover and active) and th.accent or th.edge, hover and active and 1 or 0.8))
+    mark:SetVertexColor(RGB(th.mark))
     text:SetTextColor(RGB((hover and active) and th.hover or th.line))
   end
   Skin(paint)
@@ -165,8 +167,13 @@ local function Button(parent, label, width, onClick)
   local hover = false
   local function paint(th)
     th = th or ns.Theme()
-    b:SetBackdropColor(RGB(th.box, hover and 0.55 or 0.3))
-    b:SetBackdropBorderColor(RGB(th.accent, hover and 1 or 0.8))
+    if th.eui then
+      b:SetBackdropColor(RGB(th.box, hover and 1 or 0.85))
+      b:SetBackdropBorderColor(RGB(hover and th.accent or th.edge, 1))
+    else
+      b:SetBackdropColor(RGB(th.box, hover and 0.55 or 0.3))
+      b:SetBackdropBorderColor(RGB(th.accent, hover and 1 or 0.8))
+    end
     fs:SetTextColor(RGB(hover and th.hover or th.title))
   end
   Skin(paint)
@@ -230,7 +237,7 @@ local function ShowLink(title, url)
     e:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     Skin(function(th)
       e:SetFontObject(th.lineFont); e:SetTextColor(RGB(th.title))
-      e:SetBackdropColor(0, 0, 0, 0.55); e:SetBackdropBorderColor(RGB(th.title, 0.7))
+      e:SetBackdropColor(0, 0, 0, 0.55); e:SetBackdropBorderColor(RGB(th.eui and th.edge or th.title, 0.7))
     end)
     -- keep the link intact if someone types in the box
     e:SetScript("OnTextChanged", function(self, user)
@@ -283,7 +290,7 @@ local function Restyle() ns.ApplyBackdrop(); ns.RestyleOptions(); ns.RefreshOpti
 local function PageTracker(p)
   local y = Section(p, "Position", 0, 0, 220)
   track(Check(p, "Lock in place", 0, y, Setting("locked")))
-  track(Check(p, "Replace Blizzard's quest tracker", 0, y - 24, Setting("replaceTracker", function() ns.ApplyReplace() end)))
+  track(Check(p, "Replace the quest tracker", 0, y - 24, Setting("replaceTracker", function() ns.ApplyReplace() end)))
   track(Check(p, "Hide the list", 0, y - 48, Setting("hidden")))
   local under = Button(p, "Move under quest tracker", 200, function() ns.db.pos = nil; ns.PlaceFrame(); Changed() end)
   under:SetPoint("TOPLEFT", 0, y - 80)
@@ -291,6 +298,7 @@ local function PageTracker(p)
 
   y = Section(p, "Look", COL2, 0, 224)
   track(Check(p, "FlareUI style (needs FlareUI)", COL2, y, Setting("useFlareStyle", Restyle), 224))
+  track(Check(p, "EllesmereUI style (needs EllesmereUI)", COL2, y - 72, Setting("euiStyle", Restyle), 224))
   local border = track(Check(p, "Border (without FlareUI style)", COL2, y - 24, Setting("showBorder", Restyle), 224))
   local r = border.Refresh
   border.Refresh = function() r(); border.SetActive(not ns.UsingFlare()) end
@@ -298,9 +306,9 @@ local function PageTracker(p)
   local classic = track(Check(p, "Classic section headings", COL2, y - 48, Setting("classicHeaders", function() ns.Refresh() end), 224))
   local rc = classic.Refresh
   classic.Refresh = function() rc(); classic.SetActive(not ns.UsingFlare()) end
-  track(Slider(p, "Scale", COL2, y - 76, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
-  track(Slider(p, "Background opacity", COL2, y - 112, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
-  track(Slider(p, "Max height (then scrolls)", COL2, y - 148, 224, 120, 900, 10, Setting("maxHeight"),
+  track(Slider(p, "Scale", COL2, y - 100, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
+  track(Slider(p, "Background opacity", COL2, y - 136, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
+  track(Slider(p, "Max height (then scrolls)", COL2, y - 172, 224, 120, 900, 10, Setting("maxHeight"),
     function(v) return v .. " px" end))
 
   -- which sections show in dungeons and in combat (ticked = shown)
@@ -503,7 +511,7 @@ local function BuildWindow()
   line:SetPoint("TOPLEFT", 26, -72); line:SetPoint("TOPRIGHT", -26, -72); line:SetHeight(1)
   local function paintTabs(th)
     th = th or ns.Theme()
-    line:SetColorTexture(RGB(th.accent, 0.5))
+    line:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.5))
     for i, t in ipairs(tabs) do
       local on = (i == current)
       t.text:SetTextColor(RGB(on and th.title or (t.hover and th.hover or th.dim)))
@@ -601,7 +609,7 @@ local function BuildIgnored()
   Note(ignWin, "Removed quests come back to Quests Nearby if they still qualify.", 22, -44, 316)
   local line = ignWin:CreateTexture(nil, "ARTWORK")
   line:SetPoint("TOPLEFT", 22, -70); line:SetPoint("TOPRIGHT", -22, -70); line:SetHeight(1)
-  Skin(function(th) line:SetColorTexture(RGB(th.accent, 0.5)) end)
+  Skin(function(th) line:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.5)) end)
 
   local scroll = CreateFrame("ScrollFrame", nil, ignWin)
   scroll:SetPoint("TOPLEFT", 22, -80)

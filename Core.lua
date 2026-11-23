@@ -30,6 +30,7 @@ ns.DEFAULTS = {
   showBorder  = true,   -- tooltip-style border; off = soft faded edges instead
   classicHeaders = false, -- section headings: the quest tracker's header art (the earlier look) instead of the clean line
   useFlareStyle = true, -- match FlareUI's look when FlareUI is installed
+  euiStyle = true,      -- match EllesmereUI's look when EllesmereUI is installed (its skinning API)
   borderColor = { 0.40, 0.33, 0.22 },  -- brown, FlareUI-style
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
