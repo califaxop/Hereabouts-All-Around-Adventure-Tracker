@@ -10,7 +10,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - **Quests to Turn In:** everything ready to hand in, in its own section.
 - **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
 - **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
-- **Quest item buttons:** a small button beside each quest with a usable item, left of its [level]: one click (or a keybind for the first three) uses it.
+- **Quest item buttons:** a button beside each quest with a usable item, in the margin left of its title (the list doesn't move for it): one click (or a keybind for the first three) uses it.
 - **Session bars:** slim bars under the tracker: XP per hour and time to level, gold per hour and this session, XP and quests this session, rested XP. Your pick.
 - **Dungeons:** the ones that fit your level, here or everywhere.
 - **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
@@ -50,6 +50,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.6.1:** Quest item buttons are bigger (20 px, from 14) and sit in the margin left of their quest's title, so the Active Quests list no longer shifts right when a quest has an item.
 - **1.6.0:** Quests to Turn In shows where to turn each quest in (its zone, or "here") when the section is set to All zones.
 - **1.5.0:** Quest item buttons now sit beside their quest in Active Quests: a small button left of the quest's [level] (the active quests move over a little to make room, all aligned), instead of a separate bar. In combat, the quest of what you're fighting is highlighted where it is instead of moving to the top. Soft animations: an objective that progresses flashes its count, and the combat highlight fades in and out (Settings, Lists: Soft animations).
 - **1.4.0:** Works with FlareUI and EllesmereUI: Hereabouts takes over their quest trackers (it turns itself on the first time it finds one; /hab to change), and in EllesmereUI's style the tracker, session bar and settings use its panel colour, accent and font (the settings window painted by EllesmereUI's own skinning API).

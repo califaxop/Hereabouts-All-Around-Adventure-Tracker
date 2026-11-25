@@ -983,13 +983,9 @@ function ns.Render(s)
   y = 0
   shownSomething = false
 
-  local items = {} -- quests with a usable item: { itemID, icon, title, row } (buttons beside them)
-  -- room for the item buttons: every Active Quests row moves right when any of them has one (titles stay
-  -- aligned). Quests to Turn In have nothing left to use, so they get no button and keep their place.
+  local items = {} -- quests with a usable item: { itemID, icon, title, row } (buttons in the left margin,
+  -- beside their titles: the rows themselves never move for them, see QuestItems.lua)
   local qIndent = 0
-  if ns.db.showQuestItems and ns.QuestItems then
-    for _, q in ipairs(s.quests or {}) do if q.item then qIndent = ns.QuestItems.INDENT end end
-  end
   if ns.Session then ns.Session.Paint() end
 
   -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable

@@ -8,11 +8,10 @@ local _, ns = ...
 local Q = {}
 ns.QuestItems = Q
 
--- The button sits in a column of its own just left of the [level]: when any quest in Active Quests has an
--- item, every row there moves right by Q.INDENT (the tracker does it), so titles stay aligned. Quests to
--- Turn In get no button (nothing left to use) and keep their place.
-local MAX, SIZE, GAP = 12, 14, 3
-Q.INDENT = SIZE + GAP + 1
+-- The button sits in the list's left margin (the room between the panel's left border and the quest
+-- titles, 28 px), top-aligned with its quest's title: nothing in the list moves, with or without items.
+-- Quests to Turn In get no button (nothing left to use).
+local MAX, SIZE, GAP = 12, 20, 3
 local buttons = {}
 Q.buttons = buttons
 local pending -- the list to show once combat ends
@@ -71,7 +70,7 @@ local function Paint(b)
   end
 end
 
--- where a row's left edge and middle are on screen, in UIParent's units; nil if the row is scrolled
+-- where a row's left edge and top are on screen, in UIParent's units; nil if the row is scrolled
 -- out of the list's visible area
 local function Spot(row)
   if not (row and row:IsVisible()) then return nil end
@@ -81,7 +80,7 @@ local function Spot(row)
   local mid = (top + bottom) / 2
   if vTop and vBottom and (mid > vTop or mid < vBottom) then return nil end
   local k = row:GetEffectiveScale() / UIParent:GetEffectiveScale()
-  return left * k, mid * k, k
+  return left * k, top * k, k
 end
 
 local function Apply(list)
@@ -102,7 +101,7 @@ local function Apply(list)
         b:SetFrameStrata(strata); b:SetFrameLevel(level)
         b:SetScale(math.max(0.5, k or 1)) -- (the list's scale)
         b:ClearAllPoints()
-        b:SetPoint("RIGHT", UIParent, "BOTTOMLEFT", (x - GAP) / b:GetScale(), y / b:GetScale())
+        b:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", (x - GAP) / b:GetScale(), y / b:GetScale())
         b:Show()
         Paint(b)
 
