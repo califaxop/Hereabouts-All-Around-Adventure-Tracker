@@ -29,8 +29,6 @@ ns.DEFAULTS = {
   bgAlpha     = 0.5,    -- backdrop opacity behind the list (0 = none)
   showBorder  = true,   -- tooltip-style border; off = soft faded edges instead
   classicHeaders = false, -- section headings: the quest tracker's header art (the earlier look) instead of the clean line
-  useFlareStyle = true, -- match FlareUI's look when FlareUI is installed
-  euiStyle = true,      -- match EllesmereUI's look when EllesmereUI is installed (its skinning API)
   borderColor = { 0.40, 0.33, 0.22 },  -- brown, FlareUI-style
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
@@ -83,6 +81,8 @@ function ns.LoadDB()
     HereaboutsDB.borderVersion = 2
   end
   HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
+  -- no style settings any more: the look follows EllesmereUI / FlareUI whenever they're installed
+  HereaboutsDB.useFlareStyle, HereaboutsDB.euiStyle = nil, nil
   ns.db = HereaboutsDB
 end
 

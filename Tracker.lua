@@ -44,7 +44,7 @@ if type(EllesmereUI) == "table" and EllesmereUI.RegisterSkin then
 end
 function ns.UsingEUI()
   local S = ns.euiSkin
-  if S and ns.db and ns.db.euiStyle ~= false and (not S.IsEnabled or S.IsEnabled()) then return S end
+  if S and (not S.IsEnabled or S.IsEnabled()) then return S end -- whenever it's installed and skinning us
 end
 local function EUIAccent(S)
   local ok, r, g, b = pcall(S.GetAccentColor)
@@ -102,7 +102,7 @@ function ns.FlareBorder()
   return path or "Interface/AddOns/FlareUI/Media/Borders/FlareUI-Frames.tga"
 end
 
-function ns.UsingFlare() return ns.db and ns.db.useFlareStyle and ns.FlareBorder() ~= nil and not ns.UsingEUI() end
+function ns.UsingFlare() return ns.FlareBorder() ~= nil and not ns.UsingEUI() end
 
 local frame = CreateFrame("Frame", "XPPlannerFrame", UIParent)
 ns.TrackerFrame = frame

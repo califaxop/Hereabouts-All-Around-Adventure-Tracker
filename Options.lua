@@ -297,18 +297,17 @@ local function PageTracker(p)
   Note(p, "Unlock, then drag a section heading to move the list.", 0, y - 110, 220)
 
   y = Section(p, "Look", COL2, 0, 224)
-  track(Check(p, "FlareUI style (needs FlareUI)", COL2, y, Setting("useFlareStyle", Restyle), 224))
-  track(Check(p, "EllesmereUI style (needs EllesmereUI)", COL2, y - 72, Setting("euiStyle", Restyle), 224))
-  local border = track(Check(p, "Border (without FlareUI style)", COL2, y - 24, Setting("showBorder", Restyle), 224))
+  -- (the look follows EllesmereUI / FlareUI on its own when they're installed)
+  local border = track(Check(p, "Border (without FlareUI / EllesmereUI)", COL2, y, Setting("showBorder", Restyle), 224))
   local r = border.Refresh
-  border.Refresh = function() r(); border.SetActive(not ns.UsingFlare()) end
+  border.Refresh = function() r(); border.SetActive(not ns.UsingFlare() and not ns.UsingEUI()) end
   -- the earlier section headings (the quest tracker's header art), for those who prefer them
-  local classic = track(Check(p, "Classic section headings", COL2, y - 48, Setting("classicHeaders", function() ns.Refresh() end), 224))
+  local classic = track(Check(p, "Classic section headings", COL2, y - 24, Setting("classicHeaders", function() ns.Refresh() end), 224))
   local rc = classic.Refresh
   classic.Refresh = function() rc(); classic.SetActive(not ns.UsingFlare()) end
-  track(Slider(p, "Scale", COL2, y - 100, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
-  track(Slider(p, "Background opacity", COL2, y - 136, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
-  track(Slider(p, "Max height (then scrolls)", COL2, y - 172, 224, 120, 900, 10, Setting("maxHeight"),
+  track(Slider(p, "Scale", COL2, y - 64, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
+  track(Slider(p, "Background opacity", COL2, y - 100, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
+  track(Slider(p, "Max height (then scrolls)", COL2, y - 136, 224, 120, 900, 10, Setting("maxHeight"),
     function(v) return v .. " px" end))
 
   -- which sections show in dungeons and in combat (ticked = shown)
@@ -439,7 +438,7 @@ local function PageStatus(p)
     if not tr.Installed() then set("What's Training", GREY, "Not installed: no Training section.")
     elseif not tr.Ready() then set("What's Training", YELLOW, "Loading...")
     else set("What's Training", GREEN, "Connected.") end
-    if ns.FlareBorder() then set("FlareUI", GREEN, ns.UsingFlare() and "Connected: its style is on." or "Installed: its style is off (Tracker tab).")
+    if ns.FlareBorder() then set("FlareUI", GREEN, ns.UsingFlare() and "Connected: its style is on." or "Installed: EllesmereUI's style is used.")
     else set("FlareUI", GREY, "Not installed: the plain style is used.") end
     if loaded("TomTom") then set("TomTom", GREEN, "Connected: Show on Map also sets its arrow.")
     else set("TomTom", GREY, "Not installed: Show on Map uses the game's map pin.") end
