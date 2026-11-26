@@ -81,8 +81,6 @@ function ns.LoadDB()
     HereaboutsDB.borderVersion = 2
   end
   HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
-  -- no style settings any more: the look follows EllesmereUI / FlareUI whenever they're installed
-  HereaboutsDB.useFlareStyle, HereaboutsDB.euiStyle = nil, nil
   ns.db = HereaboutsDB
 end
 

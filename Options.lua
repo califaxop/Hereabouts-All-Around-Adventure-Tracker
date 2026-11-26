@@ -1,5 +1,5 @@
 -- XP Planner: settings window (/hab, or Esc > Options > AddOns > XP Planner), drawn in the
--- tracker's own style: its border, background, fonts and colours (FlareUI's when that style is on).
+-- tracker's own style: its border, background, fonts and colours (EllesmereUI's or FlareUI's when installed).
 local _, ns = ...
 
 local W = "Interface\\Buttons\\WHITE8X8"
@@ -438,7 +438,7 @@ local function PageStatus(p)
     if not tr.Installed() then set("What's Training", GREY, "Not installed: no Training section.")
     elseif not tr.Ready() then set("What's Training", YELLOW, "Loading...")
     else set("What's Training", GREEN, "Connected.") end
-    if ns.FlareBorder() then set("FlareUI", GREEN, ns.UsingFlare() and "Connected: its style is on." or "Installed: EllesmereUI's style is used.")
+    if ns.FlareBorder() then set("FlareUI", GREEN, ns.UsingFlare() and "Connected: its style is used." or "Installed: EllesmereUI's style is used.")
     else set("FlareUI", GREY, "Not installed: the plain style is used.") end
     if loaded("TomTom") then set("TomTom", GREEN, "Connected: Show on Map also sets its arrow.")
     else set("TomTom", GREY, "Not installed: Show on Map uses the game's map pin.") end
