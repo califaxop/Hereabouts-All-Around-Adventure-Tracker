@@ -4,20 +4,33 @@ local _, ns = ...
 
 local WIDTH = 235
 
+-- the first of these font objects that exists and is a readable size: another addon can shrink the
+-- game's tracker fonts (EllesmereUI's quest tracker sets them to 1 px to hide the game's tracker)
 local function FontObj(...)
   for i = 1, select("#", ...) do
     local f = _G[select(i, ...)]
-    if f then return f end
+    if f and f.GetFont then
+      local ok, path, size = pcall(f.GetFont, f)
+      if ok and type(path) == "string" and type(size) == "number" and size >= 8 then return f end
+    end
   end
+  return _G.GameFontNormal
+end
+-- the tracker's fonts to copy (looked up each time: another addon may have shrunk them since)
+local function Bases()
+  return FontObj("ObjectiveTrackerHeaderFont", "GameFontNormalMed2", "GameFontNormal"),
+    FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontNormal"),
+    FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontHighlightSmall")
 end
 -- our own font objects, copied from the tracker's (or set to EllesmereUI's font in its style), so a
 -- style change re-fonts every line at once
-local HEADER_BASE = FontObj("ObjectiveTrackerHeaderFont", "GameFontNormalMed2", "GameFontNormal")
-local TITLE_BASE  = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontNormal")
-local LINE_BASE   = FontObj("ObjectiveTrackerLineFont", "ObjectiveFont", "GameFontHighlightSmall")
-local HEADER_FONT = CreateFont("HereaboutsHeaderFont"); HEADER_FONT:CopyFontObject(HEADER_BASE)
-local TITLE_FONT  = CreateFont("HereaboutsTitleFont");  TITLE_FONT:CopyFontObject(TITLE_BASE)
-local LINE_FONT   = CreateFont("HereaboutsLineFont");   LINE_FONT:CopyFontObject(LINE_BASE)
+local HEADER_FONT = CreateFont("HereaboutsHeaderFont")
+local TITLE_FONT  = CreateFont("HereaboutsTitleFont")
+local LINE_FONT   = CreateFont("HereaboutsLineFont")
+do
+  local h, t, l = Bases()
+  HEADER_FONT:CopyFontObject(h); TITLE_FONT:CopyFontObject(t); LINE_FONT:CopyFontObject(l)
+end
 
 -- EllesmereUI style: EllesmereUI's skinning API (EllesmereUI.RegisterSkin, its SKINNING_API.md) paints
 -- the settings windows' shells in the player's theme; the tracker takes its accent, panel colour and font.
@@ -162,7 +175,8 @@ local function ApplyStyle()
   -- fonts: EllesmereUI's in its style (at the tracker's sizes), else the tracker's own
   local ok, path, flag = false
   if S then ok, path, flag = pcall(S.GetFont) end
-  for _, pair in ipairs({ { HEADER_FONT, HEADER_BASE }, { TITLE_FONT, TITLE_BASE }, { LINE_FONT, LINE_BASE } }) do
+  local hb, tb, lb = Bases()
+  for _, pair in ipairs({ { HEADER_FONT, hb }, { TITLE_FONT, tb }, { LINE_FONT, lb } }) do
     if ok and type(path) == "string" then
       local _, size = pair[2]:GetFont()
       pair[1]:SetFont(path, size or 12, flag or "")
