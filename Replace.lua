@@ -18,7 +18,6 @@ local function Trackers()
   end
   return list
 end
-ns.BlizzardTracker = function() return Trackers()[1] end
 
 local pending = false
 local hooked = {}

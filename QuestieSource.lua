@@ -62,7 +62,7 @@ function Q.Diagnose(print)
     type(Questie), type(QuestieLoader), tostring(api and true or false), tostring(api and api.isReady)))
   if C_AddOns and C_AddOns.GetNumAddOns and C_AddOns.GetAddOnInfo then
     for i = 1, C_AddOns.GetNumAddOns() do
-      local name, title = C_AddOns.GetAddOnInfo(i)
+      local name = C_AddOns.GetAddOnInfo(i)
       if name and name ~= "Questie" and (name:lower():find("questie", 1, true)) then
         print(format("Other Questie-named addon: %s (loaded: %s)", name, tostring(AddonLoaded(name))))
       end

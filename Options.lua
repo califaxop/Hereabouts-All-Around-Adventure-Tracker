@@ -180,7 +180,6 @@ local function Button(parent, label, width, onClick)
   b:SetScript("OnEnter", function() hover = true; paint() end)
   b:SetScript("OnLeave", function() hover = false; paint() end)
   b:SetScript("OnClick", onClick)
-  b.SetLabel = function(t) fs:SetText(t) end
   return b
 end
 
@@ -364,7 +363,7 @@ local function PageLists(p)
 
   y = Section(p, "Details", 0, y - 230, PAGE_W)
   track(Check(p, "Sort by level (highest first)", 0, y, Setting("sortByLevel")))
-  local objectives = track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives", function() ns.RefreshOptions() end)))
+  track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives", function() ns.RefreshOptions() end)))
   local hideDone = track(Check(p, "Hide finished objectives", 22, y - 48, Setting("hideDoneObjectives"), 208))
   local hr = hideDone.Refresh
   hideDone.Refresh = function() hr(); hideDone.SetActive(ns.db.showObjectives and true or false) end

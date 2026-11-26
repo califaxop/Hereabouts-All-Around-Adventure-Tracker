@@ -84,15 +84,6 @@ function ns.LoadDB()
   ns.db = HereaboutsDB
 end
 
--- Quest difficulty color for a level, the same colors the quest log uses.
-function ns.LevelColor(level)
-  if GetQuestDifficultyColor and level and level > 0 then
-    local ok, c = pcall(GetQuestDifficultyColor, level)
-    if ok and c then return c.r, c.g, c.b end
-  end
-  return 1, 0.82, 0
-end
-
 -- Gray ("trivial") for you = little or no XP.
 function ns.IsTrivial(level)
   if not level or level <= 0 then return false end

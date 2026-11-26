@@ -803,7 +803,8 @@ local function Paint(key, p)
     if k > 0 then g:SetAlpha(0.35 * k); g:Show() else g:Hide() end
   elseif tg.mark then -- combat mark: arrives with a bright pulse (twice, settling), fades out after
     p = math.min(p, 1)
-    local m, e, k = tg.mark, 0, 0
+    local m, k = tg.mark, 0
+    local e
     if tg.out then
       e = (1 - p) ^ 2
     else
@@ -1114,8 +1115,8 @@ function ns.Render(s)
     for _, sp in ipairs(s.training) do
       local name = (sp.name or "?") .. (sp.rank and sp.rank ~= "" and (" (" .. sp.rank .. ")") or "")
       local sub
-      local cities, base = {}, sp.cost
-      if ns.db.showCityPrices then cities, base = ns.Training.CityPrices(sp) end
+      local cities = {}
+      if ns.db.showCityPrices then cities = ns.Training.CityPrices(sp) end
       if #cities > 0 then
         -- what each city charges with your reputation (green: the cheapest)
         sub = {}
