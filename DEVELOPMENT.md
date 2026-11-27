@@ -435,6 +435,10 @@ Milestone 5 verified in game; awaiting review before Milestone 6.
 5. Reset to defaults (Status tab): slot 1 still says "saved".
 6. The tabs fit the window (six of them), nothing overlaps on the Layout page.
 
+Results (1.12.0 test build):
+- 6: failed: the Layout page's section rows were drawn over "Your layouts" (their position was
+  worked out on each refresh from a variable that had moved on to the last heading). Fixed (`top`).
+
 ### Needs verification in WoW Forever
 
 ### Needs verification in WoW Forever

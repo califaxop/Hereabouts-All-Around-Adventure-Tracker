@@ -484,6 +484,7 @@ local function PageLayout(p)
     b:HookScript("OnLeave", function() GameTooltip:Hide() end)
   end
   local y = Section(p, "Sections, top to bottom", 0, 0, PAGE_W)
+  local top = y -- (the rows are placed on every refresh: from here, not from `y`, which moves on)
   local rows = {}
   for _, m in ipairs(ns.MODULES) do
     local r = {}
@@ -495,7 +496,7 @@ local function PageLayout(p)
   -- (placed by the order on every refresh)
   track({ Refresh = function()
     for i, key in ipairs(ns.SectionOrder()) do
-      local r, ry = rows[key], y - (i - 1) * 26
+      local r, ry = rows[key], top - (i - 1) * 26
       r.check:ClearAllPoints(); r.check:SetPoint("TOPLEFT", 0, ry)
       r.up:ClearAllPoints(); r.up:SetPoint("TOPLEFT", 230, ry)
       r.down:ClearAllPoints(); r.down:SetPoint("TOPLEFT", 286, ry)
