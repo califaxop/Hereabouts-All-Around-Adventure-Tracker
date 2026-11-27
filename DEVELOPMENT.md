@@ -16,7 +16,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
 | 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
-| 5 | Character progression and analytics | **Done in 1.11.0, waiting for in-game validation and review** |
+| 5 | Character progression and analytics | **Done in 1.11.0, verified in game, waiting for review** |
 | 6 | Modular interface | Not started |
 | 7 | Diagnostics and release | Not started |
 
@@ -234,7 +234,7 @@ verified places do (Milestone 5), rather than being given made-up coordinates.
 |---|---|---|
 | 25 | Session history | A session goes into `HereaboutsCharDB.history` when it ends: at the next real login (`PLAYER_ENTERING_WORLD` isInitialLogin; not a `/reload`, not a loading screen), or on a reset. Kept: a minute or more with XP, quests or gold gained. The session bar's tooltip shows the last one. The session also knows the level it began at (saved, checked, restored) |
 | 26 | `/hab progress` | Your level and how far into it, rested XP, this session, the past sessions' totals (time, XP, XP an hour, quests, levels, gold) and the last three, your professions (rank / max) and weapon skills (with how far below your level's cap: 5 a level) |
-| 27 | Professions and weapon skills | `C_SkillInfo.GetSkillLineInfoByID` per skill line; a line the game doesn't answer for, or one you don't have, isn't shown (nothing made up). Weapon lines: Blizzard's paper doll IDs (verified in game by Equip This!); profession lines: the game's Classic IDs (Inferred on Forever) |
+| 27 | Professions and weapon skills | `C_SkillInfo.GetSkillLineInfoByID` per skill line; a line the game doesn't answer for, or one you don't have, isn't shown (nothing made up). Weapon lines: Blizzard's paper doll IDs (verified in game by Equip This!); profession lines: the game's Classic IDs (verified in game for Alchemy, Cooking, First Aid, Herbalism) |
 | 28 | Dungeons: your quests | Each suggested dungeon says how many of your quests are for it (quest log headings: "Gnomeregan", "Scarlet Monastery" for its wings); without "sort by level", dungeons you have quests for come first. Dungeons.lua's list is no longer handed out to be changed (copies) |
 | 29 | Training: can you afford it | The Training section's "N to train - cost" says how much you're short |
 | 30 | Trainer data apart | TrainerData.lua (cities, weapon masters, the 10% Honored discount), from What's Training's source; Training.lua keeps the logic |
@@ -394,6 +394,19 @@ Milestone 4 verified in game and reviewed.
    the session bar's tooltip shows "Last session". A `/reload` in between doesn't add one.
 4. Dungeons section: a dungeon you have quests for says "N of your quests".
 5. Training: with less money than the total, the line says how much you're short.
+
+Results (1.11.0 test build, Shaman 44):
+- 1: pass.
+- 2: pass. "professions: Alchemy 100/150, Cooking 18/75, First Aid 91/150, Herbalism 162/225";
+  "weapon skills: Axes 195 (25 to go), Daggers 1 (219 to go), Defense 215 (5 to go), Maces 150,
+  Staves 65, Two-Handed Axes 186, Two-Handed Maces 214 (6 to go), Unarmed 129": the profession
+  skill lines answer on Forever; the cap is 5 a level (220 at 44).
+- 3: pass. After logging out and in: "last 1 session: 1h 24m, 13.2k XP (9,450/h), 2 quests, gold
+  gained 40s 42c"; this session started afresh.
+- 4: pass. Zul'Farrak "3 of your quests", Uldaman "2 of your quests", listed first.
+- 5: not applicable (enough money).
+
+Milestone 5 verified in game; awaiting review before Milestone 6.
 
 ### Needs verification in WoW Forever
 
