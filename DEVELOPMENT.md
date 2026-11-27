@@ -301,7 +301,12 @@ Results (1.9.0 test build):
   missing essential part makes it partial.
 - 3: pass. Five rows, each with its state; nothing overlaps.
 - 4: pass. Quests Nearby and Training as before.
-- 6: not applicable (no TomTom).
+- 6: pass (TomTom installed since): Status "TomTom: Connected"; Show on Map on The Cook in the Cage:
+  one arrow ("Wendel Mathers, 2621 yards away"). The Questie row green after the optional-parts
+  change ("Connected: 311 quests you can pick up.").
+- Seen: Show on Map on quests that start from an item (The Monogrammed Sash, Cortello's Riddle):
+  "no location known" (their start is an item, not a quest giver). For Milestone 4 (one location
+  model: an item start can point at where the item drops).
 - 5: replacing off: the tracker (FlareUI's / Blizzard's) came back; Hereabouts, dragged to the same
   place, sits over it (its position is the player's; "Move under quest tracker" puts it below).
   In combat: pending.

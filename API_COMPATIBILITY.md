@@ -81,7 +81,7 @@ Quests Nearby is off. `/hab questie` shows what's bound.
 |---|---|---|
 | FlareUI: `FlareUI.ObjectiveTracker:SetNever`, its profile's `objectivetracker.enabled`, its media | hide its tracker when replacing; its look | Verified in WoW Forever |
 | EllesmereUI: `_EQT_SetSuppressed`, `EllesmereUIQuestTracker.Cfg("enabled")`, its skin API | hide its tracker when replacing; its look | Verified in WoW Forever; since 1.9.0 an unreadable setting is "can't tell", never "on" |
-| TomTom: `TomTom:AddWaypoint(map, x, y, opts)` → uid, `TomTom:RemoveWaypoint(uid)` | Show on Map's arrow, one at a time (1.9.0) | AddWaypoint: In use; RemoveWaypoint: Verified through its source, untested on Forever |
+| TomTom: `TomTom:AddWaypoint(map, x, y, opts)` → uid, `TomTom:RemoveWaypoint(uid)` | Show on Map's arrow, one at a time (1.9.0) | Verified in WoW Forever (1.9.0: one arrow after Show on Map on two quests) |
 
 ## Testing an API in game
 
