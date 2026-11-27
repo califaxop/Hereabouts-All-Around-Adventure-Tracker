@@ -11,8 +11,10 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - **Quests Nearby** (with Questie): the best-XP quests to pick up, with how far each quest giver is in yards and a one-click waypoint. Follows Questie's own settings.
 - **Training** (with What's Training): what your trainer has for you, and what each city charges with your reputation.
 - **Quest item buttons:** a button beside each quest with a usable item, in the margin left of its title (the list doesn't move for it): one click (or a keybind for the first three) uses it.
-- **Session bars:** slim bars under the tracker: XP per hour and time to level, gold per hour and this session, XP and quests this session, rested XP. Your pick.
-- **Dungeons:** the ones that fit your level, here or everywhere.
+- **Session bars:** slim bars under the tracker. The XP bar (XP per hour, time to level): hover it for XP and quests this session and rested XP too. The gold bar (gold per hour, gained this session): hover it for what training costs you now. XP and quests this session, and rested XP, can have bars of their own.
+- **Waypoints:** right-click an active quest for a waypoint to its nearest objective left, or to its turn-in once it's done (with Questie; TomTom's arrow too).
+- **Combat focus:** in a fight, the quest of what you're fighting lights up where it is in the list.
+- **Dungeons:** the ones that fit your level, here or everywhere, and how many of your quests are for each.
 - **Your way:** order the sections, presets (Questing, This zone, Dungeons, Minimal, Leveling) and your own saved layouts; hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 
 ## What each add-on unlocks
@@ -39,20 +41,23 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 | `/hab progress` | Your level, this and past sessions, professions and weapon skills |
 | `/hab session` | Reset the session bar's numbers |
 | `/hab questie` | What Hereabouts sees of Questie |
-| `/hab status` | Version, Questie / What's Training, session, item buttons, errors (for bug reports) |
+| `/hab status` | Version, Questie / What's Training, session, item buttons, errors |
 | `/hab errors` | Errors caught this session |
+| `/hab perf` | How long building and drawing the list takes, and the last Questie scan |
+| `/hab report` | Bugs & Feedback: the form's link and a report to paste into it |
 
 ## Good to know
 - With Questie, which quests show in Quests Nearby follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
 - Without Questie there's no Quests Nearby: the game itself doesn't list quests you could pick up.
 - Dungeon level ranges are the classic ones; WoW: Forever may differ.
+- A quest Hereabouts can't place stays listed when the list is set to this zone (`/hab zone` says why).
 - Works on English clients for dungeon zone matching.
 
 ## Updates
 New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 AM US Eastern). Urgent fixes ship sooner.
 
 ## Feedback
-Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
+Found a bug, have feedback or want a feature? Click **Bugs & Feedback** at the top right of the settings window (or type `/hab report`): it gives you the form's link and, for a bug, a line to paste into it with everything we need. Or [open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose) directly: there's a short form for each.
 
 ## Recent changes
 - **2.0.0:** A thorough rework in seven steps, each tested in game. The zone filter is smarter: a quest Hereabouts can't place stays listed, a quest over two zones shows where what's left is, and `/hab zone` explains each decision. Quests that start from an item have a place (where it drops), and right-click an active quest for a waypoint to its nearest objective or its turn-in. Fixed: quest money counted as XP, "Reset to defaults" missing some settings, a quest item button ending up beside another quest in combat (it now dims until combat ends), a change in What's Training stopping the whole tracker. Session history and `/hab progress` (levels, sessions, professions, weapon skills). A Layout tab: order the sections, presets, three saved layouts. The session bar is two bars now: XP (per hour, time to level) and gold (per hour, gained); hover each for all its numbers, training costs included. "Bugs & Feedback" (top right of the settings) gives the form's link for bug reports, feedback and feature requests, and a report to paste into a bug report. New commands: `/hab status`, `/hab errors`, `/hab zone`, `/hab focus`, `/hab where`, `/hab progress`, `/hab perf`, `/hab report`. Full list: CHANGELOG.md.
