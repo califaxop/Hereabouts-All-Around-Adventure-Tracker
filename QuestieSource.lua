@@ -447,11 +447,22 @@ local function QuestieSet()
   if type(set) == "table" then return set end
 end
 
--- a cheap fingerprint of Questie's available set: count and id sum
-function Q.SetStamp(set)
-  local n, sum = 0, 0
-  for id in pairs(set) do n = n + 1; sum = sum + (tonumber(id) or 0) end
-  return n .. ":" .. sum
+-- What the last scan saw of Questie's available set (1.7.0): a copy of its quest IDs, compared
+-- with the set as it is now, id by id. Exact (count-plus-sum, before, took different sets for the
+-- same one: {1, 4} and {2, 3}), and no sorting: one pass, and it stops at the first difference.
+function Q.Snapshot(set)
+  local copy, n = {}, 0
+  for id in pairs(set) do copy[id] = true; n = n + 1 end
+  return { ids = copy, n = n }
+end
+function Q.SameSet(set, snap)
+  if not snap then return false end
+  local n = 0
+  for id in pairs(set) do
+    if not snap.ids[id] then return false end
+    n = n + 1
+  end
+  return n == snap.n
 end
 
 -- Questie fills and updates its available set in the background, over several seconds:
@@ -462,7 +473,7 @@ local function WatchQuestieSet()
   watcher = C_Timer.NewTicker(3, function()
     if not ready or scanning then return end
     local set = QuestieSet()
-    if set and Q.SetStamp(set) ~= Q.setStamp then Q.Scan() end
+    if set and not Q.SameSet(set, Q.seen) then Q.Scan() end
   end)
 end
 
@@ -512,7 +523,7 @@ function Q.Scan()
   scanning = true
   local ids = {}
   local set = QuestieSet()
-  Q.setStamp = set and Q.SetStamp(set) or nil -- what this scan saw (see the watcher below)
+  Q.seen = set and Q.Snapshot(set) or nil -- what this scan saw (see the watcher above)
   -- Questie's available quests when it exposes them; otherwise its whole database, checked here
   for id in pairs(set or QDB.QuestPointers or {}) do ids[#ids + 1] = id end
   local fromQuestie = set ~= nil

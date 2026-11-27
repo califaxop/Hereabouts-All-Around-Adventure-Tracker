@@ -4,6 +4,13 @@
 -- the rows: anchoring secure buttons would lock the tracker's rows in combat), placed again after
 -- every redraw and scroll out of combat, and in combat they stay where they are until it ends.
 -- Combat focus only highlights quests (nothing moves), so they stay beside their quests in a fight.
+--
+-- Which quest a button is for (1.7.0): each shown button keeps its quest (questID) and the spot it
+-- was placed at (b.at: the layout snapshot). When the list changes in combat (a quest done or
+-- dropped, a section shown or hidden, a scroll), each button is checked against the new list: still
+-- beside its own quest's row, at the same spot: as it is; else it's "stale": dimmed, and its
+-- tooltip says it's still for its own quest. Nothing protected changes in combat (position,
+-- attributes, shown or hidden: only its look); when combat ends every button is placed again.
 local _, ns = ...
 local Q = {}
 ns.QuestItems = Q
@@ -51,6 +58,9 @@ local function MakeButton(i)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     pcall(GameTooltip.SetItemByID, GameTooltip, self.itemID)
     if self.quest then GameTooltip:AddLine("For: " .. self.quest, 0.6, 0.8, 1) end
+    if self.stale then
+      GameTooltip:AddLine("The list changed in combat: this button is still for the quest above, and moves back beside it when combat ends.", 1, 0.5, 0.25, true)
+    end
     local key = GetBindingKey and GetBindingKey("CLICK " .. self:GetName() .. ":LeftButton")
     if key then GameTooltip:AddLine("Key: " .. (GetBindingText and GetBindingText(key, true) or key), 0.6, 0.6, 0.6) end
     GameTooltip:Show()
@@ -63,7 +73,8 @@ local function Paint(b)
   if not b.itemID then return end
   local n = Count(b.itemID)
   b.count:SetText((n and n > 1) and n or "")
-  b.icon:SetDesaturated(not n or n == 0)
+  b.icon:SetDesaturated(not n or n == 0 or b.stale)
+  pcall(b.SetAlpha, b, b.stale and 0.3 or 1) -- (a look, not a protected change)
   if C_Container and C_Container.GetItemCooldown then
     local ok, s, d = pcall(C_Container.GetItemCooldown, b.itemID)
     if ok and type(s) == "number" and type(d) == "number" then b.cd:SetCooldown(s, d) end
@@ -95,7 +106,8 @@ local function Apply(list)
     if x and not b then b = MakeButton(i); buttons[i] = b end
     if b then
       if x then
-        b.itemID, b.quest = it.itemID, it.title
+        b.itemID, b.quest, b.questID = it.itemID, it.title, it.questID
+        b.at, b.stale = { x = x, y = y, k = k or 1 }, nil
         b:SetAttribute("item", "item:" .. it.itemID)
         b.icon:SetTexture(it.icon or (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(it.itemID)))
         b:SetFrameStrata(strata); b:SetFrameLevel(level)
@@ -106,7 +118,7 @@ local function Apply(list)
         Paint(b)
 
       else
-        b.itemID, b.quest = nil, nil
+        b.itemID, b.quest, b.questID, b.at, b.stale = nil, nil, nil, nil, nil
         b:SetAttribute("item", nil)
         b:Hide()
       end
@@ -114,10 +126,33 @@ local function Apply(list)
   end
 end
 
--- list: { { itemID, icon, title, row }, ... } in list order, or {} to hide them
+-- Is a shown button no longer beside its own quest in this list? (its quest gone from the list, or
+-- its row somewhere else now, or scrolled out of view)
+function Q.IsStale(b, list)
+  for _, it in ipairs(list) do
+    if it.questID == b.questID and it.itemID == b.itemID then
+      local x, y, k = Spot(it.row)
+      local at = b.at
+      return not (x and at and math.abs(x - at.x) < 0.5 and math.abs(y - at.y) < 0.5 and math.abs((k or 1) - at.k) < 0.001)
+    end
+  end
+  return true
+end
+
+-- list: { { itemID, icon, title, questID, row }, ... } in list order, or {} to hide them
 function Q.Update(list)
   list = (ns.db and ns.db.showQuestItems and not ns.db.hidden) and (list or {}) or {}
-  if InCombatLockdown and InCombatLockdown() then pending = list; return end
+  if InCombatLockdown and InCombatLockdown() then
+    -- in combat: placed when it ends; until then, mark the buttons that no longer fit
+    pending = list
+    for _, b in ipairs(buttons) do
+      if b:IsShown() and b.questID then
+        local stale = Q.IsStale(b, list) or nil
+        if stale ~= b.stale then b.stale = stale; Paint(b) end
+      end
+    end
+    return
+  end
   pending = nil
   Apply(list)
 end

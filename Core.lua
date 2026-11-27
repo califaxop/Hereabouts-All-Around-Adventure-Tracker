@@ -1,4 +1,4 @@
--- XP Planner: shared namespace, settings and helpers.
+-- Hereabouts: shared namespace, settings and helpers.
 local ADDON, ns = ...
 ns.name = ADDON
 
@@ -49,6 +49,15 @@ ns.DEFAULTS = {
   pos         = nil,    -- nil = sit under the quest tracker
 }
 
+-- A deep copy (settings tables never share a table with ns.DEFAULTS: 1.7.0)
+local function Copy(v)
+  if type(v) ~= "table" then return v end
+  local t = {}
+  for k, x in pairs(v) do t[k] = Copy(x) end
+  return t
+end
+ns.Copy = Copy
+
 function ns.ResetDB()
   -- "Reset to defaults" keeps where the list is and the quests you've ignored
   local pos, ignored = HereaboutsDB.pos, HereaboutsDB.ignoredQuests
@@ -72,8 +81,12 @@ end
 
 function ns.LoadDB()
   HereaboutsDB = HereaboutsDB or {}
+  -- a setting that's missing gets a copy of its default. A table setting that's there is the
+  -- player's as it is (in sessionStats, hideInCombat... a missing key means "off").
+  -- (Before 1.7.0 the default tables themselves were handed out: changing a setting changed the
+  -- default too, so "Reset to defaults" brought back your own choices, not the defaults.)
   for k, v in pairs(ns.DEFAULTS) do
-    if HereaboutsDB[k] == nil then HereaboutsDB[k] = v end
+    if HereaboutsDB[k] == nil then HereaboutsDB[k] = Copy(v) end
   end
   -- one-time: switch the old gray border to the new brown default
   if (HereaboutsDB.borderVersion or 1) < 2 then
@@ -82,6 +95,20 @@ function ns.LoadDB()
   end
   HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
   ns.db = HereaboutsDB
+end
+
+-- Errors caught while building or drawing the list (1.7.0): each one printed the first time only
+-- (before, every rebuild printed it again), all kept for /hab errors and /hab status: the last 10,
+-- the same one again counted.
+ns.errors = {}
+function ns.NoteError(where, msg)
+  msg = tostring(msg)
+  for _, e in ipairs(ns.errors) do
+    if e.where == where and e.msg == msg then e.n = e.n + 1; return end
+  end
+  if #ns.errors >= 10 then table.remove(ns.errors, 1) end
+  ns.errors[#ns.errors + 1] = { where = where, msg = msg, n = 1 }
+  ns.Print("error (" .. where .. "): " .. msg .. "  (/hab errors lists them)")
 end
 
 -- Gray ("trivial") for you = little or no XP.

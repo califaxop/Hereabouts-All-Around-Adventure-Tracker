@@ -36,6 +36,8 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 | `/hab zone` | Why each quest counts as in this zone or not |
 | `/hab session` | Reset the session bar's numbers |
 | `/hab questie` | What Hereabouts sees of Questie |
+| `/hab status` | Version, Questie / What's Training, session, item buttons, errors (for bug reports) |
+| `/hab errors` | Errors caught this session |
 
 ## Good to know
 - With Questie, which quests show in Quests Nearby follows Questie's own settings (level, low-level, repeatable, dungeon and PvP quests).
@@ -50,6 +52,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.7.0:** Fixed: "Quests this session (~N to level)" counted each quest's money as its XP. Fixed: "Reset to defaults" didn't reset the hide-in-combat / in-dungeons choices, the session stats or the border colour. Fixed: in combat a quest item button could end up beside another quest when the list changed; it now dims (its tooltip says which quest it's for) and moves back when combat ends. Fixed: Quests Nearby could miss a change in Questie's quests. The session bar says "gold gained" (spending isn't taken off) and marks XP across several level-ups at once as approximate. New: `/hab status`, `/hab errors`.
 - **1.6.1:** Quest item buttons are bigger (20 px, from 14) and sit in the margin left of their quest's title, so the Active Quests list no longer shifts right when a quest has an item. Fixed: with EllesmereUI installed, the list's text is readable again (EllesmereUI's quest tracker shrinks the game's tracker fonts to 1 px, and Hereabouts took its font sizes from them). No style settings any more: the tracker's look follows EllesmereUI or FlareUI on its own whenever one is installed.
 - **1.6.0:** Quests to Turn In shows where to turn each quest in (its zone, or "here") when the section is set to All zones.
 - **1.5.0:** Quest item buttons now sit beside their quest in Active Quests: a small button left of the quest's [level] (the active quests move over a little to make room, all aligned), instead of a separate bar. In combat, the quest of what you're fighting is highlighted where it is instead of moving to the top. Soft animations: an objective that progresses flashes its count, and the combat highlight fades in and out (Settings, Lists: Soft animations).

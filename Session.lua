@@ -5,6 +5,9 @@ local S = {}
 ns.Session = S
 
 local start, gained, quests, questXP, earned = nil, 0, 0, 0, 0
+-- approx: the XP total is short by some amount: you went up more than one level between two XP
+-- readings (the levels in between can't be read afterwards), see S.OnXP
+local approx = false
 local lastMoney
 local lastXP, lastMax, lastLevel
 
@@ -19,7 +22,7 @@ local function AtMax()
 end
 
 function S.Reset()
-  start, gained, quests, questXP, earned = Now(), 0, 0, 0, 0
+  start, gained, quests, questXP, earned, approx = Now(), 0, 0, 0, 0, false
   lastXP, lastMax, lastLevel = UnitXP("player"), UnitXPMax("player"), UnitLevel("player")
   lastMoney = GetMoney and GetMoney() or 0
   if S.Paint then S.Paint() end
@@ -33,27 +36,45 @@ function S.Save()
   HereaboutsCharDB = HereaboutsCharDB or {}
   HereaboutsCharDB.session = {
     elapsed = Now() - start, savedAt = time and time() or 0,
-    gained = gained, quests = quests, questXP = questXP, earned = earned,
+    gained = gained, quests = quests, questXP = questXP, earned = earned, approx = approx or nil,
     lastXP = lastXP, lastMax = lastMax, lastLevel = lastLevel, lastMoney = lastMoney,
   }
+end
+
+-- a saved session that can be trusted (1.7.0): every number a real, non-negative number of a
+-- sensible size; else why not (it's then started afresh, never half-restored)
+local function Count(v, max) return type(v) == "number" and v == v and v >= 0 and v <= max end
+function S.Check(s)
+  if type(s) ~= "table" then return false, "none saved" end
+  if not Count(s.elapsed, 30 * 86400) then return false, "its length" end
+  for _, k in ipairs({ "gained", "quests", "questXP", "earned", "lastXP", "lastMax", "lastMoney" }) do
+    if s[k] ~= nil and not Count(s[k], 1e12) then return false, k end
+  end
+  if s.lastLevel ~= nil and not (Count(s.lastLevel, 1000) and s.lastLevel == math.floor(s.lastLevel)) then return false, "lastLevel" end
+  if s.savedAt ~= nil and not Count(s.savedAt, 1e11) then return false, "savedAt" end
+  return true
 end
 
 -- after a /reload: carry on from the saved session (true), or false if there's none to carry on
 function S.Restore()
   local s = HereaboutsCharDB and HereaboutsCharDB.session
-  if type(s) ~= "table" or type(s.elapsed) ~= "number" then return false end
+  local ok, why = S.Check(s)
+  S.restoreNote = (not ok and type(s) == "table") and ("saved session not used: bad " .. why) or nil
+  if not ok then return false end
   local now = time and time() or 0
   local gap = math.max(0, now - (s.savedAt or now)) -- the loading screen's few seconds count too
   if gap > 15 * 60 then return false end -- not a reload: something left it behind long ago
   start = Now() - s.elapsed - gap
   gained, quests, questXP, earned = s.gained or 0, s.quests or 0, s.questXP or 0, s.earned or 0
+  approx = s.approx and true or false
   lastXP, lastMax, lastLevel, lastMoney = s.lastXP, s.lastMax, s.lastLevel, s.lastMoney
   S.OnXP(); S.OnMoney() -- anything gained while the UI reloaded
   if S.Paint then S.Paint() end
   return true
 end
 
--- money changed: only what came in counts (loot, quest rewards, sales), not what you spent
+-- money changed: only what came in counts (loot, quest rewards, sales, mail, trades), not what
+-- you spent: "gold gained", not your balance
 function S.OnMoney()
   if not start then S.Reset(); return end
   local m = GetMoney and GetMoney() or 0
@@ -61,18 +82,23 @@ function S.OnMoney()
   lastMoney = m
 end
 
--- XP changed: count what was gained, including across a level-up
+-- XP changed: count what was gained, including across a level-up.
+-- One level up: the rest of the old level, then the new one so far (exact). More than one level
+-- between two readings (a big turn-in, the XP of a /reload's loading screen): the levels in between
+-- can't be read afterwards, so the total is short by them: counted as approximate (shown "~").
+-- the XP gained between two readings, and whether it's short (more than one level up). Pure.
+function S.Gain(fromXP, fromMax, fromLevel, xp, level)
+  if level > fromLevel then return (fromMax - fromXP) + xp, level - fromLevel > 1 end
+  if level < fromLevel then return 0, false end -- (can't happen: start again from here)
+  return math.max(0, xp - fromXP), false
+end
 function S.OnXP()
   if not start then S.Reset(); return end
   local xp, max, level = UnitXP("player"), UnitXPMax("player"), UnitLevel("player")
-  if not (xp and lastXP) then lastXP, lastMax, lastLevel = xp, max, level; return end
-  local d
-  if level > (lastLevel or level) then
-    d = ((lastMax or 0) - lastXP) + xp -- the rest of the old level, then the new one so far
-  else
-    d = xp - lastXP
-  end
+  if not (xp and lastXP and level and lastLevel) then lastXP, lastMax, lastLevel = xp, max, level; return end
+  local d, short = S.Gain(lastXP, lastMax or 0, lastLevel, xp, level)
   if d > 0 then gained = gained + d end
+  if short then approx = true end
   lastXP, lastMax, lastLevel = xp, max, level
 end
 
@@ -108,11 +134,11 @@ end
 S.STATS = {
   { "xph",    "XP per hour" },
   { "ttl",    "Time to level" },
-  { "gph",    "Gold per hour" },
+  { "gph",    "Gold gained per hour" },
   { "xp",     "XP this session" },
   { "quests", "Quests this session" },
   { "rested", "Rested XP" },
-  { "gold",   "Gold this session" },
+  { "gold",   "Gold gained this session" },
 }
 -- Each stat's text, with its number(s) wrapped in `hl` ... "|r" (the bars show numbers in the
 -- quest-title gold; the tooltip passes no colour). The labels keep the line colour.
@@ -128,7 +154,7 @@ function S.Values(hl)
   if not maxed then
     v.xph = ((warm and gained > 0) and N(Short(rate)) or N("--")) .. " XP/h"
     v.ttl = "Level in " .. ((warm and gained > 0) and N(Duration(left / (rate / 3600))) or N("--"))
-    v.xp = N(Short(gained)) .. " XP"
+    v.xp = (approx and "~" or "") .. N(Short(gained)) .. " XP"
     if quests > 0 then
       v.quests = format("%s quest%s", N(quests), quests == 1 and "" or "s")
       if questXP > 0 then v.quests = v.quests .. format(" (~%s to level)", N(math.ceil(left / (questXP / quests)))) end
@@ -141,6 +167,7 @@ function S.Values(hl)
   v.gph = (warm and N(Money(earned / elapsed * 3600)) or N("--")) .. "/h"
   v.gold = N("+" .. Money(earned))
   v.elapsed = Duration(elapsed)
+  v.approx = approx
   return v
 end
 
@@ -194,6 +221,12 @@ local function Tooltip(self)
   GameTooltip:SetText("Session (" .. v.elapsed .. ")", 1, 0.82, 0)
   for _, st in ipairs(S.STATS) do
     if v[st[1]] then GameTooltip:AddDoubleLine(st[2], v[st[1]], 0.8, 0.8, 0.8, 1, 1, 1) end
+  end
+  -- what the numbers mean (1.7.0)
+  GameTooltip:AddLine("Time to level: at this session's XP rate. Quests to level: at this session's average quest XP.", 0.6, 0.6, 0.6, true)
+  GameTooltip:AddLine("Gold gained: money in (loot, sales, quest rewards, mail), spending not taken off.", 0.6, 0.6, 0.6, true)
+  if v.approx then
+    GameTooltip:AddLine("~ XP: you went up more than one level at once; the levels in between aren't counted.", 1, 0.82, 0, true)
   end
   GameTooltip:AddLine("Right-click to reset. Pick what shows in /hab, Session.", 0.6, 0.6, 0.6, true)
   GameTooltip:Show()

@@ -998,7 +998,7 @@ function ns.Render(s)
   y = 0
   shownSomething = false
 
-  local items = {} -- quests with a usable item: { itemID, icon, title, row } (buttons in the left margin,
+  local items = {} -- quests with a usable item: { itemID, icon, title, questID, row } (buttons in the left margin,
   -- beside their titles: the rows themselves never move for them, see QuestItems.lua)
   local qIndent = 0
   if ns.Session then ns.Session.Paint() end
@@ -1035,7 +1035,7 @@ function ns.Render(s)
       local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
         { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent,
           fadeKey = (anims["c:" .. q.questID] and "c:" .. q.questID) or (anims["u:" .. q.questID] and "u:" .. q.questID) or nil })
-      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, row = row } end
+      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, questID = q.questID, row = row } end
      end
     end
   end
@@ -1217,14 +1217,17 @@ local function Run()
   local level = need; need = 0
   if level == LEVEL.redraw and lastList then
     local ok, e = pcall(ns.Render, lastList)
-    if not ok then ns.Print("error: " .. tostring(e)) end
+    if not ok then ns.NoteError("drawing the list", e) end
     return
   end
   local ok, stamp, quests = pcall(ns.QuestLogStamp)
-  if not ok then stamp, quests = nil, nil end
+  if not ok then ns.NoteError("reading the quest log", stamp); stamp, quests = nil, nil end
   if level == LEVEL.log and stamp and stamp == lastStamp and lastList then return end -- nothing we show changed
   local ok2, s = pcall(ns.BuildSuggestions, quests)
-  if ok2 then lastStamp, lastList = stamp, s; ns.Render(s) else ns.Print("error: " .. tostring(s)) end
+  if not ok2 then ns.NoteError("building the list", s); return end
+  lastStamp, lastList = stamp, s
+  local ok3, e = pcall(ns.Render, s)
+  if not ok3 then ns.NoteError("drawing the list", e) end
 end
 function ns.Refresh(kind)
   local level = LEVEL[kind or "full"] or LEVEL.full
@@ -1291,7 +1294,9 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     -- e.g. abandoned: it can be picked up again, so let Questie list it again.
     ns.Questie.RescanSoon()
   elseif event == "QUEST_TURNED_IN" or event == "PLAYER_LEVEL_UP" then
-    if event == "QUEST_TURNED_IN" then ns.Session.OnQuest(select(2, ...)) end
+    -- QUEST_TURNED_IN: questID (arg1 here), xpReward, moneyReward. (Before 1.7.0 the second of the
+    -- rest was taken: the money reward counted as XP, so "~N quests to level" was off.)
+    if event == "QUEST_TURNED_IN" then ns.Session.OnQuest((...)) end
     -- New quests may have unlocked (follow-ups, level requirements).
     C_Timer.After(1, ns.Questie.Scan)
   elseif event == "QUEST_LOG_UPDATE" then
@@ -1311,6 +1316,27 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
   end
   ns.Refresh()
 end)
+
+-- /hab status (1.7.0): the version, what's bound of Questie and What's Training, the session,
+-- the quest item buttons and the errors caught: what a bug report needs
+function ns.Status()
+  local L = {}
+  local get = C_AddOns and C_AddOns.GetAddOnMetadata
+  L[#L + 1] = format("version %s; in combat: %s", tostring(get and get(ns.name, "Version") or "?"), InCombatLockdown() and "yes" or "no")
+  L[#L + 1] = format("Questie: installed %s, bound %s, quests to pick up %d%s", tostring(ns.Questie.Installed()),
+    tostring(ns.Questie.Available()), ns.Questie.Count(), ns.Questie.IsScanning() and " (scanning)" or "")
+  L[#L + 1] = format("What's Training: installed %s, ready %s", tostring(ns.Training.Installed()), tostring(ns.Training.Ready() and true or false))
+  local v = ns.Session.Values()
+  L[#L + 1] = format("session: %s, %s%s%s", v.elapsed, v.xp or "max level", v.approx and " (approximate)" or "",
+    ns.Session.restoreNote and ("; " .. ns.Session.restoreNote) or "")
+  local shown, stale = 0, 0
+  for _, b in ipairs(ns.QuestItems.buttons) do
+    if b:IsShown() then shown = shown + 1; if b.stale then stale = stale + 1 end end
+  end
+  L[#L + 1] = format("quest item buttons: %d shown, %d waiting for combat to end", shown, stale)
+  L[#L + 1] = format("errors caught: %d", #ns.errors)
+  return L
+end
 
 ---------------------------------------------------------------------------
 -- Slash
@@ -1352,6 +1378,13 @@ SlashCmdList.XPPLANNER = function(msg)
     return
   elseif cmd == "session" then
     ns.Session.Reset(); ns.Print("session stats reset.")
+  elseif cmd == "status" then
+    for _, l in ipairs(ns.Status()) do ns.Print(l) end
+    return
+  elseif cmd == "errors" then
+    if #ns.errors == 0 then ns.Print("no errors caught this session.") end
+    for _, e in ipairs(ns.errors) do ns.Print(format("%s (x%d): %s", e.where, e.n, e.msg)) end
+    return
   elseif cmd == "questie" then
     ns.Questie.Diagnose(ns.Print)
   elseif cmd == "zone" then
@@ -1365,7 +1398,7 @@ SlashCmdList.XPPLANNER = function(msg)
     end
     return
   else
-    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab questie")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab questie  -  /hab status  -  /hab errors")
     return
   end
   ns.Refresh()
