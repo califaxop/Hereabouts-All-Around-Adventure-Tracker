@@ -32,7 +32,9 @@ local function MarkerFrames(id) -- QuestieMap.questIdFrames[questID]: its map ma
   local byQuest = type(f) == "table" and f[id]
   return type(byQuest) == "table" and byQuest or nil
 end
--- what this Questie offers, by part: { name, available, what it's for }
+-- what this Questie offers, by part: { name, available, what it's for, optional }. An optional
+-- part has a stand-in that does the same job (its database, the game's data), so going without it
+-- loses nothing (Questie 12.15.0 has no `currentQuestlog`: its map markers and database cover it).
 function Q.Capabilities()
   local function fn(m, k) return m ~= nil and type(m[k]) == "function" end
   return {
@@ -40,10 +42,10 @@ function Q.Capabilities()
     { "spawns", QDB ~= nil and fn(QDB, "QueryNPCSingle") and fn(QDB, "QueryObjectSingle"), "where quest givers, mobs and objects are" },
     { "quest XP", QXP ~= nil and fn(QXP, "GetQuestLogRewardXP"), "XP of quests to pick up" },
     { "zones", ZDB ~= nil and fn(ZDB, "GetUiMapIdByAreaId"), "Questie's zones on the game's maps" },
-    { "quest levels", QL ~= nil, "required levels" },
-    { "available set", AvailableSet() ~= nil, "Questie's own list of quests to pick up (its settings)" },
-    { "its quest log", QP ~= nil and type(QP.currentQuestlog) == "table", "where your quests' objectives are" },
-    { "its map markers", QM ~= nil and type(QM.questIdFrames) == "table", "where Questie draws your quests" },
+    { "quest levels", QL ~= nil, "required levels", true },
+    { "available set", AvailableSet() ~= nil, "Questie's own list of quests to pick up (its settings)", true },
+    { "its quest log", QP ~= nil and type(QP.currentQuestlog) == "table", "where your quests' objectives are", true },
+    { "its map markers", QM ~= nil and type(QM.questIdFrames) == "table", "where Questie draws your quests", true },
   }
 end
 local function Bind()
@@ -106,7 +108,8 @@ function Q.Diagnose(print)
   end
   print(format("Hereabouts bound to Questie's database: %s, quests found: %d", tostring(ready), Q.Count()))
   for _, c in ipairs(Q.Capabilities()) do
-    print(format("  %s%s|r: %s", c[2] and "|cff60ff60" or "|cff999999", c[1], c[2] and c[3] or ("not available: " .. c[3] .. " from the game's data instead")))
+    print(format("  %s%s|r: %s", c[2] and "|cff60ff60" or "|cff999999", c[1], c[2] and c[3]
+      or ("not available: " .. c[3] .. (c[4] and " from Questie's database or the game's data instead (nothing lost)" or " (missing)"))))
   end
 end
 

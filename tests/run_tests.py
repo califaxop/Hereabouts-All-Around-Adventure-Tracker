@@ -399,7 +399,7 @@ def _():
     assert(not caps["its quest log"] and not caps["its map markers"] and not caps["zones"], "reported missing")
     local maps = NS.Questie.ActiveQuestMaps(101, false, {})   -- the broken quest log: no error
     local st = NS.Integrations()[1]
-    assert(st[1] == "Questie" and st[2] == "partial" and st[3]:find("Missing: zones", 1, true), st[3])
+    assert(st[1] == "Questie" and st[2] == "partial" and st[3]:find("Missing: zones.", 1, true), "only zones (its quest log and markers are optional): " .. st[3])
     PRINTS = {}; NS.Questie.Diagnose(print)
     assert(table.concat(PRINTS, " "):find("its map markers.-not available"), table.concat(PRINTS, " / "))
     """

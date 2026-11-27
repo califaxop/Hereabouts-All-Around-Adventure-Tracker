@@ -61,7 +61,7 @@ specific behaviour was observed.
 | `QuestXP:GetQuestLogRewardXP(id, false)` | XP of quests to pick up | Verified through source |
 | `ZoneDB:GetUiMapIdByAreaId`, `TrackerUtils:GetZoneNameByID`, `QuestieLib.GetEffectiveQuestLevel` | zones, levels | Verified through source |
 | `AvailableQuests.__availableQuests` (internal), `AvailableQuests.CalculateAndDrawAll` (hooked; the hook remembered locally, 1.9.0) | Questie's own available set; rescans | Internal: may change; read only through `AvailableSet` |
-| `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames` (internal) | where active quests are done | Internal: may change; read only through `QuestLogEntry`, `MarkerFrames` (type-checked) |
+| `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames` (internal) | where active quests are done | Internal: may change; read only through `QuestLogEntry`, `MarkerFrames` (type-checked). Questie 12.15.0 on Forever: `questIdFrames` there, `currentQuestlog` not (seen with `/hab questie`); both optional |
 
 `Questie.Capabilities()` (1.9.0) says which of these this Questie has: `/hab questie`, the settings
 window's Status page and `/hab status` show them.

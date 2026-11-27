@@ -293,6 +293,19 @@ Milestone 2 verified in game; awaiting review before Milestone 3.
    addon fades it, faded as before); try turning it on in combat: it happens when combat ends.
 6. TomTom (if installed): "Show on Map" on two quests: one Hereabouts arrow, not two.
 
+Results (1.9.0 test build):
+- 2: Questie 12.15.0, bound, 311 quests to pick up; every part there except "its quest log"
+  (`QuestiePlayer.currentQuestlog` isn't a table in this version). Not new: 1.x read it the same way
+  and found nothing; its map markers and database did the job. The Status page showed Questie as
+  "partial" for it: such stand-in parts are now optional (`Capabilities()` 4th field) and only a
+  missing essential part makes it partial.
+- 3: pass. Five rows, each with its state; nothing overlaps.
+- 4: pass. Quests Nearby and Training as before.
+- 6: not applicable (no TomTom).
+- 5: replacing off: the tracker (FlareUI's / Blizzard's) came back; Hereabouts, dragged to the same
+  place, sits over it (its position is the player's; "Move under quest tracker" puts it below).
+  In combat: pending.
+
 ### Needs verification in WoW Forever
 
 ### Needs verification in WoW Forever

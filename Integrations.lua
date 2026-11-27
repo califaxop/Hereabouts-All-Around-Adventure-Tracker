@@ -8,10 +8,11 @@ local function Loaded(name)
   if C_AddOns and C_AddOns.IsAddOnLoaded then return C_AddOns.IsAddOnLoaded(name) and true or false end
   return IsAddOnLoaded and IsAddOnLoaded(name) and true or false
 end
--- the parts missing from a capability list, as words ("its map markers, quest XP"), or nil
+-- the parts missing from a capability list that have no stand-in, as words ("quest XP, zones"), or
+-- nil (optional parts, c[4], don't count: something else does their job)
 local function Missing(caps)
   local out = {}
-  for _, c in ipairs(caps) do if not c[2] then out[#out + 1] = c[1] end end
+  for _, c in ipairs(caps) do if not c[2] and not c[4] then out[#out + 1] = c[1] end end
   return #out > 0 and table.concat(out, ", ") or nil
 end
 
