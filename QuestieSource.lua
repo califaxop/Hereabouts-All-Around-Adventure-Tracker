@@ -6,6 +6,7 @@ local Q = {}
 ns.Questie = Q
 
 local Readable = ns.Readable
+local Loc = ns.Locations
 local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, starter, starterZone }
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
@@ -164,28 +165,49 @@ local function UiMapFor(areaId)
   return ok and type(m) == "number" and m or nil
 end
 
-local function Spawns(c)
-  if c.starterNpc and QDB.QueryNPCSingle then
-    local ok, sp = pcall(QDB.QueryNPCSingle, c.starterNpc, "spawns")
-    if ok and type(sp) == "table" then return sp end
-  end
-  if c.starterObj and QDB.QueryObjectSingle then
-    local ok, sp = pcall(QDB.QueryObjectSingle, c.starterObj, "spawns")
-    if ok and type(sp) == "table" then return sp end
-  end
+-- Questie's NPCs, objects and items as locations (Locations.lua, 1.10.0): the one place Questie's
+-- spawns are read.
+local function Query(kind, id, key) -- kind: "npc" | "object" | "item"
+  local fn = QDB and ((kind == "npc" and QDB.QueryNPCSingle) or (kind == "object" and QDB.QueryObjectSingle)
+    or (kind == "item" and QDB.QueryItemSingle))
+  if not (fn and id) then return nil end
+  local ok, v = pcall(fn, id, key)
+  return ok and v or nil
+end
+-- where an NPC or object stands: lkind (Locations.KINDS), prefix for its label ("turn-in: ")
+local function Where(lkind, kind, id, prefix, thing)
+  local name = Query(kind, id, "name")
+  local label = (prefix or "") .. tostring(name or ("#" .. tostring(id))) .. (kind == "npc" and " (mob/NPC)" or " (object)")
+  local list = Loc.FromSpawns(Query(kind, id, "spawns"), lkind, label, UiMapFor)
+  -- what it's for, by name (an objective's mob, object, or the item it drops): to tell done ones
+  for _, l in ipairs(list) do l.name = thing or name end
+  return list
+end
+local function Append(dst, src) for _, x in ipairs(src) do dst[#dst + 1] = x end return dst end
+-- where an item drops: the NPCs and objects that drop it
+local function ItemSources(lkind, itemId, prefix)
+  local out = {}
+  local iname = Query("item", itemId, "name")
+  local label = (prefix or "drops ") .. tostring(iname or "item") .. ": "
+  for _, n in ipairs(type(Query("item", itemId, "npcDrops")) == "table" and Query("item", itemId, "npcDrops") or {}) do Append(out, Where(lkind, "npc", n, label, iname)) end
+  for _, o in ipairs(type(Query("item", itemId, "objectDrops")) == "table" and Query("item", itemId, "objectDrops") or {}) do Append(out, Where(lkind, "object", o, label, iname)) end
+  return out
+end
+-- where you pick a quest up: its quest giver, or (a quest that starts from an item) where the item
+-- drops (1.10.0: before, such quests had no place, and Show on Map said "no location known")
+local function StartLocations(c)
+  local out = {}
+  if c.starterNpc then Append(out, Where("giver", "npc", c.starterNpc)) end
+  if c.starterObj then Append(out, Where("giver", "object", c.starterObj)) end
+  if #out == 0 and c.starterItem then Append(out, ItemSources("itemsource", c.starterItem, "starts from ")) end
+  return out
 end
 
--- The zones (map IDs) where you can pick a quest up: wherever its quest giver stands. Quests
--- that start from an item use the quest's own zone.
+-- The zones (map IDs) where you can pick a quest up (see StartLocations); the quest's own zone
+-- when none are known.
 local function StartMaps(c, zoneOrSort)
   local maps = {}
-  local spawns = Spawns(c)
-  if spawns then
-    for areaId in pairs(spawns) do
-      local m = UiMapFor(areaId)
-      if m then maps[m] = true end
-    end
-  end
+  for m in pairs(Loc.Maps(StartLocations(c))) do maps[m] = true end
   if not next(maps) and zoneOrSort and zoneOrSort > 0 then
     local m = UiMapFor(zoneOrSort)
     if m then maps[m] = true end
@@ -229,16 +251,8 @@ end
 local activeMaps = {}
 -- each map remembers why it counts (for /xpp zone): e.g. "objective: Twisted Elemental (mob)"
 local function AddSpawns(maps, kind, id, why)
-  local query = (kind == "npc") and QDB.QueryNPCSingle or QDB.QueryObjectSingle
-  if not (query and id) then return end
-  local ok, sp = pcall(query, id, "spawns")
-  if ok and type(sp) == "table" then
-    local okN, name = pcall(query, id, "name")
-    local label = (why or "") .. ((okN and name) or ("#" .. tostring(id))) .. (kind == "npc" and " (mob/NPC)" or " (object)")
-    for areaId in pairs(sp) do
-      local m = UiMapFor(areaId)
-      if m and not maps[m] then maps[m] = label end
-    end
+  for m, label in pairs(Loc.Maps(Where("objective", kind, id, why))) do
+    if not maps[m] then maps[m] = label end
   end
 end
 local function Field(id, key)
@@ -370,12 +384,8 @@ function Q.ActiveQuestMaps(id, complete, logObjectives)
         local iname = QDB.QueryItemSingle and nameOf(QDB.QueryItemSingle, itemId)
         if itemId and not finished(iname) then
           remaining = remaining + 1
-          if QDB.QueryItemSingle then
-            local drop = "drops " .. (iname or "item") .. ": "
-            local ok1, npcs = pcall(QDB.QueryItemSingle, itemId, "npcDrops")
-            if ok1 and type(npcs) == "table" then for _, n in ipairs(npcs) do AddSpawns(maps, "npc", n, drop) end end
-            local ok2, objs = pcall(QDB.QueryItemSingle, itemId, "objectDrops")
-            if ok2 and type(objs) == "table" then for _, o in ipairs(objs) do AddSpawns(maps, "object", o, drop) end end
+          for m, label in pairs(Loc.Maps(ItemSources("objective", itemId))) do
+            if not maps[m] then maps[m] = label end
           end
         end
       end
@@ -547,6 +557,7 @@ local function Consider(id, fromQuestie)
     starter = starter,
     starterNpc = quest.Starts and type(quest.Starts.NPC) == "table" and quest.Starts.NPC[1] or nil,
     starterObj = quest.Starts and type(quest.Starts.GameObject) == "table" and quest.Starts.GameObject[1] or nil,
+    starterItem = quest.Starts and type(quest.Starts.Item) == "table" and quest.Starts.Item[1] or nil,
   }
   candidates[id].maps = StartMaps(candidates[id], zoneID)
 end
@@ -652,30 +663,38 @@ function Q.Init()
 end
 
 ---------------------------------------------------------------------------
--- Where to pick a quest up: the quest giver's spawn (map ID, x, y in 0-1).
--- With several spawns, the one in the zone you're in wins.
+-- Where to pick a quest up (Quests Nearby: Show on Map, distances): the nearest of its quest
+-- giver's spawns (1.10.0: the nearest, not the first in your zone), or where its item drops.
 ---------------------------------------------------------------------------
 function Q.Location(id)
   local c = candidates[id]
   if not (c and QDB) then return nil end
-  local spawns
-  if c.starterNpc and QDB.QueryNPCSingle then
-    local ok, sp = pcall(QDB.QueryNPCSingle, c.starterNpc, "spawns"); spawns = ok and sp or nil
+  return (Loc.Nearest(StartLocations(c), nil, C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")))
+end
+
+-- Every place Questie knows for a quest (in your log or not): its quest giver (or where its item
+-- drops), its objectives (mobs, objects, item drops) and its turn-in, as locations. For /hab where
+-- and the active quests' waypoints.
+function Q.QuestLocations(id)
+  local out = {}
+  if not (ready and QDB and id) then return out end
+  local okQ, quest = pcall(QDB.GetQuest, id)
+  if okQ and type(quest) == "table" then
+    local st = quest.Starts or {}
+    Append(out, StartLocations({ starterNpc = type(st.NPC) == "table" and st.NPC[1] or nil,
+      starterObj = type(st.GameObject) == "table" and st.GameObject[1] or nil,
+      starterItem = type(st.Item) == "table" and st.Item[1] or nil }))
   end
-  if not spawns and c.starterObj and QDB.QueryObjectSingle then
-    local ok, sp = pcall(QDB.QueryObjectSingle, c.starterObj, "spawns"); spawns = ok and sp or nil
+  local obj = Field(id, "objectives")
+  if type(obj) == "table" then
+    for _, c in ipairs(type(obj[1]) == "table" and obj[1] or {}) do Append(out, Where("objective", "npc", type(c) == "table" and c[1] or c, "objective: ")) end
+    for _, o in ipairs(type(obj[2]) == "table" and obj[2] or {}) do Append(out, Where("objective", "object", type(o) == "table" and o[1] or o, "objective: ")) end
+    for _, it in ipairs(type(obj[3]) == "table" and obj[3] or {}) do Append(out, ItemSources("objective", type(it) == "table" and it[1] or it)) end
   end
-  if type(spawns) ~= "table" then return nil end
-  local here = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-  local best
-  for areaId, points in pairs(spawns) do
-    local uiMapId = ZDB and ZDB.GetUiMapIdByAreaId and select(2, pcall(ZDB.GetUiMapIdByAreaId, ZDB, areaId))
-    local p = type(points) == "table" and points[1]
-    if type(uiMapId) == "number" and type(p) == "table" and p[1] and p[2] and p[1] > 0 then
-      local loc = { map = uiMapId, x = p[1] / 100, y = p[2] / 100 }
-      if uiMapId == here then return loc end
-      best = best or loc
-    end
+  local fb = Field(id, "finishedBy")
+  if type(fb) == "table" then
+    for _, n in ipairs(type(fb[1]) == "table" and fb[1] or {}) do Append(out, Where("turnin", "npc", n, "turn-in: ")) end
+    for _, o in ipairs(type(fb[2]) == "table" and fb[2] or {}) do Append(out, Where("turnin", "object", o, "turn-in: ")) end
   end
-  return best
+  return out
 end

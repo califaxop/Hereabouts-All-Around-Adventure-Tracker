@@ -1,7 +1,16 @@
 # Hereabouts: location sources
 
 Where Hereabouts gets its locations from, and how far each one can be trusted (1.8.0: the code
-says which source decided each answer; Milestone 4 turns this into one location model).
+says which source decided each answer; 1.10.0: every place is one kind of location, Locations.lua).
+
+## The location model (1.10.0)
+
+`{ kind, map, x, y, label, source, name }`: kind giver / objective / turnin / itemsource; `map` the
+game's map ID (uiMapID); `x, y` in 0-1 on that map, or none (somewhere on that map: an instance
+spawn, -1,-1 in Questie's data); `source` game / questie / static. Questie's spawns ({ areaID → {
+x, y } in 0-100 }) become locations through `Locations.FromSpawns` and Questie's `ZoneDB` (area →
+map), at most 25 points per area and thing. Distances: world positions (`C_Map.
+GetWorldPosFromMapPos`), on one continent only; nothing is guessed across continents.
 
 Confidence:
 - **Authoritative**: the game says so for this quest right now.
@@ -41,9 +50,16 @@ The rule, in order:
 
 ## Quests to pick up (Quests Nearby)
 
-`StartMaps`: where the quest giver (NPC or object) spawns (Database); a quest that starts from an
-item: the quest's own zone (Database, `zoneOrSort`). Distances: from the quest giver's nearest
-spawn on your map (`C_Map.GetWorldPosFromMapPos`).
+`StartLocations`: where the quest giver (NPC or object) spawns; a quest that starts from an item:
+where that item drops (its NPCs and objects, 1.10.0); the quest's own zone only when none are known
+(Database). Show on Map and distances: the nearest of those places on your continent.
+
+## Active quests' places (1.10.0)
+
+`Questie.QuestLocations(id)`: its quest giver, objectives (mobs, objects, item drops) and turn-in
+(Database). What's left (`ns.QuestPlaces`): the objectives not finished (by exact name against the
+quest log's finished lines), or the turn-in once it's complete. The "Waypoint to…" menu item and
+`/hab where` use them; `Locations.Route` orders what's left nearest-next.
 
 ## Combat focus
 

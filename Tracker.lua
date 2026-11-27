@@ -550,32 +550,8 @@ end
 ---------------------------------------------------------------------------
 -- Distance to a quest giver, in yards (the game's distance unit)
 ---------------------------------------------------------------------------
-local function WorldPos(map, x, y)
-  if not (C_Map and C_Map.GetWorldPosFromMapPos and CreateVector2D) then return end
-  local ok, cont, pos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
-  if not (ok and cont and pos) then return end
-  local wx, wy
-  if pos.GetXY then wx, wy = pos:GetXY() else wx, wy = pos.x, pos.y end
-  if type(wx) ~= "number" or type(wy) ~= "number" then return end
-  return cont, wx, wy
-end
-local function PlayerWorldPos()
-  local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-  if not map then return end
-  local ok, p = pcall(C_Map.GetPlayerMapPosition, map, "player")
-  if not (ok and p) then return end
-  local x, y = p:GetXY()
-  if type(x) ~= "number" or type(y) ~= "number" or (x == 0 and y == 0) then return end
-  return WorldPos(map, x, y)
-end
--- yards from you to loc ({ map, x, y } in 0-1), or nil (another continent, or unknown)
-function ns.YardsTo(loc)
-  if not loc then return nil end
-  local c1, x1, y1 = PlayerWorldPos()
-  local c2, x2, y2 = WorldPos(loc.map, loc.x, loc.y)
-  if not (c1 and c2) or c1 ~= c2 then return nil end
-  return math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2)
-end
+-- yards from you to a location (Locations.lua), or nil
+local Yards = ns.Locations.Yards
 local function YardsText(yd)
   if not yd then return nil end
   if yd >= 1000 then return format("%.1fk yd", yd / 1000) end
@@ -584,9 +560,9 @@ end
 
 -- lines showing a distance: refreshed every second while shown, without rebuilding the list
 local distLines = {}
-local function DistText(d) local t = YardsText(ns.YardsTo(d.loc)); return d.base .. (t and (" - " .. t) or "") end
+local function DistText(d) local t = YardsText(Yards(d.loc)); return d.base .. (t and (" - " .. t) or "") end
 local function PaintDist(d)
-  if d.tag then d.line:SetText(YardsText(ns.YardsTo(d.loc)) or "")
+  if d.tag then d.line:SetText(YardsText(Yards(d.loc)) or "")
   else d.line:SetText("- " .. DistText(d)) end
 end
 C_Timer.NewTicker(1, function()
@@ -642,6 +618,11 @@ local function ShowQuestMenu(owner, questID)
     end
 
     root:CreateButton(S("OBJECTIVES_SHOW_QUEST_MAP", "Open Quest Map"), function() OpenQuest(questID) end)
+    -- (with Questie: a waypoint to the nearest place left to do, or the turn-in once it's done)
+    if ns.Questie.Available() then
+      local done = C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID)
+      root:CreateButton(done and "Waypoint to the turn-in" or "Waypoint to the nearest objective", function() ns.QuestWaypoint(questID) end)
+    end
 
     local watched = C_QuestLog.GetQuestWatchType and C_QuestLog.GetQuestWatchType(questID) ~= nil
     if watched then
@@ -667,6 +648,28 @@ local function ShowQuestMenu(owner, questID)
       end
     end)
   end)
+end
+
+-- An active quest's places still to visit (1.10.0): its objectives not yet done (by name, against
+-- the quest log's finished lines), or its turn-in once it's complete; as locations
+function ns.QuestPlaces(questID)
+  local done = C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID)
+  local list = ns.Locations.Filter(ns.Questie.QuestLocations(questID), done and { turnin = true } or { objective = true })
+  if done then return list, true end
+  local finished = {}
+  local objs = C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(questID)
+  for _, o in ipairs(type(objs) == "table" and objs or {}) do
+    if o.finished and type(o.text) == "string" then finished[ns.ObjectiveKey(o.text)] = true end
+  end
+  local todo = {}
+  for _, l in ipairs(list) do if not ns.ObjectiveMatches(l.name, finished) then todo[#todo + 1] = l end end
+  return todo, false
+end
+function ns.QuestWaypoint(questID)
+  local list, done = ns.QuestPlaces(questID)
+  local loc = ns.Locations.Nearest(list, nil, C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
+  if not loc then ns.Print(done and "the turn-in's place isn't known." or "no place known for what's left to do."); return end
+  if ns.SetWaypoint(loc, loc.label) then ns.Print(format("waypoint set: %s (%.1f, %.1f)", loc.label, loc.x * 100, loc.y * 100)) end
 end
 
 -- Left/right click on an active quest, like Blizzard's tracker:
@@ -1319,6 +1322,42 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
   ns.Refresh()
 end)
 
+-- /hab where: a quest's places, from the location model (1.10.0)
+function ns.WhereReport(id)
+  local L = ns.Locations
+  if not ns.Questie.Available() then return { "needs Questie (its database knows where things are)." } end
+  local all = ns.Questie.QuestLocations(id)
+  local out = { format("quest %d: %d places known", id, #all) }
+  local from = L.PlayerPos()
+  local here = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+  for _, kind in ipairs({ "giver", "itemsource", "objective", "turnin" }) do
+    local list = L.Filter(all, { [kind] = true })
+    if #list > 0 then
+      local loc, yd = L.Nearest(list, from, here)
+      local info = loc and C_Map.GetMapInfo and C_Map.GetMapInfo(loc.map)
+      out[#out + 1] = format("  %s: %d; nearest %s%s%s", L.KINDS[kind], #list, loc and loc.label or "?",
+        info and info.name and (" in " .. info.name) or "", loc and loc.x and format(" (%.1f, %.1f)", loc.x * 100, loc.y * 100) or "")
+        .. (yd and format(", %d yd", yd) or "")
+    end
+  end
+  if C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id) then
+    local todo, done = ns.QuestPlaces(id)
+    -- one point per thing (its nearest), then nearest-next
+    local best = {}
+    for _, l in ipairs(todo) do
+      local k = l.label or "?"
+      local yd = L.Yards(l, from)
+      if l.x and (not best[k] or (yd and (not best[k].yd or yd < best[k].yd))) then best[k] = { loc = l, yd = yd } end
+    end
+    local pts = {}
+    for _, b in pairs(best) do pts[#pts + 1] = b.loc end
+    local names = {}
+    for i, l in ipairs(L.Route(pts, from)) do if i <= 6 then names[#names + 1] = l.label end end
+    out[#out + 1] = format("  %s: %s", done and "to turn in" or "left to do, nearest first", #names > 0 and table.concat(names, " > ") or "no place known")
+  end
+  return out
+end
+
 -- /hab status (1.7.0): the version, what's bound of Questie and What's Training, the session,
 -- the quest item buttons and the errors caught: what a bug report needs
 function ns.Status()
@@ -1400,12 +1439,19 @@ SlashCmdList.XPPLANNER = function(msg)
         state, why, ns.LOCATION_CONFIDENCE[source] or tostring(source), tostring(q.questID)))
     end
     return
+  elseif cmd == "where" then
+    -- every place known for a quest (Questie's data), by kind, the nearest of each, and a visiting
+    -- order of what's left (/hab where <questID>; blank: the focused quest)
+    local id = tonumber(arg) or (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID())
+    if not id or id == 0 then ns.Print("/hab where <questID> (or focus a quest)"); return end
+    for _, l in ipairs(ns.WhereReport(id)) do ns.Print(l) end
+    return
   elseif cmd == "focus" then
     -- what combat focus sees right now: who you're fighting, how it was found, and their quests
     for _, l in ipairs(ns.CombatFocusReport()) do ns.Print(l) end
     return
   else
-    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab where <quest>  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
     return
   end
   ns.Refresh()

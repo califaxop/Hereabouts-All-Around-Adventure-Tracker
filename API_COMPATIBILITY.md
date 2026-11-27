@@ -33,7 +33,8 @@ specific behaviour was observed.
 | `GetQuestLogRewardXP(questID)` | a quest's XP | Verified in WoW Forever |
 | `GetQuestLogSpecialItemInfo(logIndex)` | a quest's usable item | Verified in WoW Forever (item buttons) |
 | `C_QuestLog.GetQuestsOnMap(mapID)`, `GetQuestUiMapID` / `C_QuestLog.GetQuestUiMapID`, `C_QuestLog.GetNextWaypoint` | where the game places a quest | In use; see LOCATION_SOURCES.md |
-| `C_Map.GetBestMapForUnit`, `GetMapInfo`, `GetAreaInfo`, `GetWorldPosFromMapPos` | zones, distances | Verified in WoW Forever |
+| `C_Map.GetBestMapForUnit`, `GetMapInfo`, `GetAreaInfo`, `GetWorldPosFromMapPos`, `GetPlayerMapPosition` | zones, distances (Locations.lua) | Verified in WoW Forever |
+| `C_Map.SetUserWaypoint`, `UiMapPoint.CreateFromCoordinates`, `C_SuperTrack.SetSuperTrackedUserWaypoint` | Show on Map, active quests' waypoints | Verified in WoW Forever (Show on Map) |
 | `C_SuperTrack.GetSuperTrackedQuestID` | the focused quest | Verified in WoW Forever |
 | `C_TooltipInfo.GetUnit(unit)`, `Enum.TooltipDataLineType` | combat focus: a unit's quest lines, readable in combat | Verified in WoW Forever |
 | `UnitThreatSituation("player", unit)` | combat focus: is a nameplate's mob fighting you (1.8.0, with the tooltip's threat text as the other way) | Verified in WoW Forever, in a group (Holdfast) and solo (1.8.0: `/hab focus` "found by enemy nameplates (threat API)") |
@@ -58,6 +59,7 @@ specific behaviour was observed.
 |---|---|---|
 | `QuestieLoader:ImportModule(name)` | access to Questie's modules | Verified through source; works on Forever |
 | `QuestieDB.IsDoable`, `GetQuest`, `QueryNPCSingle`, `QueryObjectSingle`, `QuestPointers` | quests to pick up, quest givers, spawns | Verified through source; works on Forever |
+| `QuestieDB.QueryItemSingle(id, "name" / "npcDrops" / "objectDrops")`, a quest's `Starts.Item`, `QueryQuestSingle(id, "objectives" / "finishedBy")` | where items drop (item objectives, item-started quests), turn-ins | Verified through source; item drops in use since 1.x for the zone filter |
 | `QuestXP:GetQuestLogRewardXP(id, false)` | XP of quests to pick up | Verified through source |
 | `ZoneDB:GetUiMapIdByAreaId`, `TrackerUtils:GetZoneNameByID`, `QuestieLib.GetEffectiveQuestLevel` | zones, levels | Verified through source |
 | `AvailableQuests.__availableQuests` (internal), `AvailableQuests.CalculateAndDrawAll` (hooked; the hook remembered locally, 1.9.0) | Questie's own available set; rescans | Internal: may change; read only through `AvailableSet` |

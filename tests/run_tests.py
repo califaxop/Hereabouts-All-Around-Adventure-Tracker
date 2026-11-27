@@ -465,6 +465,119 @@ def _():
     """
 
 
+# ---------------------------------------------------------------------------------------------
+# Milestone 4: the location model
+# ---------------------------------------------------------------------------------------------
+WORLD = """
+-- a world: each map is a 1000 x 1000 yard square on continent 1, placed side by side by map ID
+CreateVector2D = function(x, y) return { x = x, y = y } end
+C_Map.GetWorldPosFromMapPos = function(map, v)
+  if map == 999 then return 2, { x = v.x * 1000, y = v.y * 1000 } end   -- another continent
+  return 1, { x = (map % 100) * 1000 + v.x * 1000, y = v.y * 1000 }
+end
+C_Map.GetPlayerMapPosition = function() return { GetXY = function() return MOCK.px or 0.5, MOCK.py or 0.5 end } end
+"""
+
+@test("locations: checked map IDs and points; Questie's 0-100 spawns become 0-1; no point means somewhere on the map")
+def _():
+    """
+    local L = NS.Locations
+    assert(L.New("giver", 0, 0.5, 0.5) == nil and L.New("giver", 12.5) == nil and L.New("bogus", 1429) == nil)
+    local a = L.New("giver", 1429, 0.5, 0.5, "Marshal Dughan"); assert(a.map == 1429 and a.x == 0.5 and a.source == "questie")
+    local b = L.New("giver", 1429, -0.01, -0.01); assert(b and b.x == nil, "an instance spawn: on the map, no point")
+    local spawns = { [12] = { { 41.5, 65.9 }, { -1, -1 } }, [40] = { { -1, -1 } }, [77] = { { 10, 10 } } }
+    local toMap = function(area) return ({ [12] = 1429, [40] = 1436 })[area] end
+    local list = L.FromSpawns(spawns, "objective", "Kobold", toMap)
+    table.sort(list, function(p, q) return p.map < q.map end)
+    assert(#list == 2, "area 77 has no map: left out")
+    assert(list[1].map == 1429 and math.abs(list[1].x - 0.415) < 1e-9 and math.abs(list[1].y - 0.659) < 1e-9)
+    assert(list[2].map == 1436 and list[2].x == nil, "only an instance spawn: somewhere on that map")
+    local many = {}
+    for i = 1, 60 do many[i] = { i, 50 } end
+    assert(#L.FromSpawns({ [12] = many }, "objective", "x", toMap) == L.MAX_POINTS, "capped per area")
+    local maps = L.Maps(list); assert(maps[1429] == "Kobold" and maps[1436] == "Kobold")
+    assert(#L.Filter(list, { giver = true }) == 0 and #L.Filter(list, { objective = true }) == 2)
+    """
+
+@test("locations: distances on one continent, the nearest point, and a nearest-next route", saved=WORLD)
+def _():
+    """
+    local L = NS.Locations
+    local from = { 1, 29500, 500 }                    -- on map 1429 (x 29000-30000), its middle
+    local near = L.New("objective", 1429, 0.6, 0.5, "near")
+    local far = L.New("objective", 1429, 0.9, 0.5, "far")
+    local other = L.New("objective", 999, 0.5, 0.5, "another continent")
+    local nopoint = L.New("objective", 1429, nil, nil, "somewhere")
+    assert(math.abs(L.Yards(near, from) - 100) < 1e-6 and L.Yards(other, from) == nil and L.Yards(nopoint, from) == nil)
+    local best, yd = L.Nearest({ far, other, nopoint, near }, from)
+    assert(best == near and math.abs(yd - 100) < 1e-6)
+    local first = L.Nearest({ other, nopoint }, from, 999); assert(first == other, "nothing measurable: the one on the preferred map")
+    local route = L.Route({ far, other, near }, from)
+    assert(route[1] == near and route[2] == far and route[3] == other, "nearest next; unmeasurable last")
+    """
+
+QUESTIE_WORLD = WORLD + """
+QDATA = {
+  npcs = { [1] = { name = "Grom", spawns = { [33] = { { 50, 50 } } } },
+           [2] = { name = "Naga Explorer", spawns = { [33] = { { 60, 50 }, { 90, 50 } } } },
+           [3] = { name = "Wolf", spawns = { [33] = { { 55, 50 } } } } },
+  items = { [10] = { name = "Akiris Reed", npcDrops = { 2 } }, [11] = { name = "Old Map", npcDrops = { 3 } } },
+  quests = { [500] = { name = "Kill and Gather", Starts = { NPC = { 1 } } },
+             [501] = { name = "The Old Map", Starts = { Item = { 11 } } } },
+  fields = { [500] = { objectives = { { { 3 } }, {}, { { 10 } } }, finishedBy = { { 1 } } } },
+}
+local function single(t) return function(id, key) local e = QDATA[t][id]; return e and e[key] end end
+MODULES = {
+  QuestieDB = { IsDoable = function() return true end, QuestPointers = {},
+    GetQuest = function(id) return QDATA.quests[id] end,
+    QueryNPCSingle = single("npcs"), QueryObjectSingle = function() return nil end, QueryItemSingle = single("items"),
+    QueryQuestSingle = function(id, key) local f = QDATA.fields[id]; return f and f[key] end },
+  QuestXP = { GetQuestLogRewardXP = function() return 100 end },
+  ZoneDB = { GetUiMapIdByAreaId = function(_, area) return area == 33 and 1434 or nil end },
+  AvailableQuests = { __availableQuests = { [501] = true } },
+}
+QuestieLoader = { ImportModule = function(_, name) return MODULES[name] end }
+Questie = { API = { RegisterOnReady = function(fn) fn() end } }
+"""
+
+@test("locations from Questie: givers, item starts, objectives, turn-ins; Show on Map for an item-started quest", saved=QUESTIE_WORLD)
+def _():
+    """
+    NS.Questie.Init(); MOCK.RunTimers()
+    local L = NS.Locations
+    local all = NS.Questie.QuestLocations(500)
+    local n = {}
+    for _, l in ipairs(all) do n[l.kind] = (n[l.kind] or 0) + 1 end
+    assert(n.giver == 1 and n.turnin == 1 and n.objective == 3, "giver, turn-in, wolf + 2 naga spawns (the reed)")
+    -- an item-started quest: where its item drops (1.9.0: no location)
+    local loc = NS.Questie.Location(501)
+    assert(loc and loc.kind == "itemsource" and loc.label:find("starts from Old Map: Wolf", 1, true), loc and loc.label)
+    """
+
+@test("active quests: places left exclude finished objectives; the waypoint goes to the nearest", saved=QUESTIE_WORLD)
+def _():
+    """
+    NS.Questie.Init(); MOCK.RunTimers()
+    MOCK.quests = { { questID = 500, title = "Kill and Gather", level = 40 } }
+    local objs = { { text = "Wolf slain: 5/5", finished = true }, { text = "Akiris Reed: 2/10", finished = false } }
+    C_QuestLog.GetQuestObjectives = function() return objs end
+    local left = NS.QuestPlaces(500)
+    for _, l in ipairs(left) do assert(l.name == "Akiris Reed", "the wolf is done: " .. tostring(l.name)) end
+    assert(#left == 2, "both naga spawns")
+    local set
+    NS.SetWaypoint = function(l) set = l; return true end
+    C_Map.GetBestMapForUnit = function() return 1434 end   -- you're on their map
+    MOCK.px, MOCK.py = 0.85, 0.5
+    NS.QuestWaypoint(500)
+    assert(set and math.abs(set.x - 0.9) < 1e-9, "the nearest naga (90, 50) from (85, 50)")
+    MOCK.quests[1].complete = true
+    local turn, done = NS.QuestPlaces(500)
+    assert(done and #turn == 1 and turn[1].kind == "turnin")
+    local report = table.concat(NS.WhereReport(500), " / ")
+    assert(report:find("turn-in: 1; nearest turn-in: Grom", 1, true) and report:find("to turn in: turn-in: Grom", 1, true), report)
+    """
+
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

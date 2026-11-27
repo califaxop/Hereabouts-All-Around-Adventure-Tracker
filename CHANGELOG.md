@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.10.0 (Milestone 4: one location model)
+
+- Quests that start from an item have a place: Show on Map goes to where the item drops (it said
+  "no location known"), and Quests Nearby's zone filter counts them there.
+- Show on Map goes to the quest giver's nearest spawn, not the first one in your zone.
+- Right-click an active quest: "Waypoint to the nearest objective" (what's still to do) or
+  "Waypoint to the turn-in" (with Questie).
+- New `/hab where <quest>`: every place known for a quest, the nearest of each kind, and what's
+  left in nearest-first order.
+- Under the hood: one location model for every place Hereabouts knows.
+
 ## 1.9.0 (Milestone 3: integration compatibility)
 
 - Fixed: a change in What's Training could stop the whole tracker; now only its Training section

@@ -14,8 +14,8 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 |---|---|---|
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
-| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | **Done in 1.9.0, verified in game, waiting for review** |
-| 4 | Unified location engine | Not started |
+| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
+| 4 | Unified location engine | **Done in 1.10.0, waiting for in-game validation and review** |
 | 5 | Character progression and analytics | Not started |
 | 6 | Modular interface | Not started |
 | 7 | Diagnostics and release | Not started |
@@ -37,15 +37,16 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 - No unused code or settings. Offline tests for logic (`tests/run_tests.py`); game behaviour is
   checked in game (checklists below), never claimed from the tests.
 
-## Architecture (1.9.0)
+## Architecture (1.10.0)
 
-Load order (Hereabouts.toc): Core → Dungeons → QuestieSource → Training → Suggest → Session →
+Load order (Hereabouts.toc): Core → Dungeons → Locations → QuestieSource → Training → Suggest → Session →
 QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: the first three quest item buttons.
 
 | File | Module | Does |
 |---|---|---|
 | Core.lua | `ns` | Settings defaults (`ns.DEFAULTS`), `LoadDB` / `ResetDB` (deep copies), the ignore list, `IsTrivial`, the error log (`NoteError`) |
 | Dungeons.lua | `ns.DUNGEONS` | Static dungeon list: name, entrance zone, level range (Classic ranges, not verified for Forever) |
+| Locations.lua | `ns.Locations` | The location model (1.10.0): `New` (checked map ID and 0-1 point), `FromSpawns` (Questie's 0-100 spawns by area → locations), `Filter` (by kind), `Maps`, world positions and yards (`WorldPos`, `PlayerPos`, `Yards`), `Nearest`, `Route` (nearest-next order) |
 | QuestieSource.lua | `ns.Questie` | Binds Questie's modules (`QuestieLoader:ImportModule`); quests to pick up (a sliced scan of Questie's available set or database); where active quests are done (`ActiveQuestMaps`, `TurnInZone`, `GameQuestZone`); the set watcher; `/hab questie`, `/hab qinfo` |
 | Training.lua | `ns.Training` | What's Training (`WT_API`): spells to train, trainer cities and prices with reputation |
 | Suggest.lua | — | The quest log (`LogQuests`), zone filter (`InZone`), the quest log fingerprint (`QuestLogStamp`), combat focus (`CombatQuests`, `CombatFocusKey`, `ObjectiveKey`), `BuildSuggestions` (ranking, sections) |
@@ -198,6 +199,31 @@ later (FlareUI and EllesmereUI set up their trackers around login). FlareUI's tr
 tracker to "Never" before Hereabouts did can't be read, so turning replacing off shows it again.
 EllesmereUI's: `_EQT_SetSuppressed("Hereabouts", on)`, Hereabouts' own suppression only.
 
+## Milestone 4 (1.10.0)
+
+One location model (Locations.lua): every place is `{ kind, map, x, y, label, source, name }`:
+kind giver / objective / turnin / itemsource; the game's map ID; a point in 0-1 or none (somewhere
+on that map); where it comes from; and for objectives what it's for (the mob, object or item, to
+tell finished ones). Questie's spawns are turned into locations in one place (`Where`,
+`ItemSources`, `StartLocations` in QuestieSource.lua, through `Locations.FromSpawns`), and every
+user of them reads locations: the zone filter (`ActiveQuestMaps`, via `Locations.Maps`), Quests
+Nearby (`StartMaps`, `Location`), the turn-in zone, the distances in the list, Show on Map, the new
+active-quest waypoint and `/hab where`.
+
+Findings and changes (1.9.0 source):
+
+| # | Sev. | Finding | Change |
+|---|---|---|---|
+| 20 | Medium | Quests that start from an item had no place: Show on Map said "no location known" (seen in game: The Monogrammed Sash, Cortello's Riddle), and Quests Nearby's zone filter used the quest's own zone. | Where the item drops (its NPCs and objects) is where you pick it up (`itemsource`) |
+| 21 | Low | Show on Map for a quest giver used the first spawn in your zone (else the first anywhere), not the nearest. | The nearest of all its spawns on your continent (`Locations.Nearest`) |
+| 22 | Low | Spawn reading and conversion (area ID → map ID, 0-100 → 0-1, instance points -1,-1) was repeated in four places, distances in another. | One model; points outside the map become "somewhere on that map", never a false point |
+| 23 | — | No way to go to an active quest's next place. | Right-click an active quest: "Waypoint to the nearest objective" (what's left, finished objectives dropped by exact name) or "Waypoint to the turn-in" (with Questie) |
+| 24 | — | No route planning. | `Locations.Route`: a nearest-next visiting order (`/hab where` shows the order of what's left); the base for later route features |
+
+Trainers and dungeon entrances: Dungeons.lua and Training.lua know them only by zone or city
+name, with no map IDs or points that have been checked on Forever; they join the model when
+verified places do (Milestone 5), rather than being given made-up coordinates.
+
 ## Testing
 
 ### Offline
@@ -207,7 +233,9 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-21 tests (1.9.0): the Questie boundary (nothing written into its tables, missing parts reported,
+25 tests (1.10.0): the location model (checked maps and points, Questie's spawns, caps, filters),
+distances / nearest / route on a mock world, Questie's places for a quest (givers, item starts,
+objectives, turn-ins), an active quest's places left and its waypoint, `/hab where`; the Questie boundary (nothing written into its tables, missing parts reported,
 a broken quest log), What's Training's parts, tracker replacement (parent and alpha back, nothing in
 combat, an unreadable EllesmereUI setting), TomTom's one arrow; the location rule (every source, unknown kept), the zone filter keeping a quest
 it can't place, exact objective matching, the combat focus fingerprint, enemies and threat (API or
@@ -313,6 +341,19 @@ Results (1.9.0 test build):
   blocked").
 
 Milestone 3 verified in game; awaiting review before Milestone 4.
+
+### In-game checklist (Milestone 4 → 5)
+
+1. Install 1.10.0, `/reload`: the tracker as in 1.9.0; distances in Quests Nearby as before; no
+   Lua errors.
+2. Quests Nearby: Show on Map on a quest that starts from an item (The Monogrammed Sash, Cortello's
+   Riddle): a waypoint where the item drops ("starts from <item>: <mob>"), not "no location known".
+3. Show on Map on a quest giver with several spawns: the nearest one.
+4. Right-click an active quest: "Waypoint to the nearest objective"; it goes to the nearest place
+   still to do (not to a finished objective's mobs). On a quest ready to turn in: "Waypoint to the
+   turn-in".
+5. `/hab where <questID>` (or with a quest focused, `/hab where`): places by kind with the nearest
+   of each and its distance, and "left to do, nearest first: a > b > c". Send one.
 
 ### Needs verification in WoW Forever
 

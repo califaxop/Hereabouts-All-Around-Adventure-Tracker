@@ -35,6 +35,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 | `/hab replace` | Replace Blizzard's quest tracker |
 | `/hab zone` | Why each quest counts as in this zone, elsewhere, or can't tell, and how sure |
 | `/hab focus` | In a fight: what combat focus sees and how it found it |
+| `/hab where <quest>` | Every place known for a quest (or the focused one), nearest first |
 | `/hab session` | Reset the session bar's numbers |
 | `/hab questie` | What Hereabouts sees of Questie |
 | `/hab status` | Version, Questie / What's Training, session, item buttons, errors (for bug reports) |
@@ -53,6 +54,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.10.0:** Quests that start from an item now have a place: Show on Map goes to where the item drops instead of "no location known". Show on Map picks the quest giver's nearest spawn. Right-click an active quest for "Waypoint to the nearest objective" or "Waypoint to the turn-in" (with Questie). New `/hab where <quest>` lists every place known for a quest and what's left, nearest first.
 - **1.9.0:** Sturdier add-on connections. Fixed: a change in What's Training could stop the whole tracker (now only the Training section empties); with EllesmereUI, an unreadable tracker setting switched tracker replacement on by itself; turning replacement off brought Blizzard's tracker back fully shown even if another addon had faded it. Show on Map keeps one TomTom arrow. Hereabouts no longer writes into Questie's tables, and `/hab questie` and the Status page show which parts of Questie (and What's Training) are available.
 - **1.8.0:** Smarter zone filter: a quest Hereabouts can't place stays listed instead of being hidden as "elsewhere", and a quest over two zones shows where what's left to do is. Fixed: finishing an item objective ("Wolf Pelt") could drop a similarly named mob objective ("Wolf") from the zone check. Combat focus follows objective changes and also uses the game's threat information to find mobs fighting you. `/hab zone` explains each decision and how sure it is; new `/hab focus`.
 - **1.7.0:** Fixed: "Quests this session (~N to level)" counted each quest's money as its XP. Fixed: "Reset to defaults" didn't reset the hide-in-combat / in-dungeons choices, the session stats or the border colour. Fixed: in combat a quest item button could end up beside another quest when the list changed; it now dims (its tooltip says which quest it's for) and moves back when combat ends. Fixed: Quests Nearby could miss a change in Questie's quests. The session bar says "gold gained" (spending isn't taken off) and marks XP across several level-ups at once as approximate. New: `/hab status`, `/hab errors`.
