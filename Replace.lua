@@ -21,7 +21,9 @@ end
 
 local pending = false
 local hooked = {}
-local originalParent = {}
+-- each tracker as it was before Hereabouts took its place (1.9.0: its alpha too; before, turning
+-- replacing off set it to fully shown, whatever it had)
+local originalParent, originalAlpha = {}, {}
 
 -- FlareUI's and EllesmereUI's own trackers, through their own switches: FlareUI's tracker module
 -- (FlareUI.ObjectiveTracker:SetNever, what its Visibility "Never" uses) and EllesmereUI's cross-addon
@@ -35,11 +37,14 @@ function ns.FlareTrackerOn()
   local p = type(FlareUI) == "table" and FlareUI.db and FlareUI.db.profile
   return FlareTracker() ~= nil and p and p.objectivetracker and p.objectivetracker.enabled and true or false
 end
+-- EllesmereUI's tracker: true (on), false (off or not there), or nil: there, but its setting can't
+-- be read (1.9.0: before, that counted as on, and could switch replacing on by itself)
 function ns.EUITrackerOn()
   local EQT = _G.EllesmereUIQuestTracker
   if type(EQT) ~= "table" or not _G._EQT_SetSuppressed then return false end
-  local ok, on = pcall(function() return EQT.Cfg and EQT.Cfg("enabled") end)
-  return not (ok and on == false)
+  local ok, on = pcall(function() return type(EQT.Cfg) == "function" and EQT.Cfg("enabled") end)
+  if ok and type(on) == "boolean" then return on end
+  return nil
 end
 local function OtherTrackers(replace)
   local OT = FlareTracker()
@@ -73,11 +78,15 @@ local function Apply()
       end)
     end
     if ns.db.replaceTracker then
-      if f:GetParent() ~= hider then pcall(f.SetParent, f, hider) end
+      if f:GetParent() ~= hider then
+        if originalAlpha[f] == nil then originalAlpha[f] = f:GetAlpha() end
+        pcall(f.SetParent, f, hider)
+      end
       f:SetAlpha(0)
-    else
-      if f:GetParent() == hider then pcall(f.SetParent, f, originalParent[f] or UIParent) end
-      f:SetAlpha(1)
+    elseif f:GetParent() == hider then
+      pcall(f.SetParent, f, originalParent[f] or UIParent)
+      f:SetAlpha(originalAlpha[f] or 1)
+      originalAlpha[f] = nil
     end
   end
   OtherTrackers(ns.db.replaceTracker)
@@ -93,7 +102,8 @@ ev:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_ENTERING_WORLD" and not ns.db.trackerOffered then
     -- FlareUI's or EllesmereUI's quest tracker in use: Hereabouts takes its place (once; the
     -- player can turn it back in /hab)
-    if ns.FlareTrackerOn() or ns.EUITrackerOn() then
+    -- (only when their setting says so: an EllesmereUI setting that can't be read doesn't count)
+    if ns.FlareTrackerOn() or ns.EUITrackerOn() == true then
       ns.db.trackerOffered = true
       if not ns.db.replaceTracker then
         ns.db.replaceTracker = true

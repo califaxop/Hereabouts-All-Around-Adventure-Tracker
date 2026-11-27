@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.0 (Milestone 3: integration compatibility)
+
+- Fixed: a change in What's Training could stop the whole tracker; now only its Training section
+  empties.
+- Fixed: with EllesmereUI, a tracker setting Hereabouts couldn't read switched "replace the quest
+  tracker" on by itself.
+- Fixed: turning tracker replacement off brought Blizzard's tracker back fully shown, even if
+  another addon had faded it.
+- Show on Map keeps one TomTom arrow from Hereabouts instead of adding one each time.
+- Questie: Hereabouts no longer writes into Questie's own tables, reads its internals in one
+  checked place, and `/hab questie` and the Status page show which of Questie's parts are there.
+- The Status page lists EllesmereUI too, and says when an add-on works without some of its parts.
+
 ## 1.8.0 (Milestone 2: quest and location intelligence)
 
 - With "only this zone" on, a quest Hereabouts can't place stays listed (it was hidden as

@@ -252,7 +252,7 @@ def _():
     PRINTS = {}
     SlashCmdList.XPPLANNER("status")
     local all = table.concat(PRINTS, " / ")
-    assert(all:find("Questie: installed false") and all:find("quest item buttons: 0 shown") and all:find("errors caught: 1"), all)
+    assert(all:find("Questie (off): Not installed", 1, true) and all:find("quest item buttons: 0 shown") and all:find("errors caught: 1"), all)
     PRINTS = {}; SlashCmdList.XPPLANNER("errors")
     assert(PRINTS[1]:find("drawing the list %(x2%): boom"), PRINTS[1])
     """
@@ -368,6 +368,100 @@ def _():
     order = {}
     for i, q in ipairs(s.quests) do order[i] = q.questID end
     assert(table.concat(order, ",") == "3,1,2", "finished first, then XP: " .. table.concat(order, ","))
+    """
+
+
+# ---------------------------------------------------------------------------------------------
+# Milestone 3: integrations
+# ---------------------------------------------------------------------------------------------
+@test("questie: its modules behind one boundary; nothing written into its tables; missing parts reported")
+def _():
+    """
+    -- a Questie with its database and available set, a broken quest log and no map markers
+    local QA = { __availableQuests = { [101] = true }, CalculateAndDrawAll = function() end }
+    local QDB = { IsDoable = function() return true end,
+      GetQuest = function(id) return { name = "Quest " .. id, level = 20, zoneOrSort = 12, Starts = {} } end,
+      QuestPointers = {}, QueryNPCSingle = function() return nil end, QueryObjectSingle = function() return nil end,
+      QueryQuestSingle = function() return nil end }
+    local MODULES = { QuestieDB = QDB, QuestXP = { GetQuestLogRewardXP = function() return 500 end }, AvailableQuests = QA,
+      QuestiePlayer = { currentQuestlog = "not a table" }, QuestieMap = {} }
+    QuestieLoader = { ImportModule = function(_, name) return MODULES[name] end }
+    Questie = { API = { RegisterOnReady = function(fn) fn() end } }
+    local before = {}
+    for k in pairs(QA) do before[k] = true end
+    assert(NS.Questie.Init() and NS.Questie.Available(), "bound")
+    MOCK.RunTimers()
+    for k in pairs(QA) do assert(before[k], "wrote " .. tostring(k) .. " into Questie's module (1.8.0: xppHooked)") end
+    assert(NS.Questie.Count() == 1, "the available set scanned: " .. NS.Questie.Count())
+    local caps = {}
+    for _, c in ipairs(NS.Questie.Capabilities()) do caps[c[1]] = c[2] end
+    assert(caps["database"] and caps["available set"] and caps["quest XP"], "there")
+    assert(not caps["its quest log"] and not caps["its map markers"] and not caps["zones"], "reported missing")
+    local maps = NS.Questie.ActiveQuestMaps(101, false, {})   -- the broken quest log: no error
+    local st = NS.Integrations()[1]
+    assert(st[1] == "Questie" and st[2] == "partial" and st[3]:find("Missing: zones", 1, true), st[3])
+    PRINTS = {}; NS.Questie.Diagnose(print)
+    assert(table.concat(PRINTS, " "):find("its map markers.-not available"), table.concat(PRINTS, " / "))
+    """
+
+@test("what's training: a changed API empties only the Training section; the rest of the list is built")
+def _():
+    """
+    WT_API = { IsReady = function() return true end }   -- no GetSpells, no Status
+    local T = NS.Training
+    assert(T.Ready() and #T.List(10) == 0, "no spells, no error")
+    WT_API.IsReady = function() error("changed") end
+    assert(T.Ready() == false, "an error is 'not ready'")
+    local s = NS.BuildSuggestions({})
+    assert(s and s.training, "the list is built")
+    WT_API = { IsReady = function() return true end, GetSpells = function() return {} end, Status = {} }
+    local miss = {}
+    for _, c in ipairs(T.Capabilities()) do if not c[2] then miss[#miss + 1] = c[1] end end
+    assert(table.concat(miss, ",") == "trainers,pet abilities,updates", table.concat(miss, ","))
+    """
+
+@test("tracker replacement: the tracker's parent and own alpha come back; an unreadable EllesmereUI setting isn't 'on'")
+def _():
+    """
+    local f = MOCK.obj("ObjectiveTrackerFrame")
+    f._parent = UIParent; f._alpha = 0.6
+    f.SetParent = function(self, p) if MOCK.combat then error("blocked") end self._parent = p end
+    f.GetParent = function(self) return self._parent end
+    NS.db.replaceTracker = true; NS.ApplyReplace()
+    assert(f._parent ~= UIParent and f._alpha == 0, "hidden away")
+    NS.db.replaceTracker = false; NS.ApplyReplace()
+    assert(f._parent == UIParent and f._alpha == 0.6, "its own alpha back (1.8.0: 1): " .. tostring(f._alpha))
+    -- in combat: nothing moves until it ends
+    NS.db.replaceTracker = true; MOCK.combat = true; NS.ApplyReplace()
+    assert(f._parent == UIParent, "not in combat")
+    MOCK.combat = false; MOCK.Fire("PLAYER_REGEN_ENABLED")
+    assert(f._parent ~= UIParent and f._alpha == 0, "after combat")
+    -- EllesmereUI's tracker setting
+    _G._EQT_SetSuppressed = function() end
+    EllesmereUIQuestTracker = { Cfg = function() error("changed") end }
+    assert(NS.EUITrackerOn() == nil, "can't tell (1.8.0: true)")
+    EllesmereUIQuestTracker.Cfg = function() return false end; assert(NS.EUITrackerOn() == false)
+    EllesmereUIQuestTracker.Cfg = function() return true end; assert(NS.EUITrackerOn() == true)
+    -- first login with an unreadable setting: replacing isn't switched on by itself
+    EllesmereUIQuestTracker.Cfg = function() error("changed") end
+    NS.db.replaceTracker = false; NS.db.trackerOffered = nil
+    MOCK.Fire("PLAYER_ENTERING_WORLD", true, false)
+    assert(NS.db.replaceTracker == false, "not switched on by an unreadable setting")
+    """
+
+@test("tomtom: one Hereabouts arrow at a time (the last one taken off first)")
+def _():
+    """
+    local added, removed, uid = {}, {}, 0
+    TomTom = { AddWaypoint = function(_, m, x, y, o) uid = uid + 1; added[#added + 1] = uid; return uid end,
+      RemoveWaypoint = function(_, u) removed[#removed + 1] = u end }
+    C_Map.SetUserWaypoint = nil
+    NS.SetWaypoint({ map = 1429, x = 0.4, y = 0.5 }, "A")
+    NS.SetWaypoint({ map = 1429, x = 0.6, y = 0.5 }, "B")
+    assert(#added == 2 and #removed == 1 and removed[1] == 1, "the first arrow removed before the second")
+    local tt
+    for _, it in ipairs(NS.Integrations()) do if it[1] == "TomTom" then tt = it end end
+    assert(tt[2] == "on", tt[2])
     """
 
 

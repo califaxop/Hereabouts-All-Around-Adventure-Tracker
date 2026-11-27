@@ -688,10 +688,12 @@ function ns.SetWaypoint(loc, title)
       end
     end
   end
-  if TomTom and TomTom.AddWaypoint then
-    if pcall(TomTom.AddWaypoint, TomTom, loc.map, loc.x, loc.y, { title = title, from = "Hereabouts" }) then
-      placed = true
-    end
+  -- TomTom: one arrow at a time from Hereabouts (1.9.0: the previous one is taken off first; before,
+  -- every Show on Map added another)
+  if type(TomTom) == "table" and type(TomTom.AddWaypoint) == "function" then
+    if ns.tomtomWaypoint and type(TomTom.RemoveWaypoint) == "function" then pcall(TomTom.RemoveWaypoint, TomTom, ns.tomtomWaypoint) end
+    local ok, uid = pcall(TomTom.AddWaypoint, TomTom, loc.map, loc.x, loc.y, { title = title, from = "Hereabouts" })
+    if ok then placed = true; ns.tomtomWaypoint = uid end
   end
   if OpenWorldMap then pcall(OpenWorldMap, loc.map)
   elseif WorldMapFrame and WorldMapFrame.SetMapID then
@@ -1323,9 +1325,7 @@ function ns.Status()
   local L = {}
   local get = C_AddOns and C_AddOns.GetAddOnMetadata
   L[#L + 1] = format("version %s; in combat: %s", tostring(get and get(ns.name, "Version") or "?"), InCombatLockdown() and "yes" or "no")
-  L[#L + 1] = format("Questie: installed %s, bound %s, quests to pick up %d%s", tostring(ns.Questie.Installed()),
-    tostring(ns.Questie.Available()), ns.Questie.Count(), ns.Questie.IsScanning() and " (scanning)" or "")
-  L[#L + 1] = format("What's Training: installed %s, ready %s", tostring(ns.Training.Installed()), tostring(ns.Training.Ready() and true or false))
+  for _, it in ipairs(ns.Integrations()) do L[#L + 1] = format("%s (%s): %s", it[1], it[2], it[3]) end
   local v = ns.Session.Values()
   L[#L + 1] = format("session: %s, %s%s%s", v.elapsed, v.xp or "max level", v.approx and " (approximate)" or "",
     ns.Session.restoreNote and ("; " .. ns.Session.restoreNote) or "")

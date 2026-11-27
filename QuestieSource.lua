@@ -10,7 +10,42 @@ local candidates = {}   -- questID -> { id, name, level, xp, zoneID, zone, start
 local scanning, ready = false, false
 Q.onUpdate = nil        -- called when a scan finishes
 
+-- Questie's modules (QuestieLoader:ImportModule) and internals, all behind this boundary (1.9.0):
+-- each one is looked up and checked here, nothing outside this section touches Questie's own
+-- tables, and nothing is written into them (a hook is remembered in `hooks`, not on Questie's
+-- module). Q.Capabilities() says which parts this Questie has; everything degrades to the game's
+-- own data when a part is missing.
 local QDB, QXP, TU, ZDB, QP, QM, QL, QA
+local hooks = setmetatable({}, { __mode = "k" }) -- module -> true: hooked already
+-- Questie's internals: tables, not a public API (they may change with any Questie version)
+local function AvailableSet()   -- AvailableQuests.__availableQuests: questID -> anything
+  local set = QA and QA.__availableQuests
+  return type(set) == "table" and set or nil
+end
+local function QuestLogEntry(id) -- QuestiePlayer.currentQuestlog[questID]: { Objectives, SpecialObjectives }
+  local log = QP and QP.currentQuestlog
+  local e = type(log) == "table" and log[id]
+  return type(e) == "table" and e or nil
+end
+local function MarkerFrames(id) -- QuestieMap.questIdFrames[questID]: its map marker frames
+  local f = QM and QM.questIdFrames
+  local byQuest = type(f) == "table" and f[id]
+  return type(byQuest) == "table" and byQuest or nil
+end
+-- what this Questie offers, by part: { name, available, what it's for }
+function Q.Capabilities()
+  local function fn(m, k) return m ~= nil and type(m[k]) == "function" end
+  return {
+    { "database", QDB ~= nil and fn(QDB, "IsDoable") and fn(QDB, "GetQuest"), "quests you can pick up, quest givers" },
+    { "spawns", QDB ~= nil and fn(QDB, "QueryNPCSingle") and fn(QDB, "QueryObjectSingle"), "where quest givers, mobs and objects are" },
+    { "quest XP", QXP ~= nil and fn(QXP, "GetQuestLogRewardXP"), "XP of quests to pick up" },
+    { "zones", ZDB ~= nil and fn(ZDB, "GetUiMapIdByAreaId"), "Questie's zones on the game's maps" },
+    { "quest levels", QL ~= nil, "required levels" },
+    { "available set", AvailableSet() ~= nil, "Questie's own list of quests to pick up (its settings)" },
+    { "its quest log", QP ~= nil and type(QP.currentQuestlog) == "table", "where your quests' objectives are" },
+    { "its map markers", QM ~= nil and type(QM.questIdFrames) == "table", "where Questie draws your quests" },
+  }
+end
 local function Bind()
   if not (QuestieLoader and QuestieLoader.ImportModule) then return false end
   local ok1, a = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieDB")
@@ -29,8 +64,8 @@ local function Bind()
   -- Questie's own "available quests" set (what it draws on the map, by its settings)
   local ok8, qa = pcall(QuestieLoader.ImportModule, QuestieLoader, "AvailableQuests")
   QA = (ok8 and qa) or nil
-  if QA and type(QA.CalculateAndDrawAll) == "function" and not QA.xppHooked then
-    QA.xppHooked = true
+  if QA and type(QA.CalculateAndDrawAll) == "function" and not hooks[QA] then
+    hooks[QA] = true
     -- Questie recalculates (level up, settings, quest turned in...): follow it shortly after
     hooksecurefunc(QA, "CalculateAndDrawAll", function() C_Timer.After(2, function() Q.RescanSoon() end) end)
   end
@@ -53,7 +88,8 @@ function Q.Installed()
   return (AddonLoaded("Questie") or (QuestieLoader ~= nil and type(Questie) == "table")) and true or false
 end
 
--- /xpp questie: what XPP sees of Questie, to tell apart "not loaded" from "loaded but broken".
+-- /hab questie: what Hereabouts sees of Questie, to tell apart "not loaded" from "loaded but broken",
+-- and which of its parts are there.
 function Q.Diagnose(print)
   local api = type(Questie) == "table" and Questie.API
   local ver = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Questie", "Version")
@@ -68,7 +104,10 @@ function Q.Diagnose(print)
       end
     end
   end
-  print(format("XPP bound to Questie database: %s, quests found: %d", tostring(ready), Q.Count()))
+  print(format("Hereabouts bound to Questie's database: %s, quests found: %d", tostring(ready), Q.Count()))
+  for _, c in ipairs(Q.Capabilities()) do
+    print(format("  %s%s|r: %s", c[2] and "|cff60ff60" or "|cff999999", c[1], c[2] and c[3] or ("not available: " .. c[3] .. " from the game's data instead")))
+  end
 end
 
 -- Rescan shortly after settings change (coalesces slider drags).
@@ -210,9 +249,8 @@ end
 -- markers come from, including special objectives like "find the crown in the Badlands crypt").
 -- Returns a set of map IDs ({} = nothing left with a known place), or nil if Questie has no entry.
 local function FromQuestieLog(id)
-  local log = QP and QP.currentQuestlog
-  local q = type(log) == "table" and log[id]
-  if type(q) ~= "table" then return nil end
+  local q = QuestLogEntry(id)
+  if not q then return nil end
   local maps, sawObjective = {}, false
   local function scan(list)
     if type(list) ~= "table" then return end
@@ -242,8 +280,8 @@ end
 -- The map markers Questie has drawn for a quest (its objectives while in progress, its turn-in
 -- once complete): the maps they sit on. nil if Questie has drawn none for it.
 local function FromQuestieMarkers(id)
-  local byQuest = QM and type(QM.questIdFrames) == "table" and QM.questIdFrames[id]
-  if type(byQuest) ~= "table" then return nil end
+  local byQuest = MarkerFrames(id)
+  if not byQuest then return nil end
   local maps, any = {}, false
   pcall(function()
     for k, v in pairs(byQuest) do
@@ -423,12 +461,11 @@ function Q.Inspect(id)
   out[#out + 1] = "game's quest map: " .. (gz and ("map " .. graw .. " (zone " .. gz .. ")") or "none")
   local okW, wm = pcall(function() return C_QuestLog.GetNextWaypoint and C_QuestLog.GetNextWaypoint(id) end)
   out[#out + 1] = "game's next waypoint map: " .. tostring(okW and wm or "none")
-  out[#out + 1] = "markers: " .. (QM and ("questIdFrames " .. keys(QM.questIdFrames and QM.questIdFrames[id], 6)) or "QuestieMap not found")
+  out[#out + 1] = "markers: " .. (QM and ("questIdFrames " .. keys(MarkerFrames(id), 6)) or "QuestieMap not found")
   out[#out + 1] = "  -> " .. maps(FromQuestieMarkers(id))
-  local log = QP and QP.currentQuestlog
-  out[#out + 1] = "log: " .. (QP and (type(log) == "table" and ("entry " .. keys(log[id], 14)) or "no currentQuestlog") or "QuestiePlayer not found")
-  local e = type(log) == "table" and log[id]
-  if type(e) == "table" then
+  local e = QuestLogEntry(id)
+  out[#out + 1] = "log: " .. (QP and (e and ("entry " .. keys(e, 14)) or "no entry") or "QuestiePlayer not found")
+  if e then
     out[#out + 1] = "  Objectives " .. keys(e.Objectives, 6) .. "  SpecialObjectives " .. keys(e.SpecialObjectives, 6)
     local o = type(e.Objectives) == "table" and select(2, next(e.Objectives))
     if type(o) == "table" then out[#out + 1] = "  first objective " .. keys(o, 14) end
@@ -439,10 +476,7 @@ function Q.Inspect(id)
 end
 
 -- The quests Questie lists as available right now (nil if this Questie doesn't expose them)
-local function QuestieSet()
-  local set = QA and QA.__availableQuests
-  if type(set) == "table" then return set end
-end
+local QuestieSet = AvailableSet
 
 -- What the last scan saw of Questie's available set (1.7.0): a copy of its quest IDs, compared
 -- with the set as it is now, id by id. Exact (count-plus-sum, before, took different sets for the

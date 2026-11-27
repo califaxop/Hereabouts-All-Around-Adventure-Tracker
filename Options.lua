@@ -406,48 +406,32 @@ end
 local function PageStatus(p)
   local y = Section(p, "Connected addons", 0, 0, PAGE_W)
   local rows = {}
-  local NAMES = { "Questie", "What's Training", "FlareUI", "TomTom" }
+  local NAMES = { "Questie", "What's Training", "FlareUI", "EllesmereUI", "TomTom" } -- (ns.Integrations' order)
   for i, n in ipairs(NAMES) do
-    local ry = y - (i - 1) * 26
+    local ry = y - (i - 1) * 30
     local dot = p:CreateTexture(nil, "ARTWORK")
     dot:SetTexture(W); dot:SetSize(8, 8); dot:SetPoint("TOPLEFT", 2, ry - 5)
     local name = Text(p, "line", n); name:SetPoint("TOPLEFT", 18, ry)
     local state = Text(p, "note", ""); state:SetPoint("TOPLEFT", 150, ry - 1); state:SetWidth(318)
     rows[n] = { dot = dot, state = state }
   end
-  local function set(n, color, str)
-    local r = rows[n]
-    r.dot:SetVertexColor(color[1], color[2], color[3])
-    r.state:SetText(str)
-  end
-  local GREEN, YELLOW, GREY = { 0.35, 0.9, 0.35 }, { 1, 0.82, 0.2 }, { 0.45, 0.45, 0.45 }
-  local function loaded(a) return (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(a))
-    or (IsAddOnLoaded and IsAddOnLoaded(a)) end
+  local COLORS = { on = { 0.35, 0.9, 0.35 }, partial = { 1, 0.82, 0.2 }, loading = { 1, 0.82, 0.2 }, off = { 0.45, 0.45, 0.45 } }
 
   local level = Text(p, "line", "")
-  level:SetPoint("TOPLEFT", 0, y - 112)
+  level:SetPoint("TOPLEFT", 0, y - 152)
 
   statusUpdate = function()
-    local q = ns.Questie
-    if not q.Installed() then set("Questie", GREY, "Not installed: no Quests Nearby section (active quests and turn-ins still work).")
-    elseif not q.Available() then set("Questie", YELLOW, "Loading...")
-    elseif q.IsScanning() then set("Questie", YELLOW, "Scanning quests...")
-    else set("Questie", GREEN, format("Connected: %d quests you can pick up.", q.Count())) end
-    local tr = ns.Training
-    if not tr.Installed() then set("What's Training", GREY, "Not installed: no Training section.")
-    elseif not tr.Ready() then set("What's Training", YELLOW, "Loading...")
-    else set("What's Training", GREEN, "Connected.") end
-    if ns.FlareBorder() then set("FlareUI", GREEN, ns.UsingFlare() and "Connected: its style is used." or "Installed: EllesmereUI's style is used.")
-    else set("FlareUI", GREY, "Not installed: the plain style is used.") end
-    if loaded("TomTom") then set("TomTom", GREEN, "Connected: Show on Map also sets its arrow.")
-    else set("TomTom", GREY, "Not installed: Show on Map uses the game's map pin.") end
+    for _, it in ipairs(ns.Integrations()) do
+      local r, c = rows[it[1]], COLORS[it[2]]
+      if r then r.dot:SetVertexColor(c[1], c[2], c[3]); r.state:SetText(it[3]) end
+    end
     level:SetText(format("Your level: %d", UnitLevel("player")))
   end
 
   local rescan = Button(p, "Rescan Questie", 130, function() ns.Questie.Scan(); statusUpdate() end)
-  rescan:SetPoint("TOPLEFT", 0, y - 140)
+  rescan:SetPoint("TOPLEFT", 0, y - 176)
 
-  y = Section(p, "Reset", 0, y - 190, PAGE_W)
+  y = Section(p, "Reset", 0, y - 226, PAGE_W)
   local reset = Button(p, "Reset to defaults", 130, function()
     ns.ResetDB(); ns.PlaceFrame(); ns.Questie.RescanSoon(); Restyle(); Changed(); ns.RefreshOptions()
   end)

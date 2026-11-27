@@ -60,8 +60,11 @@ specific behaviour was observed.
 | `QuestieDB.IsDoable`, `GetQuest`, `QueryNPCSingle`, `QueryObjectSingle`, `QuestPointers` | quests to pick up, quest givers, spawns | Verified through source; works on Forever |
 | `QuestXP:GetQuestLogRewardXP(id, false)` | XP of quests to pick up | Verified through source |
 | `ZoneDB:GetUiMapIdByAreaId`, `TrackerUtils:GetZoneNameByID`, `QuestieLib.GetEffectiveQuestLevel` | zones, levels | Verified through source |
-| `AvailableQuests.__availableQuests` (internal), `AvailableQuests.CalculateAndDrawAll` (hooked) | Questie's own available set; rescans | Internal: may change (DEVELOPMENT.md L1, L3) |
-| `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames` (internal) | where active quests are done | Internal: may change (L3) |
+| `AvailableQuests.__availableQuests` (internal), `AvailableQuests.CalculateAndDrawAll` (hooked; the hook remembered locally, 1.9.0) | Questie's own available set; rescans | Internal: may change; read only through `AvailableSet` |
+| `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames` (internal) | where active quests are done | Internal: may change; read only through `QuestLogEntry`, `MarkerFrames` (type-checked) |
+
+`Questie.Capabilities()` (1.9.0) says which of these this Questie has: `/hab questie`, the settings
+window's Status page and `/hab status` show them.
 
 Without Questie: Active Quests and Quests to Turn In work from the game's quest log and map;
 Quests Nearby is off. `/hab questie` shows what's bound.
@@ -70,15 +73,15 @@ Quests Nearby is off. `/hab questie` shows what's bound.
 
 | API | Use | Status |
 |---|---|---|
-| `WT_API.IsReady`, `RegisterCallback` (`Event.READY`, `SPELLS_CHANGED`, `LEVEL_CHANGED`, `IGNORED_CHANGED`), `GetSource(spellID)` | spells to train, weapon masters | Verified through its public API; works on Forever |
+| `WT_API.IsReady`, `GetSpells` + `Status`, `RegisterCallback` (`Event.READY`, `SPELLS_CHANGED`, `LEVEL_CHANGED`, `IGNORED_CHANGED`), `GetSource(spellID)`, `GetCatalog(class)` | spells to train, weapon masters, pet abilities | Verified through its public API; works on Forever. Each part checked (`Training.Capabilities`, 1.9.0): a missing one empties only what it's for |
 
 ## Other UIs
 
 | UI | Use | Status |
 |---|---|---|
 | FlareUI: `FlareUI.ObjectiveTracker:SetNever`, its profile's `objectivetracker.enabled`, its media | hide its tracker when replacing; its look | Verified in WoW Forever |
-| EllesmereUI: `_EQT_SetSuppressed`, `EllesmereUIQuestTracker.Cfg("enabled")`, its skin API | hide its tracker when replacing; its look | Verified in WoW Forever; an unreadable setting counts as enabled (L2, M3) |
-| TomTom | waypoints (when installed) | In use |
+| EllesmereUI: `_EQT_SetSuppressed`, `EllesmereUIQuestTracker.Cfg("enabled")`, its skin API | hide its tracker when replacing; its look | Verified in WoW Forever; since 1.9.0 an unreadable setting is "can't tell", never "on" |
+| TomTom: `TomTom:AddWaypoint(map, x, y, opts)` → uid, `TomTom:RemoveWaypoint(uid)` | Show on Map's arrow, one at a time (1.9.0) | AddWaypoint: In use; RemoveWaypoint: Verified through its source, untested on Forever |
 
 ## Testing an API in game
 

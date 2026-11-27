@@ -13,8 +13,8 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
-| 2 | Quest and location intelligence | **Done in 1.8.0, verified in game, waiting for review** |
-| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Not started |
+| 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
+| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | **Done in 1.9.0, waiting for in-game validation and review** |
 | 4 | Unified location engine | Not started |
 | 5 | Character progression and analytics | Not started |
 | 6 | Modular interface | Not started |
@@ -37,10 +37,10 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 - No unused code or settings. Offline tests for logic (`tests/run_tests.py`); game behaviour is
   checked in game (checklists below), never claimed from the tests.
 
-## Architecture (1.8.0)
+## Architecture (1.9.0)
 
 Load order (Hereabouts.toc): Core → Dungeons → QuestieSource → Training → Suggest → Session →
-QuestItems → Tracker → Options → Replace. Bindings.xml: the first three quest item buttons.
+QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: the first three quest item buttons.
 
 | File | Module | Does |
 |---|---|---|
@@ -52,6 +52,7 @@ QuestItems → Tracker → Options → Replace. Bindings.xml: the first three qu
 | Session.lua | `ns.Session` | Session statistics (XP, gold gained, quests, rested), saved across a `/reload`; the session bars |
 | QuestItems.lua | `ns.QuestItems` | Secure quest item buttons beside their quests (out of combat placed; in combat marked stale when the list changes) |
 | Tracker.lua | — | The tracker frame, skins (Blizzard / FlareUI / EllesmereUI), pools, sections, animations, waypoints, the refresh scheduler, events, `/hab` |
+| Integrations.lua | — | Every add-on Hereabouts works with, in one list (`ns.Integrations`): state (on / partial / loading / off) and what it gives, for the settings window and `/hab status` (1.9.0) |
 | Options.lua | — | The settings window |
 | Replace.lua | — | Replacing Blizzard's, FlareUI's and EllesmereUI's trackers |
 
@@ -131,9 +132,9 @@ Low = cleanup.
 
 | # | Defect | Milestone |
 |---|---|---|
-| L1 | `Bind` writes `QA.xppHooked = true` into Questie's AvailableQuests module to remember its hook (writes to Questie's tables). | M3 (a local hook registry) |
-| L2 | `ns.EUITrackerOn` returns true when EllesmereUI's setting can't be read (`not (ok and on == false)`): unreadable counts as enabled. | M3 |
-| L3 | Questie internals read directly: `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames`, `AvailableQuests.__availableQuests` (protected, with fallbacks, but not behind one boundary). | M3 |
+| L1 | `Bind` writes `QA.xppHooked = true` into Questie's AvailableQuests module to remember its hook (writes to Questie's tables). | Fixed in 1.9.0 |
+| L2 | `ns.EUITrackerOn` returns true when EllesmereUI's setting can't be read (`not (ok and on == false)`): unreadable counts as enabled. | Fixed in 1.9.0 |
+| L3 | Questie internals read directly: `QuestiePlayer.currentQuestlog`, `QuestieMap.questIdFrames`, `AvailableQuests.__availableQuests` (protected, with fallbacks, but not behind one boundary). | Fixed in 1.9.0 |
 
 ### Potential risks (to investigate)
 
@@ -143,7 +144,7 @@ Low = cleanup.
 | R2 | Objective matching by text (`ObjectiveKey`, `finished(name)` substring match in `ActiveQuestMaps`): similar names can match ("Wolf" in "Wolf Pelt"). | 1.8.0: fixed (defect 11) |
 | R3 | Combat focus reads unit tooltips (`C_TooltipInfo.GetUnit`) and the English "Threat" text; other locales fall back to the target only. Its fingerprint (`CombatFocusKey`) holds quest IDs, not objectives. | 1.8.0: the threat API added (defect 13), objectives in the fingerprint (defect 12); the tooltip's quest lines remain the only source of which quests a unit is for |
 | R4 | Dungeon ranges and trainer cities / weapon masters are static Classic data; the reputation discount (10% at Honored and above) isn't verified on Forever. | M3 / M5 |
-| R5 | Tracker replacement: Blizzard's tracker is re-parented to a hidden frame out of combat, alpha 0 as a backup in combat; restoring alpha and parent, and other addons' trackers, not yet audited. | M3 |
+| R5 | Tracker replacement: Blizzard's tracker is re-parented to a hidden frame out of combat, alpha 0 as a backup in combat; restoring alpha and parent, and other addons' trackers, not yet audited. | 1.9.0: audited (defects 17, L2); FlareUI's own "Never" setting can't be read, see M3 |
 | R6 | Quest item buttons: `SetAlpha` and texture changes on a protected button in combat are assumed allowed (only position, size, shown state and attributes are protected). Inferred, to verify in game. | M1 check |
 | R7 | A quest item that runs out mid-fight is shown desaturated until the list is rebuilt out of combat. | — (by design) |
 
@@ -168,6 +169,35 @@ Changes:
 - `Tracker.lua`: `/hab zone` shows here / elsewhere / can't tell, why, and the source's confidence;
   `/hab focus`.
 
+## Milestone 3 (1.9.0)
+
+Audit of the integrations (1.8.0), besides L1-L3 above:
+
+| # | Sev. | Defect | Fix |
+|---|---|---|---|
+| 15 | Medium | What's Training: a missing or changed part of its API (`Status`, `GetSpells`, `IsReady` erroring) errored inside the list build: the **whole** tracker stopped, not just the Training section. | Each part checked (`Training.Capabilities`); a missing one empties only what it's for |
+| 16 | Medium | L2's consequence: on the first login with EllesmereUI, an unreadable tracker setting switched "replace the tracker" on by itself (and said EllesmereUI's tracker was replaced). | `EUITrackerOn`: true / false / nil (can't tell); only a readable "on" switches replacing on |
+| 17 | Low | Turning replacing off set Blizzard's tracker to alpha 1, not to the alpha it had (another addon's fade). | Its alpha is kept when Hereabouts takes its place and given back |
+| 18 | Low | Every "Show on Map" added another TomTom waypoint; they piled up. | The previous Hereabouts waypoint is removed first (`TomTom:RemoveWaypoint(uid)`) |
+| 19 | Low | The settings window's "Connected addons" had no EllesmereUI row, and didn't say when Questie or What's Training worked without some parts. | One list (`ns.Integrations`), with "partial" and what's missing; `/hab status` uses it |
+
+Questie boundary (QuestieSource.lua): every module is imported and checked in `Bind`; Questie's
+internals are read only through `AvailableSet`, `QuestLogEntry` and `MarkerFrames` (type-checked);
+nothing is written into Questie's tables (hooks are remembered in a local weak table);
+`Questie.Capabilities()` lists the parts this Questie has (database, spawns, quest XP, zones,
+quest levels, available set, its quest log, its map markers), shown in `/hab questie`, the settings
+window and `/hab status`. Every missing part falls back as before (the game's quest log and maps).
+
+Tracker replacement, as audited: out of combat Blizzard's tracker (`ObjectiveTrackerFrame`, or the
+older `QuestWatchFrame` / `WatchFrame`) is re-parented to a hidden frame (its original parent and
+alpha remembered), alpha 0 as a backup if Blizzard shows it in combat; in combat nothing is
+re-parented (`pending`, applied after combat); applied at `PLAYER_ENTERING_WORLD` and again 2 s
+later (FlareUI and EllesmereUI set up their trackers around login). FlareUI's tracker: `SetNever`
+(and its own "Never" calls are overruled while replacing); turning replacing off calls
+`SetNever(false)` only if Hereabouts set it. Limitation: whether the player had set FlareUI's
+tracker to "Never" before Hereabouts did can't be read, so turning replacing off shows it again.
+EllesmereUI's: `_EQT_SetSuppressed("Hereabouts", on)`, Hereabouts' own suppression only.
+
 ## Testing
 
 ### Offline
@@ -177,7 +207,9 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-17 tests (1.8.0): the location rule (every source, unknown kept), the zone filter keeping a quest
+21 tests (1.9.0): the Questie boundary (nothing written into its tables, missing parts reported,
+a broken quest log), What's Training's parts, tracker replacement (parent and alpha back, nothing in
+combat, an unreadable EllesmereUI setting), TomTom's one arrow; the location rule (every source, unknown kept), the zone filter keeping a quest
 it can't place, exact objective matching, the combat focus fingerprint, enemies and threat (API or
 text), quest ordering; the files load against the mock client; nested defaults (copies, reset, saved
 settings kept, future nested defaults); the turn-in event's XP and money; XP across level-ups;
@@ -249,6 +281,17 @@ Results (1.8.0 test build):
 - 6: pass ("Naga Explorer x2").
 
 Milestone 2 verified in game; awaiting review before Milestone 3.
+
+### In-game checklist (Milestone 3 → 4)
+
+1. Install 1.9.0, `/reload`: the tracker as in 1.8.0; no Lua errors.
+2. `/hab questie`: each Questie part green (there) or grey (not available); send the list.
+3. `/hab` > Status: five rows (Questie, What's Training, FlareUI, EllesmereUI, TomTom), each with
+   its state; nothing overlaps.
+4. Quests Nearby and Training as before (with Questie and What's Training).
+5. "Replace the quest tracker": on, then off: Blizzard's tracker comes back as it was (if another
+   addon fades it, faded as before); try turning it on in combat: it happens when combat ends.
+6. TomTom (if installed): "Show on Map" on two quests: one Hereabouts arrow, not two.
 
 ### Needs verification in WoW Forever
 

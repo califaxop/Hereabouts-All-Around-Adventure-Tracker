@@ -7,8 +7,24 @@ ns.Training = T
 
 local registered = false
 
-function T.Installed() return WT_API ~= nil end
-function T.Ready() return WT_API ~= nil and WT_API.IsReady and WT_API.IsReady() end
+-- What's Training's public API, checked part by part (1.9.0): a part that's missing or changed
+-- empties only what it's for (the Training section, city prices), never the rest of the list.
+local function Fn(k) return type(WT_API) == "table" and type(WT_API[k]) == "function" end
+function T.Installed() return type(WT_API) == "table" end
+function T.Ready()
+  if not Fn("IsReady") then return false end
+  local ok, r = pcall(WT_API.IsReady)
+  return ok and r and true or false
+end
+-- { name, available, what it's for }
+function T.Capabilities()
+  return {
+    { "spells", Fn("GetSpells") and type(WT_API.Status) == "table", "the Training section" },
+    { "trainers", Fn("GetSource"), "weapon masters' cities" },
+    { "pet abilities", Fn("GetCatalog"), "pet trainer prices" },
+    { "updates", Fn("RegisterCallback") and type(WT_API.Event) == "table", "the section following What's Training" },
+  }
+end
 
 -- Spells for the section: available now first (cheapest level first), then next level.
 -- Each: { id, name, rank, level, cost, link, nextLevel }
@@ -16,6 +32,7 @@ function T.List(limit, includeNext)
   local out, avail, nextLvl = {}, {}, {}
   if not T.Ready() then return out, 0, 0 end
   local S = WT_API.Status
+  if type(S) ~= "table" or not Fn("GetSpells") then return out, 0, 0 end
   local ok, spells = pcall(WT_API.GetSpells)
   if not ok or type(spells) ~= "table" then return out, 0, 0 end
   for _, s in ipairs(spells) do
@@ -75,7 +92,7 @@ local petIds -- spell id -> true for hunter pet abilities (from What's Training'
 local function IsPetAbility(id)
   if petIds == nil then
     petIds = false
-    if WT_API and WT_API.GetCatalog then
+    if Fn("GetCatalog") then
       local _, token = UnitClass("player")
       local ok, cat = pcall(WT_API.GetCatalog, token)
       if ok and type(cat) == "table" and #cat > 0 then
@@ -107,7 +124,7 @@ function T.CityPrices(e)
   if base <= 0 or e.quest or e.isItem then return {}, base end
   local keys
   local faction = UnitFactionGroup("player")
-  if WT_API and WT_API.GetSource and type(e.id) == "number" then
+  if Fn("GetSource") and type(e.id) == "number" then
     local ok, src = pcall(WT_API.GetSource, e.id)
     if ok and type(src) == "table" and src.kind == "weaponMaster" then
       keys = {}
@@ -142,7 +159,7 @@ function T.CityPrices(e)
 end
 
 function T.Init()
-  if registered or not (WT_API and WT_API.RegisterCallback) then return false end
+  if registered or not (Fn("RegisterCallback") and type(WT_API.Event) == "table") then return false end
   registered = true
   local E = WT_API.Event
   for _, ev in ipairs({ E.READY, E.SPELLS_CHANGED, E.LEVEL_CHANGED, E.IGNORED_CHANGED }) do
