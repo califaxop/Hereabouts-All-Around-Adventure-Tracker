@@ -47,7 +47,97 @@ ns.DEFAULTS = {
   maxTurnIn = 20,
   turninZoneOnly = false, -- ...only the ones turned in where you are
   pos         = nil,    -- nil = sit under the quest tracker
+  sectionOrder = { "quests", "turnin", "pickup", "training", "dungeons" }, -- top to bottom (1.12.0)
 }
+
+-- The tracker's sections as modules (1.12.0): each with its own settings (shown, how many, only
+-- this zone), drawn in the order of `sectionOrder`. `ns.MODULES` is the list of them.
+ns.MODULES = {
+  { key = "quests", name = "Active Quests", show = "showActive", max = "maxQuests", zone = "activeZoneOnly" },
+  { key = "turnin", name = "Quests to Turn In", show = "showTurnIn", max = "maxTurnIn", zone = "turninZoneOnly" },
+  { key = "pickup", name = "Quests Nearby", show = "showPickup", max = "maxPickup", zone = "pickupZoneOnly" },
+  { key = "training", name = "Training", show = "showTraining", max = "maxTraining" },
+  { key = "dungeons", name = "Dungeons", show = "showDungeons", max = "maxDungeons", zone = "dungeonZoneOnly" },
+}
+
+-- The sections' order: the saved one, with any section it lacks added at the end and anything
+-- unknown or doubled dropped (an order saved by an older version, or a damaged one, still works)
+function ns.SectionOrder()
+  local known, out, seen = {}, {}, {}
+  for _, m in ipairs(ns.MODULES) do known[m.key] = true end
+  for _, k in ipairs(type(ns.db.sectionOrder) == "table" and ns.db.sectionOrder or {}) do
+    if known[k] and not seen[k] then seen[k] = true; out[#out + 1] = k end
+  end
+  for _, m in ipairs(ns.MODULES) do if not seen[m.key] then out[#out + 1] = m.key end end
+  return out
+end
+-- a section one place up (by = -1) or down (1)
+function ns.MoveSection(key, by)
+  local order = ns.SectionOrder()
+  for i, k in ipairs(order) do
+    if k == key and order[i + by] then
+      order[i], order[i + by] = order[i + by], order[i]
+      break
+    end
+  end
+  ns.db.sectionOrder = order
+end
+
+-- Layouts (1.12.0): what the tracker shows and how, without its look (position, scale, colours,
+-- border stay as they are). Saved into one of three slots (HereaboutsDB.layouts, kept by "Reset to
+-- defaults"), or set from a preset.
+ns.LAYOUT_KEYS = { "sectionOrder", "hideInInstance", "hideInCombat", "showSession", "sessionStats",
+  "showObjectives", "hideDoneObjectives", "showXP", "showStarter", "showNextLevel", "showCityPrices" }
+for _, m in ipairs(ns.MODULES) do
+  for _, f in ipairs({ "show", "max", "zone" }) do if m[f] then table.insert(ns.LAYOUT_KEYS, m[f]) end end
+end
+ns.LAYOUT_SLOTS = 3
+-- built-in layouts: { key, name, what it's for, settings (the rest: the defaults) }
+ns.PRESETS = {
+  { "questing", "Questing", "Everything, as it comes (the defaults).", {} },
+  { "zone", "This zone", "Only what's here: active quests, turn-ins and quests to pick up in your zone; no training or dungeons.",
+    { activeZoneOnly = true, turninZoneOnly = true, pickupZoneOnly = true, showTraining = false, showDungeons = false } },
+  { "dungeon", "Dungeons", "Dungeons and your quests first; nothing to pick up; turn-ins and training hidden inside dungeons.",
+    { sectionOrder = { "dungeons", "quests", "turnin", "pickup", "training" }, showPickup = false,
+      hideInInstance = { turnin = true, training = true, dungeons = true } } },
+  { "minimal", "Minimal", "Active quests only (5), what's left to do, no XP lines, no session bar.",
+    { showTurnIn = false, showPickup = false, showTraining = false, showDungeons = false, maxQuests = 5,
+      showXP = false, showSession = false, hideDoneObjectives = true } },
+  { "leveling", "Leveling", "Quests first, XP lines and the session's XP rate; training at your next level too.",
+    { showXP = true, showNextLevel = true, sessionStats = { xph = true, ttl = true, quests = true, rested = true } } },
+}
+
+local function Layout(src)
+  local t = {}
+  for _, k in ipairs(ns.LAYOUT_KEYS) do t[k] = ns.Copy(src[k]) end
+  return t
+end
+local function ApplyLayout(t)
+  for _, k in ipairs(ns.LAYOUT_KEYS) do
+    if t[k] ~= nil then ns.db[k] = ns.Copy(t[k]) else ns.db[k] = ns.Copy(ns.DEFAULTS[k]) end
+  end
+end
+function ns.SaveLayout(slot)
+  ns.db.layouts = type(ns.db.layouts) == "table" and ns.db.layouts or {}
+  ns.db.layouts[slot] = { savedAt = time and time() or 0, values = Layout(ns.db) }
+end
+function ns.LoadLayout(slot)
+  local l = type(ns.db.layouts) == "table" and ns.db.layouts[slot]
+  if type(l) ~= "table" or type(l.values) ~= "table" then return false end
+  ApplyLayout(l.values)
+  return true
+end
+function ns.ApplyPreset(key)
+  for _, p in ipairs(ns.PRESETS) do
+    if p[1] == key then
+      local t = Layout(ns.DEFAULTS)
+      for k, v in pairs(p[4]) do t[k] = v end
+      ApplyLayout(t)
+      return true
+    end
+  end
+  return false
+end
 
 -- A deep copy (settings tables never share a table with ns.DEFAULTS: 1.7.0)
 local function Copy(v)
@@ -59,12 +149,13 @@ end
 ns.Copy = Copy
 
 function ns.ResetDB()
-  -- "Reset to defaults" keeps where the list is and the quests you've ignored
-  local pos, ignored = HereaboutsDB.pos, HereaboutsDB.ignoredQuests
+  -- "Reset to defaults" keeps where the list is, the quests you've ignored and your saved layouts
+  local pos, ignored, layouts = HereaboutsDB.pos, HereaboutsDB.ignoredQuests, HereaboutsDB.layouts
   wipe(HereaboutsDB)
   ns.LoadDB()
   HereaboutsDB.pos = pos
   HereaboutsDB.ignoredQuests = ignored or {}
+  HereaboutsDB.layouts = layouts
 end
 
 -- Ignore list for "Quests to Pick Up": questID -> { name, level }

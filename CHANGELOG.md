@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.0 (Milestone 6: modular interface)
+
+- New Layout tab: put the sections in your own order (Up / Down) and show or hide each.
+- Presets: Questing, This zone, Dungeons, Minimal, Leveling (they change what shows, never the
+  look).
+- Three slots to save your layouts and load them back; "Reset to defaults" keeps them.
+
 ## 1.11.0 (Milestone 5: character progression)
 
 - Session history: each session is kept when it ends (your next login, or a reset), up to 20;

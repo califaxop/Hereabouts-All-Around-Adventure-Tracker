@@ -652,6 +652,61 @@ def _():
     """
 
 
+# ---------------------------------------------------------------------------------------------
+# Milestone 6: modules, layouts, presets
+# ---------------------------------------------------------------------------------------------
+@test("sections: the order is always every section once (old, damaged or missing orders work); moving one")
+def _():
+    """
+    NS.db.sectionOrder = { "dungeons", "bogus", "quests", "quests" }
+    local o = NS.SectionOrder()
+    assert(table.concat(o, ",") == "dungeons,quests,turnin,pickup,training", table.concat(o, ","))
+    NS.db.sectionOrder = nil
+    assert(table.concat(NS.SectionOrder(), ",") == "quests,turnin,pickup,training,dungeons")
+    NS.MoveSection("training", -1); NS.MoveSection("dungeons", 1); NS.MoveSection("quests", -1)
+    assert(table.concat(NS.db.sectionOrder, ",") == "quests,turnin,training,pickup,dungeons", table.concat(NS.db.sectionOrder, ","))
+    -- the list draws in any order without errors
+    NS.db.sectionOrder = { "dungeons", "training", "pickup", "turnin", "quests" }
+    MOCK.quests = { { questID = 1, title = "Q", level = 20 } }
+    NS.Refresh(); MOCK.RunTimers()
+    assert(#NS.errors == 0, NS.errors[1] and NS.errors[1].msg)
+    """
+
+@test("presets: set what shows (from the defaults), never the look; every preset applies")
+def _():
+    """
+    NS.db.scale = 1.3; NS.db.borderColor = { 1, 0, 0 }; NS.db.pos = { "TOPLEFT", 5, -5 }
+    NS.db.showTraining = false
+    assert(NS.ApplyPreset("minimal"))
+    assert(NS.db.showTurnIn == false and NS.db.maxQuests == 5 and NS.db.showSession == false and NS.db.showActive == true)
+    assert(NS.db.scale == 1.3 and NS.db.borderColor[1] == 1 and NS.db.pos[2] == 5, "the look and place stay")
+    assert(NS.ApplyPreset("questing") and NS.db.showTraining == true and NS.db.showTurnIn == true, "back to the defaults")
+    assert(NS.ApplyPreset("dungeon") and NS.SectionOrder()[1] == "dungeons" and NS.db.hideInInstance.turnin == true)
+    NS.db.hideInInstance.quests = true
+    assert(NS.PRESETS[3][4].hideInInstance.quests == nil, "the preset itself unchanged (a copy)")
+    for _, p in ipairs(NS.PRESETS) do assert(NS.ApplyPreset(p[1]), p[1]) end
+    assert(not NS.ApplyPreset("nope"))
+    """
+
+@test("layouts: saved and loaded as copies; empty slots refuse; 'Reset to defaults' keeps them")
+def _():
+    """
+    NS.db.showDungeons = false; NS.db.maxQuests = 12; NS.db.sectionOrder = { "pickup", "quests", "turnin", "training", "dungeons" }
+    NS.SaveLayout(2)
+    NS.db.maxQuests = 3; NS.db.sectionOrder[1] = "quests"
+    assert(NS.db.layouts[2].values.maxQuests == 12 and NS.db.layouts[2].values.sectionOrder[1] == "pickup", "a copy")
+    assert(NS.LoadLayout(2) and NS.db.maxQuests == 12 and NS.db.showDungeons == false and NS.SectionOrder()[1] == "pickup")
+    assert(not NS.LoadLayout(1), "empty")
+    NS.ResetDB()
+    assert(NS.db.maxQuests == 8 and NS.db.layouts and NS.db.layouts[2], "reset: defaults, layouts kept")
+    -- the settings window (its Layout page included) builds and refreshes
+    NS.OpenOptions()
+    assert(XPPlannerOptionsWindow, "built")
+    XPPlannerOptionsWindow._shown = true
+    NS.RefreshOptions()
+    """
+
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

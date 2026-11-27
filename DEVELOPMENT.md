@@ -16,8 +16,8 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
 | 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
-| 5 | Character progression and analytics | **Done in 1.11.0, verified in game, waiting for review** |
-| 6 | Modular interface | Not started |
+| 5 | Character progression and analytics | Done in 1.11.0, verified in game, reviewed |
+| 6 | Modular interface | **Done in 1.12.0, waiting for in-game validation and review** |
 | 7 | Diagnostics and release | Not started |
 
 ## Conventions
@@ -37,7 +37,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 - No unused code or settings. Offline tests for logic (`tests/run_tests.py`); game behaviour is
   checked in game (checklists below), never claimed from the tests.
 
-## Architecture (1.11.0)
+## Architecture (1.12.0)
 
 Load order (Hereabouts.toc): Core → Dungeons → Locations → QuestieSource → TrainerData → Training → Suggest → Session →
 Progress → QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: the first three quest item buttons.
@@ -74,8 +74,9 @@ twice a second (only in combat, on target / threat / nameplate events).
 
 ### Saved variables
 
-- `HereaboutsDB` (account): settings (`ns.DEFAULTS` keys), `pos`, `ignoredQuests` (questID →
-  { name, level }), `collapsedSections`, `hidden`, `borderVersion`.
+- `HereaboutsDB` (account): settings (`ns.DEFAULTS` keys, `sectionOrder` since 1.12.0), `pos`,
+  `ignoredQuests` (questID → { name, level }), `collapsedSections`, `hidden`, `borderVersion`,
+  `layouts` (1.12.0: three slots { savedAt, values = the LAYOUT_KEYS }; kept by "Reset to defaults").
   `LoadDB` gives each missing setting a deep copy of its default; a table setting that's present
   stays as the player left it (in `sessionStats` and `hideIn*`, a missing key means off).
   `ResetDB` wipes and reloads the defaults, keeping `pos` and `ignoredQuests`.
@@ -239,6 +240,18 @@ verified places do (Milestone 5), rather than being given made-up coordinates.
 | 29 | Training: can you afford it | The Training section's "N to train - cost" says how much you're short |
 | 30 | Trainer data apart | TrainerData.lua (cities, weapon masters, the 10% Honored discount), from What's Training's source; Training.lua keeps the logic |
 
+## Milestone 6 (1.12.0)
+
+| # | Change | Notes |
+|---|---|---|
+| 31 | Sections as modules | `ns.MODULES` (Core.lua): each section's key, name and its settings (shown, how many, only this zone). `Render` draws each from its own function (`DRAW[key]`, Tracker.lua) in the order of `sectionOrder`; `ns.SectionOrder()` always gives every section once (an old, damaged or missing order still works); `ns.MoveSection` |
+| 32 | Layouts | What shows and how (`ns.LAYOUT_KEYS`: the sections' settings and order, hide in dungeons / combat, the session bar and its stats, objective / XP / quest giver / training lines), never the look (position, scale, opacity, colours, border). Three slots (`SaveLayout`, `LoadLayout`), as copies; "Reset to defaults" keeps them |
+| 33 | Presets | Questing (the defaults), This zone, Dungeons, Minimal, Leveling: each the defaults plus its own settings (`ns.PRESETS`); applying one never changes the look |
+| 34 | Layout tab | The settings window's new tab: the sections top to bottom (shown, Up / Down), the presets (hover for what each does), and the three slots (Save / Load, when saved). The window is 40 px wider for its sixth tab |
+
+The visual design is unchanged: sections, headings, colours, skins and animations are drawn by the
+same code as before, only in the order chosen.
+
 ## Testing
 
 ### Offline
@@ -248,7 +261,9 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-28 tests (1.11.0): session history (real login, reset, not on a /reload or zoning, minimum,
+31 tests (1.12.0): the sections' order (old or damaged orders, moving, drawing in any order),
+presets (what shows, never the look), layouts (copies, empty slots, kept by a reset), the settings
+window building; session history (real login, reset, not on a /reload or zoning, minimum,
 cap), progress (totals, weapon skill caps, skills from the game, report), dungeons' quests; the location model (checked maps and points, Questie's spawns, caps, filters),
 distances / nearest / route on a mock world, Questie's places for a quest (givers, item starts,
 objectives, turn-ins), an active quest's places left and its waypoint, `/hab where`; the Questie boundary (nothing written into its tables, missing parts reported,
@@ -407,6 +422,18 @@ Results (1.11.0 test build, Shaman 44):
 - 5: not applicable (enough money).
 
 Milestone 5 verified in game; awaiting review before Milestone 6.
+
+### In-game checklist (Milestone 6 → 7)
+
+1. Install 1.12.0, `/reload`: the tracker exactly as in 1.11.0 (same sections, same order, same
+   look); no Lua errors.
+2. `/hab` > Layout: the five sections in order; move Dungeons to the top: the tracker follows at
+   once; untick one: it goes.
+3. Save the layout in slot 1. Apply "Minimal": active quests only, no session bar; the tracker's
+   position, scale and colours unchanged. Load slot 1: back as it was.
+4. Try "This zone" and "Dungeons" (hover each for what it does).
+5. Reset to defaults (Status tab): slot 1 still says "saved".
+6. The tabs fit the window (six of them), nothing overlaps on the Layout page.
 
 ### Needs verification in WoW Forever
 

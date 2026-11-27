@@ -468,16 +468,81 @@ local function PageSession(p)
   reset:SetPoint("TOPLEFT", 0, y - rows * 24 - 46)
 end
 
+-- Layout (1.12.0): the sections' order and whether each shows, presets, and three saved layouts
+-- (what shows, not the look: Core.lua LAYOUT_KEYS)
+local function PageLayout(p)
+  local function applied(what)
+    ns.Refresh(); ns.RefreshOptions()
+    if ns.Session then ns.Session.Paint() end
+    ns.Print(what)
+  end
+  local function Tip(b, title, text)
+    b:HookScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(title, 1, 1, 1)
+      GameTooltip:AddLine(text, 0.85, 0.85, 0.85, true); GameTooltip:Show()
+    end)
+    b:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  local y = Section(p, "Sections, top to bottom", 0, 0, PAGE_W)
+  local rows = {}
+  for _, m in ipairs(ns.MODULES) do
+    local r = {}
+    r.check = track(Check(p, m.name, 0, y, Setting(m.show, function() ns.RefreshOptions() end), 200))
+    r.up = Button(p, "Up", 50, function() ns.MoveSection(m.key, -1); Changed(); ns.RefreshOptions() end)
+    r.down = Button(p, "Down", 50, function() ns.MoveSection(m.key, 1); Changed(); ns.RefreshOptions() end)
+    rows[m.key] = r
+  end
+  -- (placed by the order on every refresh)
+  track({ Refresh = function()
+    for i, key in ipairs(ns.SectionOrder()) do
+      local r, ry = rows[key], y - (i - 1) * 26
+      r.check:ClearAllPoints(); r.check:SetPoint("TOPLEFT", 0, ry)
+      r.up:ClearAllPoints(); r.up:SetPoint("TOPLEFT", 230, ry)
+      r.down:ClearAllPoints(); r.down:SetPoint("TOPLEFT", 286, ry)
+      r.up:SetAlpha(i > 1 and 1 or 0.35); r.down:SetAlpha(i < #ns.MODULES and 1 or 0.35)
+    end
+  end })
+
+  y = Section(p, "Presets", 0, y - #ns.MODULES * 26 - 14, PAGE_W)
+  for i, pr in ipairs(ns.PRESETS) do
+    local b = Button(p, pr[2], 88, function()
+      ns.ApplyPreset(pr[1]); applied(format("layout: %s.", pr[2]))
+    end)
+    b:SetPoint("TOPLEFT", (i - 1) * 94, y)
+    Tip(b, pr[2], pr[3])
+  end
+  Note(p, "A preset sets what shows and where, not the look. Save your layout below first to come back to it.", 0, y - 30, PAGE_W)
+
+  y = Section(p, "Your layouts", 0, y - 70, PAGE_W)
+  for slot = 1, ns.LAYOUT_SLOTS do
+    local ry = y - (slot - 1) * 26
+    local label = Text(p, "line", "")
+    label:SetPoint("TOPLEFT", 0, ry - 4)
+    local save = Button(p, "Save", 60, function() ns.SaveLayout(slot); applied(format("layout %d saved.", slot)) end)
+    save:SetPoint("TOPLEFT", 230, ry)
+    local load = Button(p, "Load", 60, function()
+      if ns.LoadLayout(slot) then applied(format("layout %d loaded.", slot)) end
+    end)
+    load:SetPoint("TOPLEFT", 296, ry)
+    track({ Refresh = function()
+      local l = type(ns.db.layouts) == "table" and ns.db.layouts[slot]
+      label:SetText(format("Layout %d: %s", slot, (l and l.savedAt and l.savedAt > 0) and ("saved " .. date("%d %b %H:%M", l.savedAt)) or "empty"))
+      load:SetAlpha(l and 1 or 0.35)
+    end })
+  end
+end
+
 local TABS = {
   { "Tracker", PageTracker },
   { "Lists", PageLists },
+  { "Layout", PageLayout },
   { "Picking Quests", PagePicking },
   { "Session", PageSession },
   { "Status", PageStatus },
 }
 
 local function BuildWindow()
-  window = Window("XPPlannerOptionsWindow", 520, 500)
+  window = Window("XPPlannerOptionsWindow", 560, 500) -- (six tabs since 1.12.0)
   window:SetPoint("CENTER")
   linkHost = window
   window:HookScript("OnHide", function() if linkWin then linkWin:Hide() end end)

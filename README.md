@@ -13,7 +13,7 @@ Hereabouts shows only the quests you can work on in the zone you're in, judged b
 - **Quest item buttons:** a button beside each quest with a usable item, in the margin left of its title (the list doesn't move for it): one click (or a keybind for the first three) uses it.
 - **Session bars:** slim bars under the tracker: XP per hour and time to level, gold per hour and this session, XP and quests this session, rested XP. Your pick.
 - **Dungeons:** the ones that fit your level, here or everywhere.
-- **Your way:** hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
+- **Your way:** order the sections, presets (Questing, This zone, Dungeons, Minimal, Leveling) and your own saved layouts; hide sections in dungeons or combat, replace Blizzard's tracker, FlareUI style.
 
 ## What each add-on unlocks
 | | On its own | + Questie | + What's Training |
@@ -55,6 +55,7 @@ New versions come out every **Wednesday at 12:00 UTC** (8 PM Philippine time, 8 
 Found a bug or have an idea? [Open an issue](https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose): there's a short form for each. The settings window has a "Feedback" button with this link too.
 
 ## Recent changes
+- **1.12.0:** New Layout tab: order the sections yourself and show or hide each, pick a preset (Questing, This zone, Dungeons, Minimal, Leveling), and save up to three layouts of your own to load back. Presets and layouts change what shows, never the look.
 - **1.11.0:** Session history: each session is kept when it ends (your next login or a reset); the session bar's tooltip shows the last one. New `/hab progress`: your level, this and past sessions (totals, XP an hour), professions and weapon skills (how far below your level's cap). Dungeons show how many of your quests are for each, and Training says how much you're short.
 - **1.10.0:** Quests that start from an item now have a place: Show on Map goes to where the item drops instead of "no location known". Show on Map picks the quest giver's nearest spawn. Right-click an active quest for "Waypoint to the nearest objective" or "Waypoint to the turn-in" (with Questie). New `/hab where <quest>` lists every place known for a quest and what's left, nearest first.
 - **1.9.0:** Sturdier add-on connections. Fixed: a change in What's Training could stop the whole tracker (now only the Training section empties); with EllesmereUI, an unreadable tracker setting switched tracker replacement on by itself; turning replacement off brought Blizzard's tracker back fully shown even if another addon had faded it. Show on Map keeps one TomTom arrow. Hereabouts no longer writes into Questie's tables, and `/hab questie` and the Status page show which parts of Questie (and What's Training) are available.

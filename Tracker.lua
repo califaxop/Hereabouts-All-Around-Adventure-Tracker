@@ -1009,155 +1009,163 @@ function ns.Render(s)
   local qIndent = 0
   if ns.Session then ns.Session.Paint() end
 
-  -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
-  local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
-  -- in combat with a quest's creature: its quests are marked light blue (and still show when the section
-  -- is hidden in combat: then only they do)
-  local onlyCombat = s.combatFocus and SectionHidden("quests")
-  DiffQuests(s.quests)
-  if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
-    and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
-    for _, q in ipairs(s.quests) do
-     if q.combat or not onlyCombat then
-      local sub = {}
-      if q.complete then
-        sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 }, flashKey = "f:" .. q.questID .. ":c" }
-      else
-        if ns.db.showObjectives then
-          for i, o in ipairs(q.objectives) do
-            if #sub >= 3 then break end
-            if not (ns.db.hideDoneObjectives and o.done) then
-              local lit = q.combatObjectives and q.combatObjectives[ns.ObjectiveKey(o.text)] and not o.done
-              -- (a copy: the objective what you're fighting counts for is lit up, and a progressed one flashes)
-              o = { text = o.text, done = o.done, color = lit and COMBAT_COLOR or o.color,
-                flashKey = "f:" .. q.questID .. ":" .. i, lit = lit and anims["c:" .. q.questID] and true or nil }
-              sub[#sub + 1] = o
+  -- each section is a module (1.12.0): drawn in the order of the settings (Layout)
+  local DRAW = {}
+  DRAW.quests = function()
+    -- with the zone filter on, the heading stays even when nothing's here, so the switch is reachable
+    local qElse = ns.db.activeZoneOnly and (s.questsElsewhere or 0) or 0
+    -- in combat with a quest's creature: its quests are marked light blue (and still show when the section
+    -- is hidden in combat: then only they do)
+    local onlyCombat = s.combatFocus and SectionHidden("quests")
+    DiffQuests(s.quests)
+    if (s.combatFocus or not SectionHidden("quests")) and (#s.quests > 0 or qElse > 0)
+      and Section("Active Quests", #s.quests, "quests", "activeZoneOnly") then
+      for _, q in ipairs(s.quests) do
+       if q.combat or not onlyCombat then
+        local sub = {}
+        if q.complete then
+          sub[#sub + 1] = { text = "Ready to turn in", color = { 0.3, 1, 0.3 }, flashKey = "f:" .. q.questID .. ":c" }
+        else
+          if ns.db.showObjectives then
+            for i, o in ipairs(q.objectives) do
+              if #sub >= 3 then break end
+              if not (ns.db.hideDoneObjectives and o.done) then
+                local lit = q.combatObjectives and q.combatObjectives[ns.ObjectiveKey(o.text)] and not o.done
+                -- (a copy: the objective what you're fighting counts for is lit up, and a progressed one flashes)
+                o = { text = o.text, done = o.done, color = lit and COMBAT_COLOR or o.color,
+                  flashKey = "f:" .. q.questID .. ":" .. i, lit = lit and anims["c:" .. q.questID] and true or nil }
+                sub[#sub + 1] = o
+              end
             end
           end
         end
+        if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
+        -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
+        local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+          { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent,
+            fadeKey = (anims["c:" .. q.questID] and "c:" .. q.questID) or (anims["u:" .. q.questID] and "u:" .. q.questID) or nil })
+        if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, questID = q.questID, row = row } end
+       end
       end
-      if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
-      -- gold: worth doing; grey: low level; green: ready to turn in (the focused quest keeps its highlight)
-      local row = AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = q.complete, gray = IsLowLevel(q), combat = q.combat, indent = qIndent,
-          fadeKey = (anims["c:" .. q.questID] and "c:" .. q.questID) or (anims["u:" .. q.questID] and "u:" .. q.questID) or nil })
-      if q.item then items[#items + 1] = { itemID = q.item.itemID, icon = q.item.icon, title = q.title, questID = q.questID, row = row } end
-     end
+    end
+
+    if not SectionHidden("quests") and #s.quests == 0 and qElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.quests) then
+      AddNote(format("None in this zone (%d elsewhere)", qElse))
     end
   end
-
-  if not SectionHidden("quests") and #s.quests == 0 and qElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.quests) then
-    AddNote(format("None in this zone (%d elsewhere)", qElse))
-  end
-
-  local tElse = ns.db.turninZoneOnly and (s.turninElsewhere or 0) or 0
-  local turnin = s.turnin or {}
-  if not SectionHidden("turnin") and (#turnin > 0 or tElse > 0) and Section("Quests to Turn In", #turnin, "turnin", "turninZoneOnly") then
-    for _, q in ipairs(turnin) do
-      local sub = {}
-      -- with All zones: where to turn it in
-      if not ns.db.turninZoneOnly and ns.Questie.TurnInZone then
-        local where, here = ns.Questie.TurnInZone(q.questID)
-        if where then sub[#sub + 1] = { text = "Turn in: " .. where .. (here and " (here)" or "") } end
-      end
-      if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
-      AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
-        { focused = q.focused, done = true }) -- green: ready to turn in
-    end
-  end
-  if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
-    AddNote(format("None in this zone (%d elsewhere)", tElse))
-  end
-
-  local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
-  if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests Nearby", #s.pickup, "pickup", "pickupZoneOnly") then
-    for _, q in ipairs(s.pickup) do
-      local sub = {}
-      if ns.db.showXP then
-        local xpText = q.xp > 0 and ((BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP") or "No XP"
-        sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
-      elseif q.repeatable then
-        sub[1] = { text = "Repeatable" }
-      end
-      -- distance to the quest giver: shown at the right end of the quest's name row
-      local loc = q.loc or (ns.Questie.Location and ns.Questie.Location(q.id))
-      if not ns.db.showStarter then
-        -- no giver line
-      elseif q.starter then
-        sub[#sub + 1] = { text = q.starter .. (q.zone and (" - " .. q.zone) or ""),
-          color = (not q.here) and DIM_LINE or nil }
-      elseif q.zone then
-        sub[#sub + 1] = { text = q.zone, color = (not q.here) and DIM_LINE or nil }
-      end
-      AddEntry(q.name, q.level, sub, function(self, button)
-        if button == "RightButton" then ShowPickupMenu(self, q); return end
-        -- shift-click: the quest's details in chat; click: map + waypoint on the quest giver
-        if IsShiftKeyDown and IsShiftKeyDown() then
-          ns.Print(format("[%d] %s - %s XP - %s", q.level or 0, q.name or "?", q.xp,
-            (q.starter or "?") .. (q.zone and (", " .. q.zone) or "")))
-          return
+  DRAW.turnin = function()
+    local tElse = ns.db.turninZoneOnly and (s.turninElsewhere or 0) or 0
+    local turnin = s.turnin or {}
+    if not SectionHidden("turnin") and (#turnin > 0 or tElse > 0) and Section("Quests to Turn In", #turnin, "turnin", "turninZoneOnly") then
+      for _, q in ipairs(turnin) do
+        local sub = {}
+        -- with All zones: where to turn it in
+        if not ns.db.turninZoneOnly and ns.Questie.TurnInZone then
+          local where, here = ns.Questie.TurnInZone(q.questID)
+          if where then sub[#sub + 1] = { text = "Turn in: " .. where .. (here and " (here)" or "") } end
         end
-        ShowPickupOnMap(q)
-      end, { gray = IsLowLevel(q), loc = loc }) -- low-level quests in the game's grey
-    end
-  end
-
-  if not SectionHidden("pickup") and #s.pickup == 0 and pElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.pickup) then
-    AddNote(format("None in this zone (%d elsewhere)", pElse))
-  end
-
-
-  if not SectionHidden("training") and s.training and #s.training > 0 and Section("Training", #s.training, "training") then
-    local money = function(c)
-      return (GetCoinTextureString and GetCoinTextureString(c)) or (GetMoneyString and GetMoneyString(c)) or (c .. "c")
-    end
-    if (s.trainCount or 0) > 0 then
-      local note = GetLine()
-      -- (1.11.0: and whether your money covers it)
-      local have, cost = GetMoney and GetMoney() or nil, s.trainCost or 0
-      local afford = (have and cost > 0 and have < cost) and (" (" .. money(cost - have) .. " short)") or ""
-      note:SetText(format("%d to train - %s%s", s.trainCount, money(cost), afford))
-      note:SetTextColor(unpack(LINE_COLOR))
-      note:SetHeight(note:GetStringHeight())
-      Place(note, 10, 6)
-    end
-    for _, sp in ipairs(s.training) do
-      local name = (sp.name or "?") .. (sp.rank and sp.rank ~= "" and (" (" .. sp.rank .. ")") or "")
-      local sub
-      local cities = {}
-      if ns.db.showCityPrices then cities = ns.Training.CityPrices(sp) end
-      if #cities > 0 then
-        -- what each city charges with your reputation (green: the cheapest)
-        sub = {}
-        for _, c in ipairs(cities) do
-          sub[#sub + 1] = { text = money(c.price) .. " in " .. c.name, color = c.best and BEST_COLOR or nil }
-        end
-      else
-        sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
+        if ns.db.showXP and q.xp > 0 then sub[#sub + 1] = { text = BreakUpLargeNumbers and (BreakUpLargeNumbers(q.xp) .. " XP") or (q.xp .. " XP") } end
+        AddEntry(q.title, q.level, sub, function(self, button) ActiveQuestClick(self, button, q.questID) end,
+          { focused = q.focused, done = true }) -- green: ready to turn in
       end
-      -- next-level spells: shown dimmed, with their level in the title (no extra line)
-      AddEntry(name, sp.level, sub, function()
-        -- shift-click links the spell in chat, like everywhere else
-        if IsModifiedClick and IsModifiedClick("CHATLINK") and sp.link and ChatEdit_InsertLink then
-          ChatEdit_InsertLink(sp.link)
+    end
+    if not SectionHidden("turnin") and #turnin == 0 and tElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.turnin) then
+      AddNote(format("None in this zone (%d elsewhere)", tElse))
+    end
+  end
+  DRAW.pickup = function()
+    local pElse = ns.db.pickupZoneOnly and (s.pickupElsewhere or 0) or 0
+    if not SectionHidden("pickup") and (#s.pickup > 0 or pElse > 0) and Section("Quests Nearby", #s.pickup, "pickup", "pickupZoneOnly") then
+      for _, q in ipairs(s.pickup) do
+        local sub = {}
+        if ns.db.showXP then
+          local xpText = q.xp > 0 and ((BreakUpLargeNumbers and BreakUpLargeNumbers(q.xp) or q.xp) .. " XP") or "No XP"
+          sub[1] = { text = xpText .. (q.repeatable and " - repeatable" or "") }
+        elseif q.repeatable then
+          sub[1] = { text = "Repeatable" }
         end
-      end, { spellID = type(sp.id) == "number" and sp.id or nil, dim = sp.nextLevel })
+        -- distance to the quest giver: shown at the right end of the quest's name row
+        local loc = q.loc or (ns.Questie.Location and ns.Questie.Location(q.id))
+        if not ns.db.showStarter then
+          -- no giver line
+        elseif q.starter then
+          sub[#sub + 1] = { text = q.starter .. (q.zone and (" - " .. q.zone) or ""),
+            color = (not q.here) and DIM_LINE or nil }
+        elseif q.zone then
+          sub[#sub + 1] = { text = q.zone, color = (not q.here) and DIM_LINE or nil }
+        end
+        AddEntry(q.name, q.level, sub, function(self, button)
+          if button == "RightButton" then ShowPickupMenu(self, q); return end
+          -- shift-click: the quest's details in chat; click: map + waypoint on the quest giver
+          if IsShiftKeyDown and IsShiftKeyDown() then
+            ns.Print(format("[%d] %s - %s XP - %s", q.level or 0, q.name or "?", q.xp,
+              (q.starter or "?") .. (q.zone and (", " .. q.zone) or "")))
+            return
+          end
+          ShowPickupOnMap(q)
+        end, { gray = IsLowLevel(q), loc = loc }) -- low-level quests in the game's grey
+      end
     end
-  end
 
-  local dElse = ns.db.dungeonZoneOnly and (s.dungeonsElsewhere or 0) or 0
-  if not SectionHidden("dungeons") and (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
-    for _, d in ipairs(s.dungeons) do
-      local sub = { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }
-      if (d.quests or 0) > 0 then sub[#sub + 1] = { text = format("%d of your quests", d.quests), color = { 0.4, 0.8, 1 } } end
-      AddEntry(d.name, nil, sub, function()
-        ns.Print(d.name .. ": " .. d.zone .. format(" (levels %d-%d)", d.min, d.max))
-      end)
+    if not SectionHidden("pickup") and #s.pickup == 0 and pElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.pickup) then
+      AddNote(format("None in this zone (%d elsewhere)", pElse))
     end
   end
-  if not SectionHidden("dungeons") and #s.dungeons == 0 and dElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.dungeons) then
-    AddNote(format("None in this zone (%d elsewhere)", dElse))
+  DRAW.training = function()
+    if not SectionHidden("training") and s.training and #s.training > 0 and Section("Training", #s.training, "training") then
+      local money = function(c)
+        return (GetCoinTextureString and GetCoinTextureString(c)) or (GetMoneyString and GetMoneyString(c)) or (c .. "c")
+      end
+      if (s.trainCount or 0) > 0 then
+        local note = GetLine()
+        -- (1.11.0: and whether your money covers it)
+        local have, cost = GetMoney and GetMoney() or nil, s.trainCost or 0
+        local afford = (have and cost > 0 and have < cost) and (" (" .. money(cost - have) .. " short)") or ""
+        note:SetText(format("%d to train - %s%s", s.trainCount, money(cost), afford))
+        note:SetTextColor(unpack(LINE_COLOR))
+        note:SetHeight(note:GetStringHeight())
+        Place(note, 10, 6)
+      end
+      for _, sp in ipairs(s.training) do
+        local name = (sp.name or "?") .. (sp.rank and sp.rank ~= "" and (" (" .. sp.rank .. ")") or "")
+        local sub
+        local cities = {}
+        if ns.db.showCityPrices then cities = ns.Training.CityPrices(sp) end
+        if #cities > 0 then
+          -- what each city charges with your reputation (green: the cheapest)
+          sub = {}
+          for _, c in ipairs(cities) do
+            sub[#sub + 1] = { text = money(c.price) .. " in " .. c.name, color = c.best and BEST_COLOR or nil }
+          end
+        else
+          sub = { { text = sp.cost > 0 and money(sp.cost) or "Free" } }
+        end
+        -- next-level spells: shown dimmed, with their level in the title (no extra line)
+        AddEntry(name, sp.level, sub, function()
+          -- shift-click links the spell in chat, like everywhere else
+          if IsModifiedClick and IsModifiedClick("CHATLINK") and sp.link and ChatEdit_InsertLink then
+            ChatEdit_InsertLink(sp.link)
+          end
+        end, { spellID = type(sp.id) == "number" and sp.id or nil, dim = sp.nextLevel })
+      end
+    end
   end
+  DRAW.dungeons = function()
+    local dElse = ns.db.dungeonZoneOnly and (s.dungeonsElsewhere or 0) or 0
+    if not SectionHidden("dungeons") and (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
+      for _, d in ipairs(s.dungeons) do
+        local sub = { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }
+        if (d.quests or 0) > 0 then sub[#sub + 1] = { text = format("%d of your quests", d.quests), color = { 0.4, 0.8, 1 } } end
+        AddEntry(d.name, nil, sub, function()
+          ns.Print(d.name .. ": " .. d.zone .. format(" (levels %d-%d)", d.min, d.max))
+        end)
+      end
+    end
+    if not SectionHidden("dungeons") and #s.dungeons == 0 and dElse > 0 and not (ns.db.collapsedSections and ns.db.collapsedSections.dungeons) then
+      AddNote(format("None in this zone (%d elsewhere)", dElse))
+    end
+  end
+  for _, key in ipairs(ns.SectionOrder()) do DRAW[key]() end
 
   -- Size: grow with the content up to the max height, then scroll.
   local viewH = math.min(y, ns.db.maxHeight or 400)
