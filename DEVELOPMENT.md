@@ -181,9 +181,17 @@ and `/hab status`. The mock raises an error on any protected change to a secure 
    and on level-up as before.
 7. Any error: `/hab errors`, screenshot it.
 
+Results (1.7.0 test build):
+- 1, 2: pass. `/hab errors`: "no errors caught this session".
+- 3 (first part): pass. After one quest: "1 quest (~54 to level)" with 1,650 XP this session and
+  1 h 52 m to level at 46.9k XP/h (about 87k XP left): about 1,600 XP a quest, the quest's XP (the
+  money reward would have given a very different number). The new tooltip lines show.
+- 3 (`/reload` carry-over), 4, 5, 6: pending.
+
 ### Needs verification in WoW Forever
 
-- `QUEST_TURNED_IN` arguments (questID, xpReward, moneyReward): from the API documentation; check 3.
+- `QUEST_TURNED_IN` arguments (questID, xpReward, moneyReward): consistent with check 3 (the
+  quest's XP, not its money); confirmed when a turn-in with a known XP reward is compared.
 - `SetAlpha` / `SetDesaturated` on a secure button in combat (R6): check 5.
 - `PLAYER_ENTERING_WORLD (isInitialLogin, isReloadingUi)` on Forever: in use since 1.x, the session
   carry-over has been seen working; recheck with check 3.
