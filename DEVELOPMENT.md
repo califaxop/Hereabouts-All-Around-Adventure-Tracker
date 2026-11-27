@@ -13,7 +13,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
-| 2 | Quest and location intelligence | **Done in 1.8.0, waiting for in-game validation and review** |
+| 2 | Quest and location intelligence | **Done in 1.8.0, verified in game, waiting for review** |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Not started |
 | 4 | Unified location engine | Not started |
 | 5 | Character progression and analytics | Not started |
@@ -243,7 +243,12 @@ Results (1.8.0 test build):
   tooltip): Voodoo Dues: maury's clubbed foot"; "fighting Naga Explorer: Mok'thardin's Enchantment:
   naga explorer; Akiris by the Bundle: akiris reed" (one mob, two quests: a kill and a drop).
 - 1: pass (no Lua errors on 1.8.0).
-- 5 (a mob that pulls you, no target: enemy nameplates, threat API / text), 6 ("Name x2"): pending.
+- 5 (no target): pass. Two Naga Explorers on you, no target: "fighting Naga Explorer (found by
+  enemy nameplates (threat API))", then "fighting Naga Explorer x2 (found by enemy nameplates (threat
+  API))": the threat API answers solo on Forever.
+- 6: pass ("Naga Explorer x2").
+
+Milestone 2 verified in game; awaiting review before Milestone 3.
 
 ### Needs verification in WoW Forever
 
@@ -254,5 +259,5 @@ Results (1.8.0 test build):
 - `SetAlpha` / `SetDesaturated` on a secure button in combat (R6): check 5.
 - `PLAYER_ENTERING_WORLD (isInitialLogin, isReloadingUi)` on Forever: in use since 1.x, the session
   carry-over has been seen working; recheck with check 3.
-- `UnitThreatSituation("player", nameplateN)` outside a group (1.8.0): does it answer for a mob that
-  pulled you solo? `/hab focus` says "threat API" when it does (M2 check 5).
+- `UnitThreatSituation("player", nameplateN)` outside a group: verified (1.8.0 check 5: solo,
+  "found by enemy nameplates (threat API)").

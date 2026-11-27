@@ -36,7 +36,7 @@ specific behaviour was observed.
 | `C_Map.GetBestMapForUnit`, `GetMapInfo`, `GetAreaInfo`, `GetWorldPosFromMapPos` | zones, distances | Verified in WoW Forever |
 | `C_SuperTrack.GetSuperTrackedQuestID` | the focused quest | Verified in WoW Forever |
 | `C_TooltipInfo.GetUnit(unit)`, `Enum.TooltipDataLineType` | combat focus: a unit's quest lines, readable in combat | Verified in WoW Forever |
-| `UnitThreatSituation("player", unit)` | combat focus: is a nameplate's mob fighting you (1.8.0, with the tooltip's threat text as the other way) | Verified in WoW Forever in a group (Holdfast); solo: Inferred but untested (`/hab focus` shows which way found it) |
+| `UnitThreatSituation("player", unit)` | combat focus: is a nameplate's mob fighting you (1.8.0, with the tooltip's threat text as the other way) | Verified in WoW Forever, in a group (Holdfast) and solo (1.8.0: `/hab focus` "found by enemy nameplates (threat API)") |
 | `C_NamePlate.GetNamePlates`, a plate's `namePlateUnitToken` | combat focus: enemies fighting you | Verified in WoW Forever |
 | `UnitXP`, `UnitXPMax`, `UnitLevel`, `GetXPExhaustion`, `IsPlayerAtEffectiveMaxLevel`, `GetMoney` | session | Verified in WoW Forever |
 | `UnitQuestTrivialLevelRange`, `GetQuestGreenRange` | grey quests | Documentation |
