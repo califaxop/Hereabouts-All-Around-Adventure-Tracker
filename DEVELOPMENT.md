@@ -16,7 +16,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
 | 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
-| 5 | Character progression and analytics | Not started |
+| 5 | Character progression and analytics | **Done in 1.11.0, waiting for in-game validation and review** |
 | 6 | Modular interface | Not started |
 | 7 | Diagnostics and release | Not started |
 
@@ -37,10 +37,10 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 - No unused code or settings. Offline tests for logic (`tests/run_tests.py`); game behaviour is
   checked in game (checklists below), never claimed from the tests.
 
-## Architecture (1.10.0)
+## Architecture (1.11.0)
 
-Load order (Hereabouts.toc): Core → Dungeons → Locations → QuestieSource → Training → Suggest → Session →
-QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: the first three quest item buttons.
+Load order (Hereabouts.toc): Core → Dungeons → Locations → QuestieSource → TrainerData → Training → Suggest → Session →
+Progress → QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: the first three quest item buttons.
 
 | File | Module | Does |
 |---|---|---|
@@ -48,6 +48,8 @@ QuestItems → Tracker → Integrations → Options → Replace. Bindings.xml: t
 | Dungeons.lua | `ns.DUNGEONS` | Static dungeon list: name, entrance zone, level range (Classic ranges, not verified for Forever) |
 | Locations.lua | `ns.Locations` | The location model (1.10.0): `New` (checked map ID and 0-1 point), `FromSpawns` (Questie's 0-100 spawns by area → locations), `Filter` (by kind), `Maps`, world positions and yards (`WorldPos`, `PlayerPos`, `Yards`), `Nearest`, `Route` (nearest-next order) |
 | QuestieSource.lua | `ns.Questie` | Binds Questie's modules (`QuestieLoader:ImportModule`); quests to pick up (a sliced scan of Questie's available set or database); where active quests are done (`ActiveQuestMaps`, `TurnInZone`, `GameQuestZone`); the set watcher; `/hab questie`, `/hab qinfo` |
+| TrainerData.lua | `ns.TRAINER_DATA` | Trainer cities per class and faction, weapon masters' cities, the reputation discount (data only, 1.11.0) |
+| Progress.lua | `ns.Progress` | Professions and weapon skills (`C_SkillInfo.GetSkillLineInfoByID`), history totals, `/hab progress` (1.11.0) |
 | Training.lua | `ns.Training` | What's Training (`WT_API`): spells to train, trainer cities and prices with reputation |
 | Suggest.lua | — | The quest log (`LogQuests`), zone filter (`InZone`), the quest log fingerprint (`QuestLogStamp`), combat focus (`CombatQuests`, `CombatFocusKey`, `ObjectiveKey`), `BuildSuggestions` (ranking, sections) |
 | Session.lua | `ns.Session` | Session statistics (XP, gold gained, quests, rested), saved across a `/reload`; the session bars |
@@ -79,7 +81,9 @@ twice a second (only in combat, on target / threat / nameplate events).
   `ResetDB` wipes and reloads the defaults, keeping `pos` and `ignoredQuests`.
 - `HereaboutsCharDB` (per character): `session` (saved at `PLAYER_LOGOUT`, which also fires on
   `/reload`; restored when `PLAYER_ENTERING_WORLD` says it's a reload and it's under 15 minutes
-  old and passes `Session.Check`).
+  old and passes `Session.Check`; at a real login it goes into the history and is cleared);
+  `history` (1.11.0: past sessions, newest first, at most 20: { at, dur, xp, quests, questXP,
+  gold, from, to, approx }).
 
 ## Path traces (M1)
 
@@ -224,6 +228,17 @@ Trainers and dungeon entrances: Dungeons.lua and Training.lua know them only by 
 name, with no map IDs or points that have been checked on Forever; they join the model when
 verified places do (Milestone 5), rather than being given made-up coordinates.
 
+## Milestone 5 (1.11.0)
+
+| # | Change | Notes |
+|---|---|---|
+| 25 | Session history | A session goes into `HereaboutsCharDB.history` when it ends: at the next real login (`PLAYER_ENTERING_WORLD` isInitialLogin; not a `/reload`, not a loading screen), or on a reset. Kept: a minute or more with XP, quests or gold gained. The session bar's tooltip shows the last one. The session also knows the level it began at (saved, checked, restored) |
+| 26 | `/hab progress` | Your level and how far into it, rested XP, this session, the past sessions' totals (time, XP, XP an hour, quests, levels, gold) and the last three, your professions (rank / max) and weapon skills (with how far below your level's cap: 5 a level) |
+| 27 | Professions and weapon skills | `C_SkillInfo.GetSkillLineInfoByID` per skill line; a line the game doesn't answer for, or one you don't have, isn't shown (nothing made up). Weapon lines: Blizzard's paper doll IDs (verified in game by Equip This!); profession lines: the game's Classic IDs (Inferred on Forever) |
+| 28 | Dungeons: your quests | Each suggested dungeon says how many of your quests are for it (quest log headings: "Gnomeregan", "Scarlet Monastery" for its wings); without "sort by level", dungeons you have quests for come first. Dungeons.lua's list is no longer handed out to be changed (copies) |
+| 29 | Training: can you afford it | The Training section's "N to train - cost" says how much you're short |
+| 30 | Trainer data apart | TrainerData.lua (cities, weapon masters, the 10% Honored discount), from What's Training's source; Training.lua keeps the logic |
+
 ## Testing
 
 ### Offline
@@ -233,7 +248,8 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-25 tests (1.10.0): the location model (checked maps and points, Questie's spawns, caps, filters),
+28 tests (1.11.0): session history (real login, reset, not on a /reload or zoning, minimum,
+cap), progress (totals, weapon skill caps, skills from the game, report), dungeons' quests; the location model (checked maps and points, Questie's spawns, caps, filters),
 distances / nearest / route on a mock world, Questie's places for a quest (givers, item starts,
 objectives, turn-ins), an active quest's places left and its waypoint, `/hab where`; the Questie boundary (nothing written into its tables, missing parts reported,
 a broken quest log), What's Training's parts, tracker replacement (parent and alpha back, nothing in
@@ -368,6 +384,16 @@ Results (1.10.0 test build):
 - 1: pass (the author: "M4 is good"); the item names on the list line and waypoint, checked.
 
 Milestone 4 verified in game and reviewed.
+
+### In-game checklist (Milestone 5 → 6)
+
+1. Install 1.11.0, `/reload`: the tracker as before; no Lua errors.
+2. `/hab progress`: your level, this session, "no past sessions yet"; your professions with their
+   ranks, your weapon skills (send the output: which professions and weapons show is the check).
+3. Play a few minutes (some XP), log out fully, log back in: `/hab progress` lists that session;
+   the session bar's tooltip shows "Last session". A `/reload` in between doesn't add one.
+4. Dungeons section: a dungeon you have quests for says "N of your quests".
+5. Training: with less money than the total, the line says how much you're short.
 
 ### Needs verification in WoW Forever
 

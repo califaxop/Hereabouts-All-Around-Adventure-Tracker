@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.11.0 (Milestone 5: character progression)
+
+- Session history: each session is kept when it ends (your next login, or a reset), up to 20;
+  the session bar's tooltip shows the last one.
+- New `/hab progress`: your level, this session, your past sessions' totals and XP an hour, your
+  professions and weapon skills (and how far each weapon skill is below your level's cap).
+- Dungeons say how many of your quests are for each, and (unless sorting by level) list those first.
+- Training says how much you're short when your money doesn't cover it.
+
 ## 1.10.0 (Milestone 4: one location model)
 
 - Quests that start from an item have a place: Show on Map goes to where the item drops (it said

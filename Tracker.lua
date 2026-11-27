@@ -1113,7 +1113,10 @@ function ns.Render(s)
     end
     if (s.trainCount or 0) > 0 then
       local note = GetLine()
-      note:SetText(format("%d to train - %s", s.trainCount, money(s.trainCost or 0)))
+      -- (1.11.0: and whether your money covers it)
+      local have, cost = GetMoney and GetMoney() or nil, s.trainCost or 0
+      local afford = (have and cost > 0 and have < cost) and (" (" .. money(cost - have) .. " short)") or ""
+      note:SetText(format("%d to train - %s%s", s.trainCount, money(cost), afford))
       note:SetTextColor(unpack(LINE_COLOR))
       note:SetHeight(note:GetStringHeight())
       Place(note, 10, 6)
@@ -1145,7 +1148,9 @@ function ns.Render(s)
   local dElse = ns.db.dungeonZoneOnly and (s.dungeonsElsewhere or 0) or 0
   if not SectionHidden("dungeons") and (#s.dungeons > 0 or dElse > 0) and Section("Dungeons", #s.dungeons, "dungeons", "dungeonZoneOnly") then
     for _, d in ipairs(s.dungeons) do
-      AddEntry(d.name, nil, { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }, function()
+      local sub = { { text = format("Levels %d-%d", d.min, d.max) }, { text = d.zone } }
+      if (d.quests or 0) > 0 then sub[#sub + 1] = { text = format("%d of your quests", d.quests), color = { 0.4, 0.8, 1 } } end
+      AddEntry(d.name, nil, sub, function()
         ns.Print(d.name .. ": " .. d.zone .. format(" (levels %d-%d)", d.min, d.max))
       end)
     end
@@ -1280,7 +1285,8 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     ns.PlaceFrame()
     -- (isInitialLogin, isReloadingUi): after a /reload, carry the session on
     local isReload = select(1, ...)
-    if isReload and not arg1 then ns.Session.Restore() end
+    if isReload and not arg1 then ns.Session.Restore()
+    elseif arg1 then ns.Session.ArchiveSaved() end -- (a real login: the last session goes into the history)
   end
   if event == "PLAYER_LOGIN" then
     ns.ApplyBackdrop() -- FlareUI's media is registered by now
@@ -1447,12 +1453,15 @@ SlashCmdList.XPPLANNER = function(msg)
     if not id or id == 0 then ns.Print("/hab where <questID> (or focus a quest)"); return end
     for _, l in ipairs(ns.WhereReport(id)) do ns.Print(l) end
     return
+  elseif cmd == "progress" then
+    for _, l in ipairs(ns.Progress.Report()) do ns.Print(l) end
+    return
   elseif cmd == "focus" then
     -- what combat focus sees right now: who you're fighting, how it was found, and their quests
     for _, l in ipairs(ns.CombatFocusReport()) do ns.Print(l) end
     return
   else
-    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab where <quest>  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab where <quest>  -  /hab progress  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
     return
   end
   ns.Refresh()

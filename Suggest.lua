@@ -298,6 +298,16 @@ function ns.CombatFocusReport()
   return L
 end
 
+-- How many of your quests are for a dungeon: the quest log headings that name it ("Scarlet
+-- Monastery" for "Scarlet Monastery: Library"). Pure.
+function ns.DungeonQuests(name, headers)
+  local n = 0
+  for h, count in pairs(headers) do
+    if h == name or name:sub(1, #h + 1) == h .. ":" then n = n + count end
+  end
+  return n
+end
+
 function ns.BuildSuggestions(logQuests)
   local db = ns.db
   local me = UnitLevel("player")
@@ -382,10 +392,16 @@ function ns.BuildSuggestions(logQuests)
     local hereMap = ns.Questie.CurrentZoneMap and ns.Questie.CurrentZoneMap()
     local mapInfo = hereMap and C_Map.GetMapInfo and C_Map.GetMapInfo(hereMap)
     local hereZone = mapInfo and mapInfo.name or here
+    -- your quests for each dungeon (1.11.0): the quest log files them under the dungeon's name
+    -- ("Gnomeregan", "Scarlet Monastery" for its wings)
+    local headers = {}
+    for _, q in ipairs(quests) do if q.zone then headers[q.zone] = (headers[q.zone] or 0) + 1 end end
     for _, dg in ipairs(ns.DUNGEONS) do
       if me >= dg.min and me <= dg.max then -- from its minimum level to the top of its range
         local inZone = dg.zone == hereZone or dg.zone == here
-        if inZone or not db.dungeonZoneOnly then d[#d + 1] = dg
+        if inZone or not db.dungeonZoneOnly then
+          -- (a copy: Dungeons.lua's list is data and stays as it is)
+          d[#d + 1] = { name = dg.name, zone = dg.zone, min = dg.min, max = dg.max, quests = ns.DungeonQuests(dg.name, headers) }
         else result.dungeonsElsewhere = (result.dungeonsElsewhere or 0) + 1 end
       end
     end
@@ -394,6 +410,8 @@ function ns.BuildSuggestions(logQuests)
         if a.min ~= b.min then return a.min > b.min end
         return a.max > b.max
       end
+      -- dungeons you have quests for first, then the closest fit for your level
+      if (a.quests > 0) ~= (b.quests > 0) then return a.quests > 0 end
       return math.abs((a.min + a.max) / 2 - me) < math.abs((b.min + b.max) / 2 - me)
     end)
     for i = 1, math.min(db.maxDungeons, #d) do result.dungeons[i] = d[i] end

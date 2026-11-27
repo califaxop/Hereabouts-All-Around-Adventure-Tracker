@@ -8,6 +8,7 @@ local start, gained, quests, questXP, earned = nil, 0, 0, 0, 0
 -- approx: the XP total is short by some amount: you went up more than one level between two XP
 -- readings (the levels in between can't be read afterwards), see S.OnXP
 local approx = false
+local startLevel -- your level when the session began (for "levels this session" and the history)
 local lastMoney
 local lastXP, lastMax, lastLevel
 
@@ -21,9 +22,48 @@ local function AtMax()
   return not max or max == 0
 end
 
+-- Past sessions (1.11.0): HereaboutsCharDB.history, newest first, at most HISTORY_MAX. A session
+-- goes there when it ends: at your next real login (not a /reload or a loading screen), or when
+-- you reset it. Only sessions of a minute or more with something gained are kept.
+S.HISTORY_MAX = 20
+-- a session's summary, from its numbers (pure)
+function S.Summary(t)
+  return { at = t.at, dur = math.floor(t.elapsed or 0), xp = t.gained or 0, quests = t.quests or 0,
+    questXP = t.questXP or 0, gold = t.earned or 0, from = t.startLevel, to = t.lastLevel, approx = t.approx or nil }
+end
+local function Worth(t) return (t.elapsed or 0) >= 60 and ((t.gained or 0) > 0 or (t.quests or 0) > 0 or (t.earned or 0) > 0) end
+function S.Archive(t)
+  if not Worth(t) then return false end
+  HereaboutsCharDB = HereaboutsCharDB or {}
+  local h = HereaboutsCharDB.history
+  if type(h) ~= "table" then h = {}; HereaboutsCharDB.history = h end
+  table.insert(h, 1, S.Summary(t))
+  while #h > S.HISTORY_MAX do table.remove(h) end
+  return true
+end
+function S.History()
+  local h = HereaboutsCharDB and HereaboutsCharDB.history
+  return type(h) == "table" and h or {}
+end
+-- the session saved at your last logout, at a real login: into the history
+function S.ArchiveSaved()
+  local s = HereaboutsCharDB and HereaboutsCharDB.session
+  if S.Check(s) then
+    s.at = s.savedAt
+    S.Archive(s)
+  end
+  if HereaboutsCharDB then HereaboutsCharDB.session = nil end
+end
+
 function S.Reset()
+  -- (the session so far goes into the history first, when it's worth keeping)
+  if start then
+    S.Archive({ at = time and time() or 0, elapsed = Now() - start, gained = gained, quests = quests, questXP = questXP,
+      earned = earned, startLevel = startLevel, lastLevel = lastLevel, approx = approx })
+  end
   start, gained, quests, questXP, earned, approx = Now(), 0, 0, 0, 0, false
   lastXP, lastMax, lastLevel = UnitXP("player"), UnitXPMax("player"), UnitLevel("player")
+  startLevel = lastLevel
   lastMoney = GetMoney and GetMoney() or 0
   if S.Paint then S.Paint() end
 end
@@ -37,7 +77,7 @@ function S.Save()
   HereaboutsCharDB.session = {
     elapsed = Now() - start, savedAt = time and time() or 0,
     gained = gained, quests = quests, questXP = questXP, earned = earned, approx = approx or nil,
-    lastXP = lastXP, lastMax = lastMax, lastLevel = lastLevel, lastMoney = lastMoney,
+    lastXP = lastXP, lastMax = lastMax, lastLevel = lastLevel, lastMoney = lastMoney, startLevel = startLevel,
   }
 end
 
@@ -50,7 +90,9 @@ function S.Check(s)
   for _, k in ipairs({ "gained", "quests", "questXP", "earned", "lastXP", "lastMax", "lastMoney" }) do
     if s[k] ~= nil and not Count(s[k], 1e12) then return false, k end
   end
-  if s.lastLevel ~= nil and not (Count(s.lastLevel, 1000) and s.lastLevel == math.floor(s.lastLevel)) then return false, "lastLevel" end
+  for _, k in ipairs({ "lastLevel", "startLevel" }) do
+    if s[k] ~= nil and not (Count(s[k], 1000) and s[k] == math.floor(s[k])) then return false, k end
+  end
   if s.savedAt ~= nil and not Count(s.savedAt, 1e11) then return false, "savedAt" end
   return true
 end
@@ -68,6 +110,7 @@ function S.Restore()
   gained, quests, questXP, earned = s.gained or 0, s.quests or 0, s.questXP or 0, s.earned or 0
   approx = s.approx and true or false
   lastXP, lastMax, lastLevel, lastMoney = s.lastXP, s.lastMax, s.lastLevel, s.lastMoney
+  startLevel = s.startLevel or s.lastLevel
   S.OnXP(); S.OnMoney() -- anything gained while the UI reloaded
   if S.Paint then S.Paint() end
   return true
@@ -128,6 +171,8 @@ local function Money(c)
   if si > 0 then return format("%ds %dc", si, co) end
   return format("%dc", co)
 end
+
+S.Short, S.Duration, S.Money = Short, Duration, Money -- (for /hab progress)
 
 -- the stats the bar can show, in order: key, settings label, short text (or nil when not
 -- meaningful right now), and the tooltip line
@@ -228,7 +273,13 @@ local function Tooltip(self)
   if v.approx then
     GameTooltip:AddLine("~ XP: you went up more than one level at once; the levels in between aren't counted.", 1, 0.82, 0, true)
   end
-  GameTooltip:AddLine("Right-click to reset. Pick what shows in /hab, Session.", 0.6, 0.6, 0.6, true)
+  -- the last session in the history (1.11.0; /hab progress has more)
+  local last = S.History()[1]
+  if last then
+    GameTooltip:AddDoubleLine("Last session", format("%s, %s XP, %d quest%s", Duration(last.dur), Short(last.xp), last.quests,
+      last.quests == 1 and "" or "s"), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+  end
+  GameTooltip:AddLine("Right-click to reset (it goes into the history). Pick what shows in /hab, Session. /hab progress: your progress.", 0.6, 0.6, 0.6, true)
   GameTooltip:Show()
 end
 

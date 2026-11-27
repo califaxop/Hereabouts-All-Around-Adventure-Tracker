@@ -65,28 +65,10 @@ end
 ---------------------------------------------------------------------------
 -- Price by city. What's Training's public API gives one chosen price, so the per-city
 -- rows are worked out here the way What's Training does on Forever: each capital city that
--- trains your class charges 10% less once you're Honored (or better) with it.
--- City lists from What's Training's Forever data (MIT license, github.com/fusionpit/WhatsTraining).
+-- trains your class charges 10% less once you're Honored (or better) with it. The cities and the
+-- discount are in TrainerData.lua.
 ---------------------------------------------------------------------------
-local CITIES = {
-  -- [factionID] = name if the game can't tell us
-  [47] = "Ironforge", [54] = "Gnomeregan", [69] = "Darnassus", [72] = "Stormwind",
-  [68] = "Undercity", [76] = "Orgrimmar", [81] = "Thunder Bluff", [530] = "Darkspear Trolls",
-}
-local ROLES = {
-  DRUID   = { Alliance = { 69, 72 },          Horde = { 81 } },
-  HUNTER  = { Alliance = { 47, 69, 72 },      Horde = { 76, 81, 530 } },
-  MAGE    = { Alliance = { 47, 54, 69, 72 },  Horde = { 68, 76, 530 } },
-  PALADIN = { Alliance = { 47, 72 },          Horde = { 68 } },
-  PET     = { Alliance = { 47, 69, 72 },      Horde = { 76, 81 } },
-  PRIEST  = { Alliance = { 47, 54, 69, 72 },  Horde = { 68, 76, 530 } },
-  ROGUE   = { Alliance = { 47, 54, 69, 72 },  Horde = { 68, 76, 81, 530 } },
-  SHAMAN  = { Alliance = { 47 },              Horde = { 76, 81 } },
-  WARLOCK = { Alliance = { 47, 54, 72 },      Horde = { 68, 76 } },
-  WARRIOR = { Alliance = { 47, 54, 69, 72 },  Horde = { 68, 76, 81 } },
-}
--- weapon masters -> their city
-local WEAPON_NPCS = { [2704] = 530, [11865] = 47, [11866] = 69, [11867] = 72, [11868] = 76, [11869] = 81, [11870] = 68, [13084] = 47 }
+local CITIES, ROLES, WEAPON_NPCS = ns.TRAINER_DATA.CITIES, ns.TRAINER_DATA.ROLES, ns.TRAINER_DATA.WEAPON_NPCS
 
 local petIds -- spell id -> true for hunter pet abilities (from What's Training's catalog)
 local function IsPetAbility(id)
@@ -114,7 +96,8 @@ local function CityRow(key)
   elseif GetFactionInfoByID then
     local n, _, st = GetFactionInfoByID(key); name, standing = n, st
   end
-  return { name = (name and name ~= "") and name or CITIES[key] or ("Faction " .. key), pct = (standing or 4) >= 6 and 10 or 0 }
+  local D = ns.TRAINER_DATA.DISCOUNT
+  return { name = (name and name ~= "") and name or CITIES[key] or ("Faction " .. key), pct = (standing or 4) >= D.reaction and D.pct or 0 }
 end
 
 -- Cities that train this spell for you, as { name, price, best }, cheapest first. Empty when the

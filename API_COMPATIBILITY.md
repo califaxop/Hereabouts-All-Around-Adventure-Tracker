@@ -43,6 +43,7 @@ specific behaviour was observed.
 | `UnitQuestTrivialLevelRange`, `GetQuestGreenRange` | grey quests | Documentation |
 | `C_Item.GetItemCount`, `C_Container.GetItemCooldown`, `C_Item.GetItemIconByID` | quest item buttons | Verified in WoW Forever |
 | `C_Reputation.GetFactionDataByID` (older `GetFactionInfoByID`) | training: city reputation | In use |
+| `C_SkillInfo.GetSkillLineInfoByID(skillLine)` → { name, rank, maxRank, modifier } | professions and weapon skills (`/hab progress`, 1.11.0) | Verified in WoW Forever for weapon skill lines (Equip This!: "Two-Handed Maces 209/210"); profession lines (171 Alchemy, 164 Blacksmithing, 333 Enchanting, 202 Engineering, 182 Herbalism, 165 Leatherworking, 186 Mining, 393 Skinning, 197 Tailoring, 185 Cooking, 129 First Aid, 356 Fishing): Inferred, to check with `/hab progress` |
 
 ## Secure frames
 

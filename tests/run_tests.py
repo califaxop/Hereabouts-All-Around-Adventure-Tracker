@@ -582,6 +582,76 @@ def _():
     """
 
 
+# ---------------------------------------------------------------------------------------------
+# Milestone 5: progression
+# ---------------------------------------------------------------------------------------------
+@test("history: a session goes into the history when it ends (real login or reset), never on a /reload or zoning")
+def _():
+    """
+    local S = NS.Session
+    MOCK.xp, MOCK.level = 100, 20
+    S.Reset()
+    MOCK.xp = 600; MOCK.Fire("PLAYER_XP_UPDATE", "player")
+    MOCK.now = MOCK.now + 1800
+    MOCK.Fire("PLAYER_LOGOUT")
+    MOCK.Fire("PLAYER_ENTERING_WORLD", false, true)          -- a /reload: carried on, not archived
+    assert(#S.History() == 0)
+    MOCK.Fire("PLAYER_ENTERING_WORLD", false, false)         -- a loading screen
+    assert(#S.History() == 0)
+    MOCK.Fire("PLAYER_LOGOUT")
+    MOCK.Fire("PLAYER_ENTERING_WORLD", true, false)          -- the next real login
+    local h = S.History()
+    assert(#h == 1 and h[1].xp == 500 and h[1].dur >= 1800 and h[1].from == 20, "archived")
+    assert(HereaboutsCharDB.session == nil, "and not archived again")
+    MOCK.Fire("PLAYER_ENTERING_WORLD", true, false); assert(#S.History() == 1)
+    -- a reset archives too; a short or empty session doesn't
+    -- (the mock keeps this file's session across the "login" above; the game starts it afresh)
+    S.Reset(); local n = #S.History()
+    MOCK.now = MOCK.now + 30; MOCK.xp = 700; MOCK.Fire("PLAYER_XP_UPDATE", "player"); S.Reset()
+    assert(#S.History() == n, "under a minute: not kept")
+    MOCK.now = MOCK.now + 120; S.Reset(); assert(#S.History() == n, "nothing gained: not kept")
+    MOCK.xp = 900; MOCK.Fire("PLAYER_XP_UPDATE", "player"); MOCK.now = MOCK.now + 120; S.Reset()
+    assert(#S.History() == n + 1 and S.History()[1].xp == 200, "a reset keeps it")
+    for i = 1, 30 do S.Archive({ at = i, elapsed = 600, gained = i }) end
+    assert(#S.History() == S.HISTORY_MAX and S.History()[1].xp == 30, "newest first, capped")
+    """
+
+@test("progress: history totals, weapon skills against the level cap, skills from the game")
+def _():
+    """
+    local P = NS.Progress
+    local t = P.Totals({ { dur = 1800, xp = 6000, quests = 3, gold = 100, from = 20, to = 21 }, { dur = 1800, xp = 4000, quests = 1, gold = 50, from = 21, to = 21 } })
+    assert(t.sessions == 2 and t.xp == 10000 and t.levels == 1 and math.abs(t.xph - 10000) < 1e-9 and t.quests == 4)
+    assert(P.WeaponGap({ rank = 195 }, 40) == 5 and P.WeaponGap({ rank = 200 }, 40) == nil)
+    C_SkillInfo = { GetSkillLineInfoByID = function(id)
+      if id == 186 then return { name = "Mining", rank = 150, maxRank = 225, modifier = 0 } end
+      if id == 160 then return { name = "Two-Handed Maces", rank = 209, maxRank = 220, modifier = 0 } end
+      if id == 43 then return { name = "Swords", rank = 0, maxRank = 220 } end   -- not learned
+      if id == 333 then error("no such line") end
+      return nil
+    end }
+    local sk = P.Skills()
+    assert(#sk.professions == 1 and sk.professions[1].name == "Mining" and #sk.weapons == 1, "only skills you have")
+    MOCK.level = 44
+    local all = table.concat(P.Report(), " / ")
+    assert(all:find("Mining 150/225", 1, true) and all:find("Two-Handed Maces 209 (11 to go)", 1, true), all)
+    assert(all:find("no past sessions yet", 1, true), all)
+    """
+
+@test("dungeons: your quests for each (by quest log heading, wings included); those first; the data unchanged")
+def _():
+    """
+    assert(NS.DungeonQuests("Scarlet Monastery: Library", { ["Scarlet Monastery"] = 2, ["Westfall"] = 1 }) == 2)
+    assert(NS.DungeonQuests("Gnomeregan", { ["Gnomeregan"] = 1, ["Gnomeregan Exiles"] = 3 }) == 1, "a whole name, not part of one")
+    MOCK.level = 32
+    NS.db.sortByLevel = false; NS.db.maxDungeons = 5
+    local quests = { { questID = 1, title = "Q", level = 30, xp = 1, complete = false, objectives = {}, zone = "Gnomeregan" } }
+    local s = NS.BuildSuggestions(quests)
+    assert(s.dungeons[1].name == "Gnomeregan" and s.dungeons[1].quests == 1, "the one with your quest first: " .. s.dungeons[1].name)
+    for _, d in ipairs(NS.DUNGEONS) do assert(d.quests == nil, "Dungeons.lua's data untouched") end
+    """
+
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

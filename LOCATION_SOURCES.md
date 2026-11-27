@@ -75,4 +75,4 @@ exactly.
 |---|---|---|
 | Dungeon entrances and level ranges | Dungeons.lua | Static (Classic ranges) |
 | Spells to train, weapon masters | What's Training (`WT_API`) | its data |
-| Trainer cities per class and faction, reputation discount (10% at Honored+) | Training.lua | Static, not verified for Forever (R4) |
+| Trainer cities per class and faction, weapon masters' cities, reputation discount (10% at Honored+) | TrainerData.lua (1.11.0; from What's Training's Forever data) | Static, verified through its source, not city by city in game |
