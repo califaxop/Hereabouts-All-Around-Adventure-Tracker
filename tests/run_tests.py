@@ -801,6 +801,8 @@ def _():
     PRINTS = {}; SlashCmdList.XPPLANNER("perf")
     assert(PRINTS[1] and PRINTS[1]:find("in the last"), tostring(PRINTS[1]))
     SlashCmdList.XPPLANNER("report")
+    local w = XPPlannerReportWindow
+    assert(w and w._shown and w.edit._text == NS.Report() and w.note._text:find("Bug report page", 1, true), "the report window")
     """
 
 if __name__ == '__main__':

@@ -1516,7 +1516,7 @@ SlashCmdList.XPPLANNER = function(msg)
   elseif cmd == "report" then
     local ok, text = pcall(ns.Report)
     if not ok then ns.Print("report failed: " .. tostring(text)); return end
-    ns.ShowLink("Hereabouts report", text, "Press Ctrl+C to copy it, then paste it into your bug report (/hab > Status > Report a bug).")
+    ns.ShowReport(text)
     return
   elseif cmd == "errors" then
     if #ns.errors == 0 then ns.Print("no errors caught this session.") end

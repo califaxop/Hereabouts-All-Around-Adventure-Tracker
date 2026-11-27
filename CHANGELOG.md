@@ -8,7 +8,7 @@ milestones (not published); 2.0.0 is all of them, plus Milestone 7:
 - New: `/hab report` puts everything a bug report needs into one text to copy: version and client,
   the connected add-ons and any missing parts, where your quests count (here, elsewhere, can't
   tell, and what decided), the quest item buttons, the session, your sections and the errors
-  caught. Status > "Report a bug / suggest" gives the link to the form.
+  caught; its "Bug report page" button gives the link to the bug report form.
 - New: `/hab perf`: how long building and drawing the list takes, and the last Questie scan.
 
 ## 1.12.0 (Milestone 6: modular interface; test build)

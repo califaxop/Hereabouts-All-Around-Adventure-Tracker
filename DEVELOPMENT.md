@@ -256,7 +256,7 @@ same code as before, only in the order chosen.
 
 | # | Change | Notes |
 |---|---|---|
-| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the link window (`ShowLink(title, text, note)`), each `|` doubled so the box shows it as typed |
+| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in its own window as Proc This!'s `/pt report` (`ns.ShowReport`, Options.lua): the report selected in the box, "Bug report page" (the form's link, in the link window, raised over it) and Close; each `|` doubled so the box shows it as typed |
 | 36 | `/hab perf` | `ns.Measure` (Core.lua) times each list build, redraw and skipped rebuild (`debugprofilestop`, else `GetTime`); `/hab perf` prints counts, averages and maxima since the last `/hab perf` (or login), then counts afresh. Questie's scan records quests looked at, where from, frames used, its work and the longest frame (`Questie.lastScan`) |
 | 37 | Release check | `tests/check_release.py`: the version in the toc, CHANGELOG and README match; the toc's files exist and every Lua file is loaded; the release zip leaves the developer files out; the offline tests pass |
 
@@ -491,15 +491,24 @@ Milestone 6 verified in game; awaiting review before Milestone 7.
 2. Quest for a few minutes (a turn-in, a fight), then `/hab perf`: list builds, redraws and skips
    with their times, and the last Questie scan (quests, frames, ms). Run it again: "in the last N s"
    starts afresh. Note the numbers (the largest "at most" values especially).
-3. `/hab report`: the window opens with one line of text; Ctrl+A, Ctrl+C, paste it somewhere: the
-   version, client, add-ons, your quests' counts, buttons, session, sections, errors. Close it with
-   Escape.
+3. `/hab report`: the report window opens with the report selected; Ctrl+C, paste it somewhere: the
+   version, client, add-ons, your quests' counts, buttons, session, sections, errors. "Bug report
+   page": the link window opens on top with the form's link. Close both.
 4. In a fight with a quest item button shown, turn in or abandon a quest by its mob (or loot to
    finish one): no "action blocked", the button dims, then moves when combat ends.
 5. Log out fully and back in: the session bar starts afresh, `/hab progress` lists the last one.
 6. `python3 tests/check_release.py` (offline): passes.
 
+Results (2.0.0 test build):
+- 2: 540 s: 82 list builds, 15.02 ms on average, 37.80 ms at most; 82 redraws, 1.27 ms (2.58 at
+  most); 10 skipped rebuilds, 0.53 ms. Questie's scan: 320 quests (its available set) over 2
+  frames, 25.8 ms of work, 18.27 ms at most in a frame.
+- 3: the report was complete (2.0.0, client 1.60.1 (71139), interface 16001; every add-on; 3 here,
+  11 elsewhere, 0 can't tell; no errors). Asked for: the same report window as Proc This!'s.
+  Changed: its own window with "Bug report page" and Close (recheck 3).
+- 4, 5: pass (history: two sessions listed; professions and weapon skills shown).
+
 ### Needs verification in WoW Forever
 
-- `GetBuildInfo` (version, build, date, interface) and `debugprofilestop`: checks 2 and 3.
+- `debugprofilestop` (rather than the `GetTime` fallback) giving `/hab perf`'s timings.
 - Profession lines not yet seen (see Known limitations).

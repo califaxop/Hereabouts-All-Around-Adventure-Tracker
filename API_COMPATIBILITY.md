@@ -42,8 +42,8 @@ specific behaviour was observed.
 | `UnitXP`, `UnitXPMax`, `UnitLevel`, `GetXPExhaustion`, `IsPlayerAtEffectiveMaxLevel`, `GetMoney` | session | Verified in WoW Forever |
 | `UnitQuestTrivialLevelRange`, `GetQuestGreenRange` | grey quests | Documentation |
 | `C_Item.GetItemCount`, `C_Container.GetItemCooldown`, `C_Item.GetItemIconByID` | quest item buttons | Verified in WoW Forever |
-| `GetBuildInfo()` → version, build, date, interface | `/hab report` (2.0.0) | Documentation; in-game check 3 |
-| `debugprofilestop()` (ms, precise) | `/hab perf` timings (2.0.0); falls back to `GetTime` | Documentation; in-game check 2 |
+| `GetBuildInfo()` → version, build, date, interface | `/hab report` (2.0.0) | Verified in WoW Forever (2.0.0: "client 1.60.1 (71139), interface 16001") |
+| `debugprofilestop()` (ms, precise) | `/hab perf` timings (2.0.0); falls back to `GetTime` | Documentation; timings seen in game (2.0.0 check 2), which clock gave them not checked |
 | `UnitClass("player")` | `/hab report`: your class | Verified in WoW Forever (Training uses it) |
 | `C_Reputation.GetFactionDataByID` (older `GetFactionInfoByID`) | training: city reputation | In use |
 | `C_SkillInfo.GetSkillLineInfoByID(skillLine)` → { name, rank, maxRank, modifier } | professions and weapon skills (`/hab progress`, 1.11.0) | Verified in WoW Forever for weapon skill lines (Equip This!: "Two-Handed Maces 209/210"); profession lines: Verified in WoW Forever for 171 Alchemy, 185 Cooking, 129 First Aid, 182 Herbalism (1.11.0 `/hab progress`); 164 Blacksmithing, 333 Enchanting, 202 Engineering, 165 Leatherworking, 186 Mining, 393 Skinning, 197 Tailoring, 356 Fishing: same API, not yet seen (a line the game doesn't answer for isn't shown) |
