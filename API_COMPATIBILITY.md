@@ -15,7 +15,7 @@ specific behaviour was observed.
 
 | Event | Arguments used | Use | Status |
 |---|---|---|---|
-| `QUEST_TURNED_IN` | questID, xpReward, moneyReward | session: quests and quest XP (1.7.0: the XP, not the money) | Documentation (to verify: checklist 3) |
+| `QUEST_TURNED_IN` | questID, xpReward, moneyReward | session: quests and quest XP (1.7.0: the XP, not the money) | Verified in WoW Forever (1.7.0: ~N to level matches the quest's XP) |
 | `PLAYER_ENTERING_WORLD` | isInitialLogin, isReloadingUi | carry the session over a `/reload` | Verified in WoW Forever (the carry-over works since 1.x) |
 | `PLAYER_LOGOUT` | — | save the session (fires on `/reload` too) | Verified in WoW Forever |
 | `PLAYER_XP_UPDATE`, `PLAYER_MONEY`, `PLAYER_LEVEL_UP` | — | session XP and gold; rescans | Verified in WoW Forever (session bars) |
@@ -47,7 +47,7 @@ specific behaviour was observed.
 |---|---|---|
 | `SecureActionButtonTemplate` with `type = "item"`, `item = "item:<id>"` | quest item buttons; keybinds `CLICK XPPlannerQuestItemN:LeftButton` | Verified in WoW Forever |
 | Position, size, shown state and attributes of a secure button can't change in combat | the buttons are placed out of combat only | Verified (Blizzard's rules; the buttons work in combat) |
-| `SetAlpha`, `SetDesaturated` on a secure button and its textures in combat | stale buttons dimmed (1.7.0) | Inferred but untested (DEVELOPMENT.md R6) |
+| `SetAlpha`, `SetDesaturated` on a secure button and its textures in combat | stale buttons dimmed (1.7.0) | Verified in WoW Forever (1.7.0 checklist 5: dimmed, no "action blocked") |
 | Re-parenting Blizzard's tracker out of combat; alpha 0 in combat | tracker replacement | Verified in WoW Forever (replacement works) |
 
 ## Questie (outside code: every use protected, with a fallback)

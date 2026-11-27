@@ -12,8 +12,8 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 
 | # | Milestone | Status |
 |---|---|---|
-| 1 | Reliability and data integrity | **Done in 1.7.0, waiting for in-game validation and review** |
-| 2 | Quest and location intelligence | Not started (M1 must be reviewed first) |
+| 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
+| 2 | Quest and location intelligence | **In progress (1.8.0)** |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Not started |
 | 4 | Unified location engine | Not started |
 | 5 | Character progression and analytics | Not started |
@@ -186,7 +186,12 @@ Results (1.7.0 test build):
 - 3 (first part): pass. After one quest: "1 quest (~54 to level)" with 1,650 XP this session and
   1 h 52 m to level at 46.9k XP/h (about 87k XP left): about 1,600 XP a quest, the quest's XP (the
   money reward would have given a very different number). The new tooltip lines show.
-- 3 (`/reload` carry-over), 4, 5, 6: pending.
+- 3 (`/reload` carry-over), 4, 5, 6: pass (reported by the author: the session carries over a
+  `/reload`; Reset to defaults restores the hide-in-combat / in-dungeons choices, session stats and
+  border colour, keeping position and ignored quests; quest item buttons dim when the list changes
+  in combat and are back beside their quests after; Quests Nearby updates).
+
+Milestone 1 verified in game and reviewed.
 
 ### Needs verification in WoW Forever
 
