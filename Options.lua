@@ -275,9 +275,10 @@ local function BuildReport()
     local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
     local icon = w:CreateTexture(nil, "ARTWORK")
     icon:SetTexture(ICONS[i]); icon:SetSize(18, 18)
-    icon:SetPoint("TOPLEFT", 50 + col * 270, -162 - row * 26)
+    icon:SetPoint("TOPLEFT", 40 + col * 290, -162 - row * 26)
     local t = Text(w, "line", "")
     t:SetPoint("LEFT", icon, "RIGHT", 8, 0)
+    t:SetWidth(255); t:SetJustifyH("LEFT"); t:SetWordWrap(false) -- (cut short, never into the next column)
     w.stats[i] = t
   end
   local inc = Text(w, "note", INCLUDED)
@@ -303,7 +304,7 @@ function ns.ShowReport(kind)
   w.kindBtn.label:SetText(w.kind == "bug" and "Suggest an idea instead" or "Report a bug instead")
   local G = "|cffffd200"
   local q = info and info.quests
-  w.stats[1]:SetText("Your quests: " .. G .. (q and format("%d here, %d elsewhere, %d can't tell", q.here, q.elsewhere, q.unknown) or "-") .. "|r")
+  w.stats[1]:SetText("Your quests: " .. G .. (q and (format("%d here, %d elsewhere", q.here, q.elsewhere) .. (q.unknown > 0 and format(", %d can't tell", q.unknown) or "")) or "-") .. "|r")
   w.stats[2]:SetText("Session: " .. G .. (info and (info.session .. ", " .. (info.xp or "max level")) or "-") .. "|r")
   w.stats[3]:SetText("Errors caught: " .. G .. (info and info.errors or "-") .. "|r")
   w.stats[4]:SetText("Add-ons connected: " .. G .. (info and format("%d of %d", info.addons, info.ofAddons) or "-") .. "|r")
