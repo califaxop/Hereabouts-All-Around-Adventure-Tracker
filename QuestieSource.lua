@@ -142,7 +142,12 @@ local function StarterInfo(quest)
     local okZ, zone = pcall(QDB.QueryNPCSingle, npcs[1], "zoneID")
     return okN and name or nil, okZ and ZoneName(zone) or nil
   end
-  if quest.Starts and quest.Starts.Item and quest.Starts.Item[1] then return "Starts from an item", nil end
+  if quest.Starts and quest.Starts.Item and quest.Starts.Item[1] then
+    -- (1.10.0: the item's name, "Starts from Monogrammed Sash")
+    local okI, iname = false, nil
+    if QDB.QueryItemSingle then okI, iname = pcall(QDB.QueryItemSingle, quest.Starts.Item[1], "name") end
+    return (okI and type(iname) == "string") and ("Starts from " .. iname) or "Starts from an item", nil
+  end
   if quest.Starts and quest.Starts.GameObject and quest.Starts.GameObject[1] then return "Starts from an object", nil end
 end
 

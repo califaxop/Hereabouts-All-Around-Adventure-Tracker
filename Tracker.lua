@@ -719,7 +719,8 @@ end
 
 local function ShowPickupOnMap(q)
   local loc = q.loc or ns.Questie.Location(q.id)
-  local who = q.starter or q.name
+  -- (an item-started quest: the waypoint names the item and who drops it)
+  local who = (loc and loc.kind == "itemsource" and loc.label) or q.starter or q.name
   if not loc then ns.Print("no location known for " .. (q.name or "this quest") .. ".")
   elseif ns.SetWaypoint(loc, who) then ns.Print(format("waypoint set: %s (%.1f, %.1f)", who, loc.x * 100, loc.y * 100))
   else ns.Print("couldn't place a waypoint on that map.") end

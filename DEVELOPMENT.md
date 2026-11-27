@@ -355,6 +355,18 @@ Milestone 3 verified in game; awaiting review before Milestone 4.
 5. `/hab where <questID>` (or with a quest focused, `/hab where`): places by kind with the nearest
    of each and its distance, and "left to do, nearest first: a > b > c". Send one.
 
+Results (1.10.0 test build):
+- 2: pass, with a fix: Show on Map on an item-started quest set a waypoint (23.2, 72.1) where
+  there was none, but called it "Starts from an item". Now the waypoint names the item and who
+  drops it ("starts from <item>: <mob>"), and the list line names the item ("Starts from <item>").
+- 3: pass. "waypoint set: Wendel Mathers (44.3, 7.9)".
+- 4: pass. "Waypoint to the nearest objective" on The Bloodsail Buccaneers: "objective: Captain
+  Keelhaul (mob/NPC) (29.3, 88.3)".
+- 5: pass. `/hab where 608`: 5 places; giver Fleet Master Seahorn (27.2, 77.0) 627 yd; 3 objectives,
+  nearest Captain Keelhaul 1125 yd; turn-in Fleet Master Seahorn; "left to do, nearest first:
+  Captain Keelhaul > Fleet Master Firallon > Captain Stillwater".
+- 1: pending (errors).
+
 ### Needs verification in WoW Forever
 
 ### Needs verification in WoW Forever

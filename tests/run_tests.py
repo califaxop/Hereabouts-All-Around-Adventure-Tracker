@@ -552,6 +552,10 @@ def _():
     -- an item-started quest: where its item drops (1.9.0: no location)
     local loc = NS.Questie.Location(501)
     assert(loc and loc.kind == "itemsource" and loc.label:find("starts from Old Map: Wolf", 1, true), loc and loc.label)
+    NS.db.pickupZoneOnly = false
+    local c
+    for _, x in ipairs((NS.Questie.Ranked(10))) do if x.id == 501 then c = x end end
+    assert(c and c.starter == "Starts from Old Map", tostring(c and c.starter))
     """
 
 @test("active quests: places left exclude finished objectives; the waypoint goes to the nearest", saved=QUESTIE_WORLD)
