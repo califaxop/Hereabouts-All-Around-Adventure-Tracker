@@ -14,7 +14,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 |---|---|---|
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
-| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | **Done in 1.9.0, waiting for in-game validation and review** |
+| 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | **Done in 1.9.0, verified in game, waiting for review** |
 | 4 | Unified location engine | Not started |
 | 5 | Character progression and analytics | Not started |
 | 6 | Modular interface | Not started |
@@ -309,7 +309,10 @@ Results (1.9.0 test build):
   model: an item start can point at where the item drops).
 - 5: replacing off: the tracker (FlareUI's / Blizzard's) came back; Hereabouts, dragged to the same
   place, sits over it (its position is the player's; "Move under quest tracker" puts it below).
-  In combat: pending.
+  In combat: pass (turned on mid-fight: it waited, and took effect when combat ended; no "action
+  blocked").
+
+Milestone 3 verified in game; awaiting review before Milestone 4.
 
 ### Needs verification in WoW Forever
 
