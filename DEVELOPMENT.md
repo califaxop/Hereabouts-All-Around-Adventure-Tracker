@@ -17,7 +17,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
 | 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
 | 5 | Character progression and analytics | Done in 1.11.0, verified in game, reviewed |
-| 6 | Modular interface | **Done in 1.12.0, waiting for in-game validation and review** |
+| 6 | Modular interface | **Done in 1.12.0, verified in game, waiting for review** |
 | 7 | Diagnostics and release | Not started |
 
 ## Conventions
@@ -438,6 +438,12 @@ Milestone 5 verified in game; awaiting review before Milestone 6.
 Results (1.12.0 test build):
 - 6: failed: the Layout page's section rows were drawn over "Your layouts" (their position was
   worked out on each refresh from a variable that had moved on to the last heading). Fixed (`top`).
+- After the fix: 1-6 pass. The Layout page: five rows under their heading (Up greyed on the first,
+  Down on the last), presets, three slots. Dungeons moved to the top: the tracker follows. Slot 1
+  saved ("saved 28 Nov 01:15"). "This zone": Training and Dungeons off, the sections on "Zone".
+  "Dungeons": Dungeons first, Quests Nearby off, Active Quests on "All". A reset keeps slot 1.
+
+Milestone 6 verified in game; awaiting review before Milestone 7.
 
 ### Needs verification in WoW Forever
 
