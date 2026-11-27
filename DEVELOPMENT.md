@@ -236,7 +236,16 @@ Results (1.8.0 test build):
   ("…places it in Stranglethorn Vale; Questie agrees", authoritative; one Forever quest, 96988,
   "Source of Power", in Alterac Mountains), 4 by Questie's data alone (Shadowshard Fragments, Scarab
   Shells, Tiara of the Deep, Gahz'rilla: no game map for them). None "can't tell".
-- 1, 3-6: pending.
+- 3: pass. In Stranglethorn Vale: Mok'thardin's Enchantment, Voodoo Dues, The Bloodsail Buccaneers
+  "here: the game's map places it here" (authoritative); the rest elsewhere with their reasons
+  (Necklace Recovery's game map moved from Badlands to Loch Modan as the quest progressed).
+- 5 (target): pass. `/hab focus`: "fighting Maury "Club Foot" Wilkins (found by your target's
+  tooltip): Voodoo Dues: maury's clubbed foot"; "fighting Naga Explorer: Mok'thardin's Enchantment:
+  naga explorer; Akiris by the Bundle: akiris reed" (one mob, two quests: a kill and a drop).
+- 1: pass (no Lua errors on 1.8.0).
+- 5 (a mob that pulls you, no target: enemy nameplates, threat API / text), 6 ("Name x2"): pending.
+
+### Needs verification in WoW Forever
 
 ### Needs verification in WoW Forever
 
