@@ -188,6 +188,16 @@ function ns.LoadDB()
   ns.db = HereaboutsDB
 end
 
+-- How long things take (2.0.0, /hab perf): ms, precise where the game offers it
+function ns.Clock() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
+-- each kind: { n, ms, max }; since: when counting began (GetTime)
+ns.perf = { since = 0 }
+function ns.Measure(kind, ms)
+  local p = ns.perf[kind] or { n = 0, ms = 0, max = 0 }
+  ns.perf[kind] = p
+  p.n, p.ms, p.max = p.n + 1, p.ms + ms, math.max(p.max, ms)
+end
+
 -- Errors caught while building or drawing the list (1.7.0): each one printed the first time only
 -- (before, every rebuild printed it again), all kept for /hab errors and /hab status: the last 10,
 -- the same one again counted.

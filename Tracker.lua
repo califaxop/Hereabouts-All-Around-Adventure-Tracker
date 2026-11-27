@@ -1231,22 +1231,30 @@ end
 --   (none):   anything else: rebuild
 local LEVEL = { redraw = 1, log = 2, full = 3 }
 local pending, need, lastStamp, lastList = false, 0, nil, nil
+-- (each step timed for /hab perf: "build" the lists, "draw" them, "skip" a log change that changed
+-- nothing shown)
+local function Draw(list)
+  local t = ns.Clock()
+  local ok, e = pcall(ns.Render, list)
+  ns.Measure("draw", ns.Clock() - t)
+  if not ok then ns.NoteError("drawing the list", e) end
+end
 local function Run()
   pending = false
   local level = need; need = 0
-  if level == LEVEL.redraw and lastList then
-    local ok, e = pcall(ns.Render, lastList)
-    if not ok then ns.NoteError("drawing the list", e) end
-    return
-  end
+  if level == LEVEL.redraw and lastList then return Draw(lastList) end
+  local t = ns.Clock()
   local ok, stamp, quests = pcall(ns.QuestLogStamp)
   if not ok then ns.NoteError("reading the quest log", stamp); stamp, quests = nil, nil end
-  if level == LEVEL.log and stamp and stamp == lastStamp and lastList then return end -- nothing we show changed
+  if level == LEVEL.log and stamp and stamp == lastStamp and lastList then -- nothing we show changed
+    ns.Measure("skip", ns.Clock() - t)
+    return
+  end
   local ok2, s = pcall(ns.BuildSuggestions, quests)
+  ns.Measure("build", ns.Clock() - t)
   if not ok2 then ns.NoteError("building the list", s); return end
   lastStamp, lastList = stamp, s
-  local ok3, e = pcall(ns.Render, s)
-  if not ok3 then ns.NoteError("drawing the list", e) end
+  Draw(s)
 end
 function ns.Refresh(kind)
   local level = LEVEL[kind or "full"] or LEVEL.full
@@ -1297,6 +1305,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
     elseif arg1 then ns.Session.ArchiveSaved() end -- (a real login: the last session goes into the history)
   end
   if event == "PLAYER_LOGIN" then
+    ns.perf.since = GetTime()
     ns.ApplyBackdrop() -- FlareUI's media is registered by now
     ns.Print("loaded. Type |cffffff00/hab|r to set up Hereabouts.")
     if ns.Questie.Init() then ns.Print("using Questie's quest database.") end
@@ -1373,6 +1382,72 @@ function ns.WhereReport(id)
   return out
 end
 
+-- /hab perf (2.0.0): what the list's work costs since the last /hab perf (then it counts afresh),
+-- and the last Questie scan
+function ns.PerfReport()
+  local P = ns.perf
+  local secs = math.max(1, GetTime() - (P.since or 0))
+  local L = { format("in the last %d s:", secs) }
+  for _, k in ipairs({ { "build", "list builds" }, { "draw", "redraws" }, { "skip", "quest log changes with nothing to rebuild" } }) do
+    local p = P[k[1]]
+    if p and p.n > 0 then
+      L[#L + 1] = format("  %d %s, %.2f ms each on average, %.2f ms at most", p.n, k[2], p.ms / p.n, p.max)
+    else
+      L[#L + 1] = format("  no %s", k[2])
+    end
+  end
+  local q = ns.Questie.lastScan
+  L[#L + 1] = q and format("last Questie scan: %d quests (%s) over %d frames, %.1f ms of work, %.2f ms at most in a frame",
+    q.ids, q.from, q.slices, q.ms, q.max) or "no Questie scan yet"
+  ns.perf = { since = GetTime() }
+  return L
+end
+
+-- /hab report (2.0.0): what a bug report needs, as one text to copy
+function ns.Report()
+  local L = {}
+  local function add(...) L[#L + 1] = format(...) end
+  local get = C_AddOns and C_AddOns.GetAddOnMetadata
+  local okB, build, number, _, toc = pcall(function() return GetBuildInfo() end)
+  local _, class = UnitClass("player")
+  add("Hereabouts %s; client %s (%s), interface %s; %s %d", tostring(get and get(ns.name, "Version") or "?"),
+    okB and tostring(build) or "?", okB and tostring(number) or "?", okB and tostring(toc) or "?", tostring(class), UnitLevel("player"))
+  for _, it in ipairs(ns.Integrations()) do add("%s (%s): %s", it[1], it[2], it[3]) end
+  local miss = {}
+  for _, c in ipairs(ns.Questie.Capabilities()) do if not c[2] then miss[#miss + 1] = c[1] end end
+  if ns.Questie.Available() then add("Questie parts not there: %s", #miss > 0 and table.concat(miss, ", ") or "none") end
+  -- where your quests count (/hab zone in short)
+  local n, by = { here = 0, elsewhere = 0, unknown = 0 }, {}
+  for _, q in ipairs(ns.LogQuests()) do
+    local inZone, _, source = ns.QuestInZone(q)
+    local k = inZone and "here" or (inZone == nil and "unknown" or "elsewhere")
+    n[k] = n[k] + 1
+    source = source or "none"
+    by[source] = (by[source] or 0) + 1
+  end
+  local src = {}
+  for k, v in pairs(by) do src[#src + 1] = format("%s %d", ns.LOCATION_CONFIDENCE[k] or k, v) end
+  table.sort(src)
+  add("your quests: %d here, %d elsewhere, %d can't tell (decided by: %s)", n.here, n.elsewhere, n.unknown, table.concat(src, ", "))
+  local shown, stale = 0, 0
+  for _, b in ipairs(ns.QuestItems.buttons) do if b:IsShown() then shown = shown + 1; if b.stale then stale = stale + 1 end end end
+  add("quest item buttons: %d shown, %d waiting for combat to end; in combat: %s", shown, stale, InCombatLockdown() and "yes" or "no")
+  local v = ns.Session.Values()
+  add("session: %s, %s%s%s; %d past sessions", v.elapsed, v.xp or "max level", v.approx and " (approximate)" or "",
+    ns.Session.restoreNote and ("; " .. ns.Session.restoreNote) or "", #ns.Session.History())
+  local order = {}
+  for _, key in ipairs(ns.SectionOrder()) do
+    for _, m in ipairs(ns.MODULES) do if m.key == key then order[#order + 1] = m.name .. (ns.db[m.show] and "" or " (off)") end end
+  end
+  add("sections: %s; replacing the tracker: %s", table.concat(order, ", "), ns.db.replaceTracker and "yes" or "no")
+  local q = ns.Questie.lastScan
+  if q then add("last Questie scan: %d quests over %d frames, %.0f ms", q.ids, q.slices, q.ms) end
+  if #ns.errors == 0 then add("errors caught: none") end
+  for _, e in ipairs(ns.errors) do add("error (%s, x%d): %s", e.where, e.n, e.msg) end
+  -- one line for the box; a | doubled (the box's way of showing one)
+  return (table.concat(L, " // "):gsub("|", "||"))
+end
+
 -- /hab status (1.7.0): the version, what's bound of Questie and What's Training, the session,
 -- the quest item buttons and the errors caught: what a bug report needs
 function ns.Status()
@@ -1435,6 +1510,14 @@ SlashCmdList.XPPLANNER = function(msg)
   elseif cmd == "status" then
     for _, l in ipairs(ns.Status()) do ns.Print(l) end
     return
+  elseif cmd == "perf" then
+    for _, l in ipairs(ns.PerfReport()) do ns.Print(l) end
+    return
+  elseif cmd == "report" then
+    local ok, text = pcall(ns.Report)
+    if not ok then ns.Print("report failed: " .. tostring(text)); return end
+    ns.ShowLink("Hereabouts report", text, "Press Ctrl+C to copy it, then paste it into your bug report (/hab > Status > Report a bug).")
+    return
   elseif cmd == "errors" then
     if #ns.errors == 0 then ns.Print("no errors caught this session.") end
     for _, e in ipairs(ns.errors) do ns.Print(format("%s (x%d): %s", e.where, e.n, e.msg)) end
@@ -1469,7 +1552,7 @@ SlashCmdList.XPPLANNER = function(msg)
     for _, l in ipairs(ns.CombatFocusReport()) do ns.Print(l) end
     return
   else
-    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab where <quest>  -  /hab progress  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab where <quest>  -  /hab progress  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors  -  /hab perf  -  /hab report")
     return
   end
   ns.Refresh()

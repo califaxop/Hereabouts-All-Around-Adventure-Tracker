@@ -214,7 +214,9 @@ end
 
 -- A small window with a link, selected and ready to copy (addons can't open a browser).
 local linkWin, linkHost -- linkHost: the settings window, once built
-local function ShowLink(title, url)
+-- note: the line under the title (default: copy the link into your browser); a text to copy (a
+-- /hab report) works the same way
+local function ShowLink(title, url, note)
   if not linkWin then
     linkWin = Window("XPPlannerLinkWindow", 400, 118)
     -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
@@ -230,7 +232,7 @@ local function ShowLink(title, url)
     linkWin:Hide()
     linkWin.title = Text(linkWin, "title", "")
     linkWin.title:SetPoint("TOPLEFT", 20, -18)
-    Note(linkWin, "Press Ctrl+C to copy, then paste it into your browser.", 20, -44, 360)
+    linkWin.note = Note(linkWin, "", 20, -44, 360)
     local e = CreateFrame("EditBox", nil, linkWin, "BackdropTemplate")
     e:SetSize(360, 20); e:SetPoint("TOPLEFT", 20, -66); e:SetAutoFocus(false); e:SetTextInsets(6, 6, 0, 0)
     e:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
@@ -249,6 +251,7 @@ local function ShowLink(title, url)
   end
   linkWin.url = url
   linkWin.title:SetText(title)
+  linkWin.note:SetText(note or "Press Ctrl+C to copy, then paste it into your browser.")
   linkWin.edit:SetText(url)
   linkWin:ClearAllPoints()
   if linkHost and linkHost:IsShown() then

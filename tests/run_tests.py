@@ -707,6 +707,102 @@ def _():
     """
 
 
+# ---------------------------------------------------------------------------------------------
+# M7: migrations, combat, large scans, the report
+# ---------------------------------------------------------------------------------------------
+# what 1.6.1 saved (from the v1.6.1 tag: its settings, before sectionOrder and layouts; a session
+# from before startLevel and approx). Older than 1.6: no borderVersion (the defaults test above).
+SAVED_161 = """
+HereaboutsDB = { maxQuests = 6, showTraining = false, borderVersion = 2, borderColor = { 0.5, 0.5, 0.5 },
+  pos = { "TOPLEFT", "TOPLEFT", 40, -200 }, sessionStats = { xph = true, gph = true }, ignoredQuests = { [77] = true } }
+HereaboutsCharDB = { session = { elapsed = 1800, gained = 4000, quests = 3, questXP = 2500, earned = 900,
+  lastXP = 100, lastMax = 1000, lastLevel = 19, lastMoney = 5000, savedAt = 1699990000 } }
+"""
+
+@test("migration: 1.6.1 settings keep the player's choices; new ones filled; its session goes into the history", saved=SAVED_161)
+def _():
+    """
+    local db = NS.db
+    assert(db.maxQuests == 6 and db.showTraining == false and db.pos[3] == 40 and db.ignoredQuests[77], "kept")
+    assert(db.borderColor[1] == 0.5 and db.sessionStats.gph and not db.sessionStats.ttl, "the player's border and stats")
+    assert(#NS.SectionOrder() == #NS.MODULES and db.sectionOrder[1] == "quests", "new settings filled")
+    -- a real login (the harness fires it): 1.6.1's session archived, never restored
+    local h = NS.Session.History()
+    assert(#h == 1 and h[1].xp == 4000 and h[1].quests == 3 and h[1].from == nil and h[1].to == 19, "archived: " .. #h)
+    assert(HereaboutsCharDB.session == nil)
+    -- a /reload with a 1.6.1-shaped session (no startLevel, no approx): carried on, exact
+    HereaboutsCharDB.session = { elapsed = 60, gained = 50, lastXP = 100, lastMax = 1000, lastLevel = 20, lastMoney = 5000, savedAt = MOCK.clock }
+    assert(NS.Session.Restore() == true)
+    local v = NS.Session.Values()
+    assert(v.xp == "50 XP" and not v.approx, tostring(v.xp))
+    """
+
+@test("combat: a full rebuild, redraws and every event in combat touch no protected frame and raise no error")
+def _():
+    """
+    GetQuestLogSpecialItemInfo = function(i) return "item:" .. (10 + MOCK.quests[i].questID), 134400 end
+    MOCK.methods.GetLeft = function(s) return s._left or 100 end   -- the list's rows on screen
+    MOCK.methods.GetTop = function(s) return s._top or 500 end
+    MOCK.methods.GetBottom = function(s) return (s._top or 500) - 16 end
+    MOCK.quests = { { questID = 1, title = "A", level = 20 }, { questID = 2, title = "B", level = 20 } }
+    NS.Refresh("full"); MOCK.RunTimers()
+    local QI = NS.QuestItems
+    local b1 = QI.buttons[1]
+    assert(b1 and b1._protected and b1.questID == 1 and b1._attr.item == "item:11", "set up out of combat")
+    MOCK.combat = true; MOCK.Fire("PLAYER_REGEN_DISABLED")
+    table.remove(MOCK.quests, 1)
+    for _, e in ipairs({ "QUEST_LOG_UPDATE", "ZONE_CHANGED_NEW_AREA", "PLAYER_LEVEL_UP", "QUEST_TURNED_IN", "BAG_UPDATE_DELAYED" }) do
+      MOCK.Fire(e, 1, 100, 0)
+    end
+    for _, k in ipairs({ "full", "log", "redraw" }) do NS.Refresh(k); MOCK.RunTimers() end
+    NS.ResetDB(); NS.ApplyPreset("dungeon"); NS.Refresh("full"); MOCK.RunTimers()
+    assert(#NS.errors == 0, "no error: " .. (NS.errors[1] and NS.errors[1].msg or ""))
+    assert(b1._attr.item == "item:11" and b1.questID == 1 and b1.stale, "A's button: still A's, marked")
+    MOCK.combat = false; MOCK.Fire("PLAYER_REGEN_ENABLED"); MOCK.RunTimers()
+    assert(b1.questID == 2 and b1._attr.item == "item:12" and not b1.stale, "B's after combat")
+    """
+
+@test("questie: a large database scan runs in slices (none over 250 quests) and is timed for /hab perf")
+def _():
+    """
+    local ptrs = {}
+    for id = 1, 9000 do ptrs[id] = true end
+    local QDB = { IsDoable = function() return true end,
+      GetQuest = function(id) return { name = "Quest " .. id, level = 20, zoneOrSort = 12, Starts = {} } end,
+      QuestPointers = ptrs, QueryNPCSingle = function() return nil end, QueryObjectSingle = function() return nil end,
+      QueryQuestSingle = function() return nil end }
+    local MODULES = { QuestieDB = QDB, QuestXP = { GetQuestLogRewardXP = function() return 500 end } }
+    QuestieLoader = { ImportModule = function(_, name) return MODULES[name] end }
+    Questie = { API = { RegisterOnReady = function(fn) fn() end } }
+    local frames = 0
+    local after = C_Timer.After
+    C_Timer.After = function(d, fn) frames = frames + 1; return after(d, fn) end
+    assert(NS.Questie.Init())
+    for _ = 1, 100 do if #MOCK.timers == 0 then break end MOCK.RunTimers() end
+    local s = NS.Questie.lastScan
+    assert(s and s.ids == 9000 and s.from == "Questie's database", "scanned: " .. tostring(s and s.ids))
+    assert(s.slices >= 36 and s.max <= s.ms, "in slices of at most 251: " .. s.slices)
+    local L = NS.PerfReport()
+    assert(table.concat(L, " "):find("last Questie scan: 9000 quests", 1, true), table.concat(L, " / "))
+    assert(NS.perf.build == nil, "counting afresh after /hab perf")
+    """
+
+@test("report: /hab report is one line with version, integrations, locations, buttons, session, sections, errors")
+def _():
+    """
+    MOCK.quests = { { questID = 1, title = "A", level = 20 } }
+    NS.NoteError("testing", "a | bar")
+    local r = NS.Report()
+    for _, want in ipairs({ "Hereabouts test", "Questie (off)", "your quests: ", "quest item buttons:", "session:",
+                            "sections: ", "error (testing" }) do
+      assert(r:find(want, 1, true), want .. " missing: " .. r)
+    end
+    assert(not r:find("\\n") and r:find("a || bar", 1, true), "one line, | doubled")
+    PRINTS = {}; SlashCmdList.XPPLANNER("perf")
+    assert(PRINTS[1] and PRINTS[1]:find("in the last"), tostring(PRINTS[1]))
+    SlashCmdList.XPPLANNER("report")
+    """
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

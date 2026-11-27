@@ -580,14 +580,20 @@ function Q.Scan()
   local fresh, i = {}, 1
   local old = candidates
   candidates = fresh
+  -- (timed for /hab perf: quests looked at, frames used, the longest frame, the whole scan's work)
+  local stats = { ids = #ids, from = fromQuestie and "Questie's available set" or "Questie's database", slices = 0, ms = 0, max = 0 }
   local function step()
+    local t = ns.Clock()
     local stop = math.min(i + 250, #ids)
     for n = i, stop do Consider(ids[n], fromQuestie) end
     i = stop + 1
+    local ms = ns.Clock() - t
+    stats.slices, stats.ms, stats.max = stats.slices + 1, stats.ms + ms, math.max(stats.max, ms)
     if i <= #ids then
       C_Timer.After(0, step)
     else
       scanning = false
+      Q.lastScan = stats
       if Q.onUpdate then Q.onUpdate() end
     end
   end

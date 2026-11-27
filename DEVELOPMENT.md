@@ -17,8 +17,8 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
 | 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
 | 5 | Character progression and analytics | Done in 1.11.0, verified in game, reviewed |
-| 6 | Modular interface | **Done in 1.12.0, verified in game, waiting for review** |
-| 7 | Diagnostics and release | Not started |
+| 6 | Modular interface | Done in 1.12.0, verified in game, reviewed |
+| 7 | Diagnostics and release | **Done in 2.0.0 (offline); in-game checks pending** |
 
 ## Conventions
 
@@ -252,6 +252,44 @@ verified places do (Milestone 5), rather than being given made-up coordinates.
 The visual design is unchanged: sections, headings, colours, skins and animations are drawn by the
 same code as before, only in the order chosen.
 
+## Milestone 7 (2.0.0)
+
+| # | Change | Notes |
+|---|---|---|
+| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the link window (`ShowLink(title, text, note)`), each `|` doubled so the box shows it as typed |
+| 36 | `/hab perf` | `ns.Measure` (Core.lua) times each list build, redraw and skipped rebuild (`debugprofilestop`, else `GetTime`); `/hab perf` prints counts, averages and maxima since the last `/hab perf` (or login), then counts afresh. Questie's scan records quests looked at, where from, frames used, its work and the longest frame (`Questie.lastScan`) |
+| 37 | Release check | `tests/check_release.py`: the version in the toc, CHANGELOG and README match; the toc's files exist and every Lua file is loaded; the release zip leaves the developer files out; the offline tests pass |
+
+Tests added: 1.6.1's saved settings and session (from the v1.6.1 tag) load, keep the player's
+choices, fill the new settings, and its session goes into the history at a real login (a
+1.6.1-shaped session without `startLevel` / `approx` carries on over a `/reload`); a full rebuild,
+redraws, every list event, a reset and a preset in combat with quest item buttons shown: no error,
+nothing protected touched, the button still its own quest's (dimmed), placed for the new list when
+combat ends; a 9000-quest Questie database scanned in slices of at most 251 quests, timed; the report
+and `/hab perf`. They found no new defects.
+
+The offline scan timing says nothing about the game's speed (the mock does no real work); the
+numbers that count are `/hab perf` in game (checklist below).
+
+## Known limitations (2.0.0)
+
+- Distances, the nearest place and routes work on your continent only; nothing is guessed across
+  continents.
+- A quest no source can place is "can't tell" and stays listed under "only this zone".
+- The quest log heading (a zone's name) is a weak source; Questie's spawns are for the quest in
+  general and can span zones.
+- Dungeon level ranges and entrances, trainer cities and weapon masters are static Classic data,
+  not checked one by one in Forever.
+- Combat focus's threat text ("N% Threat") is read in English only; the threat API works in every
+  language.
+- In combat a quest item button can't move, hide or change item: it dims until combat ends.
+- Questie's quest log (`currentQuestlog`) and map markers (`questIdFrames`) are its internals:
+  Questie 12.15.0 has no `currentQuestlog`; without them Hereabouts uses Questie's database.
+- XP gained across several levels between two readings is approximate (marked "~").
+- Profession skill lines seen in game: Alchemy, Cooking, First Aid, Herbalism; the others use the
+  same API, not yet seen.
+- Layouts and presets change what shows, never the look (position, scale, colours, border).
+
 ## Testing
 
 ### Offline
@@ -261,7 +299,8 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-31 tests (1.12.0): the sections' order (old or damaged orders, moving, drawing in any order),
+35 tests (2.0.0): 1.6.1's saved data, a full rebuild in combat, a large Questie scan, the report
+and `/hab perf`; the sections' order (old or damaged orders, moving, drawing in any order),
 presets (what shows, never the look), layouts (copies, empty slots, kept by a reset), the settings
 window building; session history (real login, reset, not on a /reload or zoning, minimum,
 cap), progress (totals, weapon skill caps, skills from the game, report), dungeons' quests; the location model (checked maps and points, Questie's spawns, caps, filters),
@@ -445,14 +484,22 @@ Results (1.12.0 test build):
 
 Milestone 6 verified in game; awaiting review before Milestone 7.
 
-### Needs verification in WoW Forever
+### In-game checklist (Milestone 7 → release)
+
+1. Install 2.0.0, `/reload`: the tracker as in 1.12.0; no Lua errors. `/hab` > Status: every add-on
+   as before.
+2. Quest for a few minutes (a turn-in, a fight), then `/hab perf`: list builds, redraws and skips
+   with their times, and the last Questie scan (quests, frames, ms). Run it again: "in the last N s"
+   starts afresh. Note the numbers (the largest "at most" values especially).
+3. `/hab report`: the window opens with one line of text; Ctrl+A, Ctrl+C, paste it somewhere: the
+   version, client, add-ons, your quests' counts, buttons, session, sections, errors. Close it with
+   Escape.
+4. In a fight with a quest item button shown, turn in or abandon a quest by its mob (or loot to
+   finish one): no "action blocked", the button dims, then moves when combat ends.
+5. Log out fully and back in: the session bar starts afresh, `/hab progress` lists the last one.
+6. `python3 tests/check_release.py` (offline): passes.
 
 ### Needs verification in WoW Forever
 
-- `QUEST_TURNED_IN` arguments (questID, xpReward, moneyReward): consistent with check 3 (the
-  quest's XP, not its money); confirmed when a turn-in with a known XP reward is compared.
-- `SetAlpha` / `SetDesaturated` on a secure button in combat (R6): check 5.
-- `PLAYER_ENTERING_WORLD (isInitialLogin, isReloadingUi)` on Forever: in use since 1.x, the session
-  carry-over has been seen working; recheck with check 3.
-- `UnitThreatSituation("player", nameplateN)` outside a group: verified (1.8.0 check 5: solo,
-  "found by enemy nameplates (threat API)").
+- `GetBuildInfo` (version, build, date, interface) and `debugprofilestop`: checks 2 and 3.
+- Profession lines not yet seen (see Known limitations).

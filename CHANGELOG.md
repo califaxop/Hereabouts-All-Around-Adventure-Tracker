@@ -1,13 +1,24 @@
 # Changelog
 
-## 1.12.0 (Milestone 6: modular interface)
+## 2.0.0 (the development plan: Milestones 1-7)
+
+The first release of the development plan. 1.7.0 to 1.12.0 below were test builds of its
+milestones (not published); 2.0.0 is all of them, plus Milestone 7:
+
+- New: `/hab report` puts everything a bug report needs into one text to copy: version and client,
+  the connected add-ons and any missing parts, where your quests count (here, elsewhere, can't
+  tell, and what decided), the quest item buttons, the session, your sections and the errors
+  caught. Status > "Report a bug / suggest" gives the link to the form.
+- New: `/hab perf`: how long building and drawing the list takes, and the last Questie scan.
+
+## 1.12.0 (Milestone 6: modular interface; test build)
 
 - New Layout tab: put the sections in your own order (Up / Down) and show or hide each.
 - Presets: Questing, This zone, Dungeons, Minimal, Leveling (they change what shows, never the
   look).
 - Three slots to save your layouts and load them back; "Reset to defaults" keeps them.
 
-## 1.11.0 (Milestone 5: character progression)
+## 1.11.0 (Milestone 5: character progression; test build)
 
 - Session history: each session is kept when it ends (your next login, or a reset), up to 20;
   the session bar's tooltip shows the last one.
@@ -16,7 +27,7 @@
 - Dungeons say how many of your quests are for each, and (unless sorting by level) list those first.
 - Training says how much you're short when your money doesn't cover it.
 
-## 1.10.0 (Milestone 4: one location model)
+## 1.10.0 (Milestone 4: one location model; test build)
 
 - Quests that start from an item have a place: Show on Map goes to where the item drops (it said
   "no location known"), and Quests Nearby's zone filter counts them there.
@@ -27,7 +38,7 @@
   left in nearest-first order.
 - Under the hood: one location model for every place Hereabouts knows.
 
-## 1.9.0 (Milestone 3: integration compatibility)
+## 1.9.0 (Milestone 3: integration compatibility; test build)
 
 - Fixed: a change in What's Training could stop the whole tracker; now only its Training section
   empties.
@@ -40,7 +51,7 @@
   checked place, and `/hab questie` and the Status page show which of Questie's parts are there.
 - The Status page lists EllesmereUI too, and says when an add-on works without some of its parts.
 
-## 1.8.0 (Milestone 2: quest and location intelligence)
+## 1.8.0 (Milestone 2: quest and location intelligence; test build)
 
 - With "only this zone" on, a quest Hereabouts can't place stays listed (it was hidden as
   "elsewhere").
@@ -52,7 +63,7 @@
 - `/hab zone` says here / elsewhere / can't tell, why, and how sure; new `/hab focus` shows what
   combat focus sees.
 
-## 1.7.0 (Milestone 1: reliability and data integrity)
+## 1.7.0 (Milestone 1: reliability and data integrity; test build)
 
 - Fixed: "Quests this session (~N to level)" used each quest's money reward as its XP.
 - Fixed: "Reset to defaults" didn't reset the "hide in combat / in dungeons" choices, the session
