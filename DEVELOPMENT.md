@@ -256,7 +256,7 @@ same code as before, only in the order chosen.
 
 | # | Change | Notes |
 |---|---|---|
-| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in its own window as Proc This!'s `/pt report` (`ns.ShowReport`, Options.lua): the report selected in the box, "Bug report page" (the form's link, in the link window, raised over it) and Close; each `|` doubled so the box shows it as typed |
+| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the bug report window (`ns.ShowReport`, Options.lua; laid out as Equip This!'s fight records export and Questie's trace export): the form's link to copy at the top (the bug form with the version filled in, or the ideas form), what to do, the report line selected and ready to copy, four counters (your quests, session, errors caught, add-ons connected) and what's included / never included. Status > "Report a bug / suggest" opens the same window (before 2.0.0 it gave the link only). Each `|` doubled so the box shows it as typed |
 | 36 | `/hab perf` | `ns.Measure` (Core.lua) times each list build, redraw and skipped rebuild (`debugprofilestop`, else `GetTime`); `/hab perf` prints counts, averages and maxima since the last `/hab perf` (or login), then counts afresh. Questie's scan records quests looked at, where from, frames used, its work and the longest frame (`Questie.lastScan`) |
 | 37 | Release check | `tests/check_release.py`: the version in the toc, CHANGELOG and README match; the toc's files exist and every Lua file is loaded; the release zip leaves the developer files out; the offline tests pass |
 
@@ -491,9 +491,10 @@ Milestone 6 verified in game; awaiting review before Milestone 7.
 2. Quest for a few minutes (a turn-in, a fight), then `/hab perf`: list builds, redraws and skips
    with their times, and the last Questie scan (quests, frames, ms). Run it again: "in the last N s"
    starts afresh. Note the numbers (the largest "at most" values especially).
-3. `/hab report`: the report window opens with the report selected; Ctrl+C, paste it somewhere: the
-   version, client, add-ons, your quests' counts, buttons, session, sections, errors. "Bug report
-   page": the link window opens on top with the form's link. Close both.
+3. `/hab report` (and Status > "Report a bug / suggest"): the bug report window: the form's link at
+   the top, the note, the report line selected (Ctrl+C, paste it somewhere: version, client,
+   add-ons, quests, buttons, session, sections, errors), the four counters. "Suggest an idea
+   instead": the link becomes the ideas form. Escape and Close close it.
 4. In a fight with a quest item button shown, turn in or abandon a quest by its mob (or loot to
    finish one): no "action blocked", the button dims, then moves when combat ends.
 5. Log out fully and back in: the session bar starts afresh, `/hab progress` lists the last one.
@@ -504,8 +505,9 @@ Results (2.0.0 test build):
   most); 10 skipped rebuilds, 0.53 ms. Questie's scan: 320 quests (its available set) over 2
   frames, 25.8 ms of work, 18.27 ms at most in a frame.
 - 3: the report was complete (2.0.0, client 1.60.1 (71139), interface 16001; every add-on; 3 here,
-  11 elsewhere, 0 can't tell; no errors). Asked for: the same report window as Proc This!'s.
-  Changed: its own window with "Bug report page" and Close (recheck 3).
+  11 elsewhere, 0 can't tell; no errors). Asked for: a window like Equip This!'s fight records
+  (Questie's trace export): the link at the top, what to do, the text to copy. Changed: the bug
+  report window, also behind Status > "Report a bug / suggest" (recheck 3).
 - 4, 5: pass (history: two sessions listed; professions and weapon skills shown).
 
 ### Needs verification in WoW Forever

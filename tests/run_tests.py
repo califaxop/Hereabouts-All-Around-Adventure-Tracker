@@ -802,7 +802,11 @@ def _():
     assert(PRINTS[1] and PRINTS[1]:find("in the last"), tostring(PRINTS[1]))
     SlashCmdList.XPPLANNER("report")
     local w = XPPlannerReportWindow
-    assert(w and w._shown and w.edit._text == NS.Report() and w.note._text:find("Bug report page", 1, true), "the report window")
+    assert(w and w._shown and w.line._text == NS.Report() and w.url:find("template=bug_report.yml&version=test", 1, true), "the report window")
+    assert(w.urlBox._text == w.url and w.stats[3]._text:find("Errors caught: |cffffd2001", 1, true), w.stats[3]._text)
+    assert(w.kindBtn.label._text == "Suggest an idea instead")
+    w.kindBtn._scripts.OnClick()
+    assert(w.kind == "idea" and w.urlBox._text:find("feature_request", 1, true) and w.kindBtn.label._text == "Report a bug instead")
     """
 
 if __name__ == '__main__':

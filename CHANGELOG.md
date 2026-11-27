@@ -5,10 +5,11 @@
 The first release of the development plan. 1.7.0 to 1.12.0 below were test builds of its
 milestones (not published); 2.0.0 is all of them, plus Milestone 7:
 
-- New: `/hab report` puts everything a bug report needs into one text to copy: version and client,
-  the connected add-ons and any missing parts, where your quests count (here, elsewhere, can't
-  tell, and what decided), the quest item buttons, the session, your sections and the errors
-  caught; its "Bug report page" button gives the link to the bug report form.
+- New bug report window (Status > "Report a bug / suggest", or `/hab report`): the bug form's link
+  at the top and one line to copy into it with everything a report needs: version and client, the
+  connected add-ons and any missing parts, where your quests count (here, elsewhere, can't tell,
+  and what decided), the quest item buttons, the session, your sections and the errors caught.
+  Never your name, realm or guild.
 - New: `/hab perf`: how long building and drawing the list takes, and the last Questie scan.
 
 ## 1.12.0 (Milestone 6: modular interface; test build)

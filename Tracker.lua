@@ -1403,7 +1403,7 @@ function ns.PerfReport()
   return L
 end
 
--- /hab report (2.0.0): what a bug report needs, as one text to copy
+-- /hab report (2.0.0): what a bug report needs, as one text to copy; and the counters shown under it
 function ns.Report()
   local L = {}
   local function add(...) L[#L + 1] = format(...) end
@@ -1412,7 +1412,13 @@ function ns.Report()
   local _, class = UnitClass("player")
   add("Hereabouts %s; client %s (%s), interface %s; %s %d", tostring(get and get(ns.name, "Version") or "?"),
     okB and tostring(build) or "?", okB and tostring(number) or "?", okB and tostring(toc) or "?", tostring(class), UnitLevel("player"))
-  for _, it in ipairs(ns.Integrations()) do add("%s (%s): %s", it[1], it[2], it[3]) end
+  -- (the counters under the report: the bug report window's)
+  local info = { addons = 0, ofAddons = 0 }
+  for _, it in ipairs(ns.Integrations()) do
+    add("%s (%s): %s", it[1], it[2], it[3])
+    if it[2] ~= "off" then info.ofAddons = info.ofAddons + 1 end
+    if it[2] == "on" then info.addons = info.addons + 1 end
+  end
   local miss = {}
   for _, c in ipairs(ns.Questie.Capabilities()) do if not c[2] then miss[#miss + 1] = c[1] end end
   if ns.Questie.Available() then add("Questie parts not there: %s", #miss > 0 and table.concat(miss, ", ") or "none") end
@@ -1429,10 +1435,12 @@ function ns.Report()
   for k, v in pairs(by) do src[#src + 1] = format("%s %d", ns.LOCATION_CONFIDENCE[k] or k, v) end
   table.sort(src)
   add("your quests: %d here, %d elsewhere, %d can't tell (decided by: %s)", n.here, n.elsewhere, n.unknown, table.concat(src, ", "))
+  info.quests = n
   local shown, stale = 0, 0
   for _, b in ipairs(ns.QuestItems.buttons) do if b:IsShown() then shown = shown + 1; if b.stale then stale = stale + 1 end end end
   add("quest item buttons: %d shown, %d waiting for combat to end; in combat: %s", shown, stale, InCombatLockdown() and "yes" or "no")
   local v = ns.Session.Values()
+  info.session, info.xp = v.elapsed, v.xp
   add("session: %s, %s%s%s; %d past sessions", v.elapsed, v.xp or "max level", v.approx and " (approximate)" or "",
     ns.Session.restoreNote and ("; " .. ns.Session.restoreNote) or "", #ns.Session.History())
   local order = {}
@@ -1444,8 +1452,9 @@ function ns.Report()
   if q then add("last Questie scan: %d quests over %d frames, %.0f ms", q.ids, q.slices, q.ms) end
   if #ns.errors == 0 then add("errors caught: none") end
   for _, e in ipairs(ns.errors) do add("error (%s, x%d): %s", e.where, e.n, e.msg) end
+  info.errors = #ns.errors
   -- one line for the box; a | doubled (the box's way of showing one)
-  return (table.concat(L, " // "):gsub("|", "||"))
+  return (table.concat(L, " // "):gsub("|", "||")), info
 end
 
 -- /hab status (1.7.0): the version, what's bound of Questie and What's Training, the session,
@@ -1514,9 +1523,7 @@ SlashCmdList.XPPLANNER = function(msg)
     for _, l in ipairs(ns.PerfReport()) do ns.Print(l) end
     return
   elseif cmd == "report" then
-    local ok, text = pcall(ns.Report)
-    if not ok then ns.Print("report failed: " .. tostring(text)); return end
-    ns.ShowReport(text)
+    ns.ShowReport()
     return
   elseif cmd == "errors" then
     if #ns.errors == 0 then ns.Print("no errors caught this session.") end

@@ -164,6 +164,7 @@ local function Button(parent, label, width, onClick)
   b:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
   local fs = Text(b, "line", label)
   fs:SetPoint("CENTER"); fs:SetJustifyH("CENTER")
+  b.label = fs
   local hover = false
   local function paint(th)
     th = th or ns.Theme()
@@ -212,80 +213,115 @@ local function Window(name, width, height)
   return win
 end
 
--- Pop-ups with a text selected and ready to copy (addons can't open a browser): the link window,
--- and the report window (/hab report, 2.0.0: as Proc This!'s, with the bug report page's link)
-local ISSUES_URL = "https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new/choose"
-local linkWin, reportWin, linkHost -- linkHost: the settings window, once built
-local function Popup(name, w, h)
-  local f = Window(name, w, h)
-  -- solid, held over the settings window (dimmed and unclickable behind it)
-  f:SetFrameStrata("FULLSCREEN_DIALOG"); f:SetToplevel(true)
-  f:SetMovable(false); f:SetScript("OnDragStart", nil); f:SetScript("OnDragStop", nil)
-  local solid = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-  solid:SetColorTexture(0.04, 0.035, 0.03, 1)
-  solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
-  f.shade = CreateFrame("Frame", nil, f)
-  f.shade:EnableMouse(true)
-  local dim = f.shade:CreateTexture(nil, "BACKGROUND")
-  dim:SetAllPoints(); dim:SetColorTexture(0, 0, 0, 0.55)
-  f:Hide()
-  f.title = Text(f, "title", "")
-  f.title:SetPoint("TOPLEFT", 20, -18)
-  local e = CreateFrame("EditBox", nil, f, "BackdropTemplate")
-  e:SetSize(w - 40, 20); e:SetPoint("TOPLEFT", 20, -48); e:SetAutoFocus(false); e:SetTextInsets(6, 6, 0, 0)
-  e:SetMaxLetters(0)
-  e:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+-- The bug report window (2.0.0; like Questie's trace export and Equip This!'s fight records): the
+-- form's link to copy at the top, what to do, the report line to copy, what's in it. Opened by
+-- Status > "Report a bug / suggest" and /hab report. Addons can't open a browser: both are text
+-- boxes, selected and ready for Ctrl+C.
+local REPO = "https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new"
+local function FormURL(kind)
+  if kind == "idea" then return REPO .. "?template=feature_request.yml" end
+  local get = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+  local ok, v = pcall(get, ns.name, "Version")
+  return REPO .. "?template=bug_report.yml" .. ((ok and type(v) == "string") and ("&version=" .. v) or "")
+end
+local NOTE = {
+  bug = "Open the link above in your browser (needs a GitHub account), say what happened, and paste the line below into \"Debug output\". "
+    .. "Please open this window again for each report: the line holds things as they are right now.",
+  idea = "Open the link above in your browser (needs a GitHub account) and tell us your idea. The line below isn't needed for an idea.",
+}
+local INCLUDED = "Included: Hereabouts' version, the game client, your class and level, your add-ons, how your quests are placed, the session, your sections and any errors caught. Never: your name, realm, guild or other players."
+local reportWin, reportHost -- reportHost: the settings window, once built
+-- a one-line box that keeps its text (typing in it puts it back), selected when clicked
+local function CopyBox(parent, width, get)
+  local e = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
+  e:SetSize(width, 22); e:SetAutoFocus(false); e:SetTextInsets(6, 6, 0, 0); e:SetMaxLetters(0)
+  e:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
   Skin(function(th)
     e:SetFontObject(th.lineFont); e:SetTextColor(RGB(th.title))
     e:SetBackdropColor(0, 0, 0, 0.55); e:SetBackdropBorderColor(RGB(th.eui and th.edge or th.title, 0.7))
   end)
-  -- keep the text intact if someone types in the box
-  e:SetScript("OnTextChanged", function(self, user)
-    if user and self:GetText() ~= f.text then self:SetText(f.text); self:HighlightText() end
-  end)
+  e:SetScript("OnTextChanged", function(self, user) if user and self:GetText() ~= get() then self:SetText(get()); self:HighlightText() end end)
   e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-  e:SetScript("OnEscapePressed", function() f:Hide() end)
+  e:SetScript("OnEscapePressed", function() parent:Hide() end)
   e:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-  f.edit = e
-  f.note = Note(f, "", 20, -78, w - 40)
-  return f
+  return e
 end
-local function Present(f, title, text, note, dy)
-  f.text = text
-  f.title:SetText(title)
-  f.note:SetText(note)
-  f.edit:SetText(text)
-  f:ClearAllPoints()
-  if linkHost and linkHost:IsShown() then
-    f:SetScale(linkHost:GetScale())
-    f:SetPoint("CENTER", linkHost, "CENTER", 0, dy)
-    f.shade:ClearAllPoints(); f.shade:SetAllPoints(linkHost); f.shade:Show()
-  else
-    f:SetScale(1)
-    f:SetPoint("CENTER", UIParent, "CENTER", 0, 80 + dy)
-    f.shade:Hide()
+local function BuildReport()
+  local w = Window("XPPlannerReportWindow", 600, 330)
+  -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
+  w:SetFrameStrata("FULLSCREEN_DIALOG"); w:SetToplevel(true)
+  w:SetMovable(false); w:SetScript("OnDragStart", nil); w:SetScript("OnDragStop", nil)
+  local solid = w:CreateTexture(nil, "BACKGROUND", nil, -8)
+  solid:SetColorTexture(0.04, 0.035, 0.03, 1)
+  solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
+  w.shade = CreateFrame("Frame", nil, w)
+  w.shade:EnableMouse(true)
+  local dim = w.shade:CreateTexture(nil, "BACKGROUND")
+  dim:SetAllPoints(); dim:SetColorTexture(0, 0, 0, 0.55)
+  w:Hide()
+  local title = Text(w, "title", "Hereabouts Bug Report")
+  title:SetPoint("TOP", 0, -16)
+  w.urlBox = CopyBox(w, 540, function() return w.url end)
+  w.urlBox:SetPoint("TOP", 0, -42)
+  w.note = Text(w, "note", "")
+  w.note:SetPoint("TOP", 0, -74); w.note:SetWidth(540); w.note:SetJustifyH("CENTER")
+  w.line = CopyBox(w, 540, function() return w.text end)
+  w.line:SetPoint("TOP", 0, -122)
+  -- what's in it, two columns
+  w.stats = {}
+  local ICONS = { "Interface\\Icons\\INV_Misc_Book_09", "Interface\\Icons\\INV_Misc_PocketWatch_01",
+    "Interface\\Icons\\INV_Misc_Note_01", "Interface\\Icons\\Spell_Nature_LightningShield" }
+  for i = 1, 4 do
+    local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+    local icon = w:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture(ICONS[i]); icon:SetSize(18, 18)
+    icon:SetPoint("TOPLEFT", 50 + col * 270, -162 - row * 26)
+    local t = Text(w, "line", "")
+    t:SetPoint("LEFT", icon, "RIGHT", 8, 0)
+    w.stats[i] = t
   end
-  f.shade:SetFrameLevel(math.max(0, f:GetFrameLevel() - 1))
-  f:Show(); f:Raise()
-  f.edit:SetFocus()
-  f.edit:HighlightText()
+  local inc = Text(w, "note", INCLUDED)
+  inc:SetPoint("TOP", 0, -222); inc:SetWidth(540); inc:SetJustifyH("CENTER")
+  w.kindBtn = Button(w, "", 180, function() ns.ShowReport(w.kind == "bug" and "idea" or "bug") end)
+  w.kindBtn:SetPoint("BOTTOMLEFT", 20, 16)
+  local close = Button(w, "Close", 110, function() w:Hide() end)
+  close:SetPoint("BOTTOMRIGHT", -20, 16)
+  return w
 end
-local function ShowLink(title, url)
-  linkWin = linkWin or Popup("XPPlannerLinkWindow", 400, 110)
-  Present(linkWin, title, url, "Press Ctrl+C to copy, then paste it into your browser.", 40)
-end
-local function OpenIssues() ShowLink("Hereabouts: bugs and ideas", ISSUES_URL) end
 
--- /hab report's window: the report in the box, the bug report page's link, Close
-function ns.ShowReport(text)
-  if not reportWin then
-    reportWin = Popup("XPPlannerReportWindow", 580, 150)
-    local bug = Button(reportWin, "Bug report page", 140, OpenIssues)
-    bug:SetPoint("BOTTOMLEFT", 20, 16)
-    local close = Button(reportWin, "Close", 90, function() reportWin:Hide() end)
-    close:SetPoint("BOTTOMRIGHT", -20, 16)
+-- kind: "bug" (default) or "idea" (the ideas form's link instead)
+function ns.ShowReport(kind)
+  reportWin = reportWin or BuildReport()
+  local w = reportWin
+  w.kind = kind == "idea" and "idea" or "bug"
+  local ok, text, info = pcall(ns.Report)
+  if not ok then text, info = "(the report failed: " .. tostring(text):gsub("|", "||") .. ")", nil end
+  w.url, w.text = FormURL(w.kind), text
+  w.urlBox:SetText(w.url); if w.urlBox.SetCursorPosition then w.urlBox:SetCursorPosition(0) end
+  w.line:SetText(text)
+  w.note:SetText(NOTE[w.kind])
+  w.kindBtn.label:SetText(w.kind == "bug" and "Suggest an idea instead" or "Report a bug instead")
+  local G = "|cffffd200"
+  local q = info and info.quests
+  w.stats[1]:SetText("Your quests: " .. G .. (q and format("%d here, %d elsewhere, %d can't tell", q.here, q.elsewhere, q.unknown) or "-") .. "|r")
+  w.stats[2]:SetText("Session: " .. G .. (info and (info.session .. ", " .. (info.xp or "max level")) or "-") .. "|r")
+  w.stats[3]:SetText("Errors caught: " .. G .. (info and info.errors or "-") .. "|r")
+  w.stats[4]:SetText("Add-ons connected: " .. G .. (info and format("%d of %d", info.addons, info.ofAddons) or "-") .. "|r")
+  w:ClearAllPoints()
+  if reportHost and reportHost:IsShown() then
+    w:SetScale(reportHost:GetScale())
+    w:SetPoint("CENTER", reportHost, "CENTER", 0, 0)
+    w.shade:ClearAllPoints(); w.shade:SetAllPoints(reportHost); w.shade:Show()
+  else
+    w:SetScale(1)
+    w:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
+    w.shade:Hide()
   end
-  Present(reportWin, "Hereabouts report", text, "Your report is in the box: press Ctrl+C to copy it. \"Bug report page\" gives the link to the form: open it in your browser and paste the report there.", 0)
+  w.shade:SetFrameLevel(math.max(0, w:GetFrameLevel() - 1))
+  w:Show(); w:Raise()
+  -- the line to copy selected for a bug; the link for an idea
+  local focus = w.kind == "bug" and w.line or w.urlBox
+  focus:SetFocus(); focus:HighlightText()
 end
 
 local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
@@ -461,10 +497,10 @@ local function PageStatus(p)
 
   y = Section(p, "Feedback", 0, y - 44, PAGE_W)
   local fb = Button(p, "Report a bug / suggest", 180, function()
-    OpenIssues()
+    ns.ShowReport()
   end)
   fb:SetPoint("TOPLEFT", 0, y)
-  Note(p, "Opens a link to copy: a short form for bugs or ideas.", 190, y - 5, 270)
+  Note(p, "The form's link and a report to paste into it (or /hab report).", 190, y - 5, 270)
 end
 
 local function PageSession(p)
@@ -566,11 +602,8 @@ local TABS = {
 local function BuildWindow()
   window = Window("XPPlannerOptionsWindow", 560, 500) -- (six tabs since 1.12.0)
   window:SetPoint("CENTER")
-  linkHost = window
-  window:HookScript("OnHide", function()
-    if linkWin then linkWin:Hide() end
-    if reportWin then reportWin:Hide() end
-  end)
+  reportHost = window
+  window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
   local title = Text(window, "title", "Hereabouts")
   title:SetPoint("TOPLEFT", 26, -20)
   local sub = Text(window, "note", "Your quests, filtered to where you are.")
