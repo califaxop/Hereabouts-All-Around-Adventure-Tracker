@@ -231,6 +231,13 @@ Milestone 1 verified in game and reviewed.
    highlight follows.
 6. Two mobs of one kind on you: `/hab focus` says "Name x2"; two kinds: "2 enemies".
 
+Results (1.8.0 test build):
+- 2: pass. In Orgrimmar, 15 quests, every one elsewhere, each with its reason: 11 by the game's map
+  ("…places it in Stranglethorn Vale; Questie agrees", authoritative; one Forever quest, 96988,
+  "Source of Power", in Alterac Mountains), 4 by Questie's data alone (Shadowshard Fragments, Scarab
+  Shells, Tiara of the Deep, Gahz'rilla: no game map for them). None "can't tell".
+- 1, 3-6: pending.
+
 ### Needs verification in WoW Forever
 
 - `QUEST_TURNED_IN` arguments (questID, xpReward, moneyReward): consistent with check 3 (the
