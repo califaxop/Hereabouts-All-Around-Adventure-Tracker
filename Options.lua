@@ -519,10 +519,10 @@ local function PageSession(p)
     c.Refresh = function() r(); c.SetActive(ns.db.showSession and true or false) end
   end
   local rows = math.ceil(#ns.Session.STATS / 2)
-  Note(p, "Gold counts what comes in (loot, quest rewards, sales), not what you spend. Rates start after the first minute.",
+  Note(p, "Hover the XP bar for everything on XP (per hour, time to level, this session, quests, rested), the gold bar for everything on gold (per hour, gained, what training costs now). Gold counts what comes in, not what you spend.",
     0, y - rows * 24 - 8, PAGE_W)
   local reset = Button(p, "Reset session", 130, function() ns.Session.Reset(); ns.Print("session stats reset.") end)
-  reset:SetPoint("TOPLEFT", 0, y - rows * 24 - 46)
+  reset:SetPoint("TOPLEFT", 0, y - rows * 24 - 62)
 end
 
 -- Layout (1.12.0): the sections' order and whether each shows, presets, and three saved layouts

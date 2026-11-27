@@ -62,16 +62,16 @@ def _():
     local db, D = NS.db, NS.DEFAULTS
     assert(db.sessionStats ~= D.sessionStats and db.borderColor ~= D.borderColor and db.hideInCombat ~= D.hideInCombat, "copies, not the defaults")
     db.hideInInstance.quests = true; db.hideInCombat.pickup = true
-    db.sessionStats.xph = nil; db.sessionStats.gold = true
+    db.sessionStats.xph = nil; db.sessionStats.xp = true
     db.borderColor[1] = 1
     assert(D.hideInInstance.quests == nil and D.hideInCombat.pickup == nil, "1.6.1: the defaults changed with them")
-    assert(D.sessionStats.xph == true and D.sessionStats.gold == nil and D.borderColor[1] == 0.40)
+    assert(D.sessionStats.xph == true and D.sessionStats.xp == nil and D.borderColor[1] == 0.40)
     db.pos = { "TOPLEFT", 10, -20 }; db.ignoredQuests[123] = { name = "x", level = 5 }
     db.maxQuests = 3
     NS.ResetDB()
     db = NS.db
     assert(db.hideInInstance.quests == nil and db.hideInCombat.pickup == nil, "hide settings back to none")
-    assert(db.sessionStats.xph == true and db.sessionStats.ttl == true and db.sessionStats.gph == true and db.sessionStats.gold == nil)
+    assert(db.sessionStats.xph == true and db.sessionStats.gph == true and db.sessionStats.xp == nil)
     assert(db.borderColor[1] == 0.40 and db.borderColor[2] == 0.33 and db.borderColor[3] == 0.22)
     assert(db.maxQuests == 8)
     assert(db.pos and db.pos[2] == 10 and db.ignoredQuests[123], "position and ignored quests kept")
@@ -175,7 +175,7 @@ def _():
     assert(S.Values().gold == "+55s 0c", S.Values().gold)
     local labels = {}
     for _, st in ipairs(S.STATS) do labels[st[1]] = st[2] end
-    assert(labels.gold == "Gold gained this session" and labels.gph == "Gold gained per hour")
+    assert(labels.gph == "Gold: per hour and gained" and labels.xph == "XP: per hour and time to level" and labels.gold == nil)
     """
 
 # ---------------------------------------------------------------------------------------------
@@ -807,6 +807,49 @@ def _():
     assert(w.kindBtn.label._text == "Feedback / feature request")
     w.kindBtn._scripts.OnClick()
     assert(w.kind == "idea" and w.urlBox._text:find("feature_request", 1, true) and w.kindBtn.label._text == "Report a bug instead")
+    """
+
+# what 1.12.0 saved: each session value its own setting, also in a saved layout
+SAVED_STATS = """
+HereaboutsDB = { sessionStats = { ttl = true, gold = true, rested = true },
+  layouts = { [1] = { savedAt = 1, values = { sessionStats = { quests = true, xph = true } } } } }
+"""
+
+@test("session bars (2.0.0): XP per hour + time to level one bar, gold per hour + gained another; old choices folded in", saved=SAVED_STATS)
+def _():
+    """
+    local st = NS.db.sessionStats
+    assert(st.xph and st.gph and st.rested and st.ttl == nil and st.gold == nil, "folded into the XP and gold bars")
+    local l = NS.db.layouts[1].values.sessionStats
+    assert(l.xp and l.xph and l.quests == nil, "a saved layout folded too")
+    assert(NS.PRESETS[5][4].sessionStats.ttl == nil and NS.DEFAULTS.sessionStats.ttl == nil)
+    -- the bars: one per stat turned on, each with both its values
+    local S = NS.Session
+    MOCK.xp = 100; S.Reset(); MOCK.now = MOCK.now + 600; MOCK.xp = 600; MOCK.Fire("PLAYER_XP_UPDATE", "player")
+    NS.db.showSession = true; NS.db.sessionStats = { xph = true, gph = true }
+    S.Paint()
+    local b1, b2 = S.bars[1], S.bars[2]
+    assert(b1.text._text:find("XP/h", 1, true) and b1.text._text:find("Level in", 1, true) and b1.kind == "xp", tostring(b1.text._text))
+    assert(b2.text._text:find("/h", 1, true) and b2.text._text:find("+", 1, true) and b2.kind == "gold", tostring(b2.text._text))
+    assert(not (S.bars[3] and S.bars[3]._shown), "two bars")
+    -- hover: everything on XP, or everything on gold
+    local lines = {}
+    GameTooltip.AddDoubleLine = function(_, a, b) lines[#lines + 1] = a .. "=" .. tostring(b) end
+    GameTooltip.AddLine = function() end
+    b1._scripts.OnEnter(b1)
+    local t = table.concat(lines, " | ")
+    for _, want in ipairs({ "XP per hour", "Time to level", "XP this session", "Quests this session", "Rested XP" }) do
+      assert(t:find(want, 1, true), want .. ": " .. t)
+    end
+    assert(not t:find("Gold per hour", 1, true), "no gold on the XP bar")
+    lines = {}; b2._scripts.OnEnter(b2); t = table.concat(lines, " | ")
+    assert(t:find("Gold per hour", 1, true) and t:find("Gold gained this session", 1, true) and not t:find("XP per hour", 1, true), t)
+    -- with What's Training: the gold to train what's available now
+    NS.Training.Installed = function() return true end; NS.Training.Ready = function() return true end
+    NS.Training.List = function() return {}, 2, 15000 end
+    MOCK.money = 5000
+    lines = {}; b2._scripts.OnEnter(b2); t = table.concat(lines, " | ")
+    assert(t:find("Gold to train now=1g 50s (2 spells), short by 1g 0s", 1, true), t)
     """
 
 if __name__ == '__main__':

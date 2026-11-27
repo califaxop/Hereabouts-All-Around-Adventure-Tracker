@@ -258,6 +258,7 @@ same code as before, only in the order chosen.
 |---|---|---|
 | 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the bug report window (`ns.ShowReport`, Options.lua; laid out as Equip This!'s fight records export and Questie's trace export): the form's link to copy at the top (the bug form with the version filled in, or the ideas form), what to do, the report line selected and ready to copy, four counters (your quests, session, errors caught, add-ons connected) and what's included / never included. The settings window's "Bugs & Feedback" button (top right, by the ×; the other form: feedback and feature requests) opens the same window (before 2.0.0 the Status page's button gave the link only). All windows are solid and come to the front whole when opened or clicked (`SetToplevel`): with several of the author's addons' settings open, they showed through and into each other Each `|` doubled so the box shows it as typed |
 | 36 | `/hab perf` | `ns.Measure` (Core.lua) times each list build, redraw and skipped rebuild (`debugprofilestop`, else `GetTime`); `/hab perf` prints counts, averages and maxima since the last `/hab perf` (or login), then counts afresh. Questie's scan records quests looked at, where from, frames used, its work and the longest frame (`Questie.lastScan`) |
+| 38 | Session bars | `S.STATS` (Session.lua) is the bars, not single values: XP (per hour, time to level), gold (per hour, gained), XP and quests this session, rested XP. Each bar's tooltip is its kind's (XP: rate, time to level, session XP, quests, rested; gold: rate, gained, gold to train now from What's Training's `GetSpells`). `S.FoldStats` folds 1.12.0's separate values (`ttl`, `gold`, `quests`) into their bars, in the settings and saved layouts; asked for after the M7 checks |
 | 37 | Release check | `tests/check_release.py`: the version in the toc, CHANGELOG and README match; the toc's files exist and every Lua file is loaded; the release zip leaves the developer files out; the offline tests pass |
 
 Tests added: 1.6.1's saved settings and session (from the v1.6.1 tag) load, keep the player's
@@ -498,6 +499,9 @@ Milestone 6 verified in game; awaiting review before Milestone 7.
 4. In a fight with a quest item button shown, turn in or abandon a quest by its mob (or loot to
    finish one): no "action blocked", the button dims, then moves when combat ends.
 5. Log out fully and back in: the session bar starts afresh, `/hab progress` lists the last one.
+5b. (2.0.0, the merged bars) `/hab` > Session: two choices for XP and gold (your old ones kept).
+   The XP bar reads "N XP/h · Level in …"; hover: XP per hour, time to level, XP and quests this
+   session, rested. The gold bar: "…/h · +…"; hover: gold per hour, gained, gold to train now.
 6. `python3 tests/check_release.py` (offline): passes.
 
 Results (2.0.0 test build):

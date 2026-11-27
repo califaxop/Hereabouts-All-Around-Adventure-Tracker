@@ -10,6 +10,10 @@ milestones (not published); 2.0.0 is all of them, plus Milestone 7:
   connected add-ons and any missing parts, where your quests count (here, elsewhere, can't tell,
   and what decided), the quest item buttons, the session, your sections and the errors caught.
   Never your name, realm or guild.
+- The session bar: XP per hour and time to level are one choice and one bar, gold per hour and
+  gold gained another. Hover the XP bar for everything on XP (per hour, time to level, this
+  session, quests, rested), the gold bar for everything on gold (per hour, gained, and what
+  training costs now, with What's Training). Your earlier choices carry over.
 - New: `/hab perf`: how long building and drawing the list takes, and the last Questie scan.
 
 ## 1.12.0 (Milestone 6: modular interface; test build)

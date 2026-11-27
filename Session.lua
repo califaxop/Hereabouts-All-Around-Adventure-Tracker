@@ -174,17 +174,25 @@ end
 
 S.Short, S.Duration, S.Money = Short, Duration, Money -- (for /hab progress)
 
--- the stats the bar can show, in order: key, settings label, short text (or nil when not
--- meaningful right now), and the tooltip line
+-- The bars the session can show (2.0.0: XP per hour and time to level are one bar, gold per hour
+-- and gold gained another): key (in sessionStats), settings label, the values on the bar, and
+-- which tooltip it shows (all there is on XP, or on gold)
 S.STATS = {
-  { "xph",    "XP per hour" },
-  { "ttl",    "Time to level" },
-  { "gph",    "Gold gained per hour" },
-  { "xp",     "XP this session" },
-  { "quests", "Quests this session" },
-  { "rested", "Rested XP" },
-  { "gold",   "Gold gained this session" },
+  { "xph",    "XP: per hour and time to level", { "xph", "ttl" },   "xp" },
+  { "gph",    "Gold: per hour and gained",      { "gph", "gold" },  "gold" },
+  { "xp",     "XP and quests this session",     { "xp", "quests" }, "xp" },
+  { "rested", "Rested XP",                       { "rested" },       "xp" },
 }
+-- before 2.0.0 each value was its own setting: folded into the bar that shows it (a missing key
+-- means off, so this is safe to run on any saved table)
+local FOLD = { ttl = "xph", gold = "gph", quests = "xp" }
+function S.FoldStats(t)
+  if type(t) ~= "table" then return end
+  for old, new in pairs(FOLD) do
+    if t[old] then t[new] = true end
+    t[old] = nil
+  end
+end
 -- Each stat's text, with its number(s) wrapped in `hl` ... "|r" (the bars show numbers in the
 -- quest-title gold; the tooltip passes no colour). The labels keep the line colour.
 function S.Values(hl)
@@ -217,15 +225,10 @@ function S.Values(hl)
 end
 
 ---------------------------------------------------------------------------
--- The bars under the tracker: one slim bar per row of stats that pair up, stacked, so
--- nothing gets cut off. A row shows when any of its stats is turned on.
+-- The bars under the tracker: one slim bar per stat turned on (S.STATS), stacked:
+--   13.2k XP/h  ·  Level in 5h 32m      1g 20s/h  ·  +3g 40s
+--   8,500 XP  ·  4 quests (~12 to level)      Rested 4,500
 ---------------------------------------------------------------------------
-S.ROWS = {
-  { "xph", "ttl" },     -- 13.2k XP/h  ·  Level in 5h 32m
-  { "gph", "gold" },    -- 1g 20s/h  ·  +3g 40s
-  { "xp", "quests" },   -- 8,500 XP  ·  4 quests (~12 to level)
-  { "rested" },         -- Rested 4,500
-}
 local bars = {}
 S.bars = bars
 local BAR_H, GAP = 22, 2
@@ -260,26 +263,52 @@ local function Skin(bar)
   bar.text:SetTextColor(th.line[1], th.line[2], th.line[3])
 end
 
+-- the gold to train what's available now (What's Training), and how it compares with your money
+local function TrainingGold()
+  local T = ns.Training
+  if not (T and T.Installed() and T.Ready()) then return nil end
+  local ok, _, n, total = pcall(T.List, 0, false)
+  if not ok or not n or n == 0 then return ok and "nothing to train now" or nil end
+  local have = GetMoney and GetMoney() or 0
+  return Money(total) .. format(" (%d spell%s)", n, n == 1 and "" or "s"), total > have and ("short by " .. Money(total - have)) or "you have enough"
+end
+
+local W, G = { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 }
+local function Line(label, value) GameTooltip:AddDoubleLine(label, value, W[1], W[2], W[3], 1, 1, 1) end
+local function Note(text, c) c = c or G; GameTooltip:AddLine(text, c[1], c[2], c[3], true) end
+-- kind: "xp", "gold", or nil (both: the bar asking you to pick)
 local function Tooltip(self)
+  local kind = self.kind
   local v = S.Values()
   GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-  GameTooltip:SetText("Session (" .. v.elapsed .. ")", 1, 0.82, 0)
-  for _, st in ipairs(S.STATS) do
-    if v[st[1]] then GameTooltip:AddDoubleLine(st[2], v[st[1]], 0.8, 0.8, 0.8, 1, 1, 1) end
+  GameTooltip:SetText((kind == "gold" and "Gold" or kind == "xp" and "XP" or "Session") .. " this session (" .. v.elapsed .. ")", 1, 0.82, 0)
+  if kind ~= "gold" then
+    if v.xph then
+      Line("XP per hour", v.xph)
+      Line("Time to level", v.ttl)
+      Line("XP this session", v.xp)
+      Line("Quests this session", v.quests)
+      Line("Rested XP", v.rested or "none")
+      Note("Time to level: at this session's XP rate. Quests to level: at this session's average quest XP.")
+      if v.approx then Note("~ XP: you went up more than one level at once; the levels in between aren't counted.", { 1, 0.82, 0 }) end
+    else
+      Line("XP", "max level")
+    end
   end
-  -- what the numbers mean (1.7.0)
-  GameTooltip:AddLine("Time to level: at this session's XP rate. Quests to level: at this session's average quest XP.", 0.6, 0.6, 0.6, true)
-  GameTooltip:AddLine("Gold gained: money in (loot, sales, quest rewards, mail), spending not taken off.", 0.6, 0.6, 0.6, true)
-  if v.approx then
-    GameTooltip:AddLine("~ XP: you went up more than one level at once; the levels in between aren't counted.", 1, 0.82, 0, true)
+  if kind ~= "xp" then
+    Line("Gold per hour", v.gph)
+    Line("Gold gained this session", v.gold)
+    local train, enough = TrainingGold()
+    if train then Line("Gold to train now", train .. (enough and (", " .. enough) or "")) end
+    Note("Gold gained: money in (loot, sales, quest rewards, mail), spending not taken off." .. (train and " Gold to train: What's Training's prices for what you can learn now." or ""))
   end
   -- the last session in the history (1.11.0; /hab progress has more)
   local last = S.History()[1]
   if last then
-    GameTooltip:AddDoubleLine("Last session", format("%s, %s XP, %d quest%s", Duration(last.dur), Short(last.xp), last.quests,
-      last.quests == 1 and "" or "s"), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+    Line("Last session", kind == "gold" and format("%s, %s gained", Duration(last.dur), Money(last.gold))
+      or format("%s, %s XP, %d quest%s", Duration(last.dur), Short(last.xp), last.quests, last.quests == 1 and "" or "s"))
   end
-  GameTooltip:AddLine("Right-click to reset (it goes into the history). Pick what shows in /hab, Session. /hab progress: your progress.", 0.6, 0.6, 0.6, true)
+  Note("Right-click to reset (it goes into the history). Pick what shows in /hab, Session. /hab progress: your progress.")
   GameTooltip:Show()
 end
 
@@ -307,18 +336,19 @@ function S.Paint()
   if ns.db.showSession then
     local t = ns.Theme().title -- the quest names' gold, for the numbers
     local v, on = S.Values(format("|cff%02x%02x%02x", math.floor(t[1] * 255 + 0.5), math.floor(t[2] * 255 + 0.5), math.floor(t[3] * 255 + 0.5))), ns.db.sessionStats or {}
-    local lines = {}
-    for _, row in ipairs(S.ROWS) do
+    local lines, kinds = {}, {}
+    for _, st in ipairs(S.STATS) do
       local parts = {}
-      for _, key in ipairs(row) do
-        if on[key] and v[key] then parts[#parts + 1] = v[key] end
+      if on[st[1]] then
+        for _, key in ipairs(st[3]) do if v[key] then parts[#parts + 1] = v[key] end end
       end
-      if #parts > 0 then lines[#lines + 1] = table.concat(parts, "  \194\183  ") end
+      if #parts > 0 then lines[#lines + 1] = table.concat(parts, "  \194\183  "); kinds[#lines] = st[4] end
     end
     if #lines == 0 then lines[1] = "Session: pick what to show in /hab" end
     local anchor = ns.TrackerBox or ns.TrackerFrame
     for i, line in ipairs(lines) do
       local bar = Bar(i)
+      bar.kind = kinds[i]
       bar:ClearAllPoints()
       bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, i == 1 and -3 or -GAP)
       bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, i == 1 and -3 or -GAP)

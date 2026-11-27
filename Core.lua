@@ -41,7 +41,7 @@ ns.DEFAULTS = {
   showXP      = true,   -- XP line under quests
   showStarter = true,   -- quest giver + zone line under quests to pick up
   showSession = true,    -- the session bar under the tracker
-  sessionStats = { xph = true, ttl = true, gph = true }, -- what it shows (see Session.lua's STATS)
+  sessionStats = { xph = true, gph = true }, -- the bars it shows (Session.lua's STATS)
   showQuestItems = true, -- a small button for a quest's usable item, left of its [level] in the list
   showTurnIn = true,     -- Quests to Turn In: finished quests get their own section (and leave Active Quests)
   maxTurnIn = 20,
@@ -104,7 +104,7 @@ ns.PRESETS = {
     { showTurnIn = false, showPickup = false, showTraining = false, showDungeons = false, maxQuests = 5,
       showXP = false, showSession = false, hideDoneObjectives = true } },
   { "leveling", "Leveling", "Quests first, XP lines and the session's XP rate; training at your next level too.",
-    { showXP = true, showNextLevel = true, sessionStats = { xph = true, ttl = true, quests = true, rested = true } } },
+    { showXP = true, showNextLevel = true, sessionStats = { xph = true, xp = true, rested = true } } },
 }
 
 local function Layout(src)
@@ -185,6 +185,11 @@ function ns.LoadDB()
     HereaboutsDB.borderVersion = 2
   end
   HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
+  -- 2.0.0: the session's separate stats folded into its XP and gold bars (here and in saved layouts)
+  ns.Session.FoldStats(HereaboutsDB.sessionStats)
+  for _, l in pairs(type(HereaboutsDB.layouts) == "table" and HereaboutsDB.layouts or {}) do
+    if type(l) == "table" and type(l.values) == "table" then ns.Session.FoldStats(l.values.sessionStats) end
+  end
   ns.db = HereaboutsDB
 end
 
