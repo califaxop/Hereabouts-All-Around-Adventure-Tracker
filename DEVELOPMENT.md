@@ -256,7 +256,7 @@ same code as before, only in the order chosen.
 
 | # | Change | Notes |
 |---|---|---|
-| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the bug report window (`ns.ShowReport`, Options.lua; laid out as Equip This!'s fight records export and Questie's trace export): the form's link to copy at the top (the bug form with the version filled in, or the ideas form), what to do, the report line selected and ready to copy, four counters (your quests, session, errors caught, add-ons connected) and what's included / never included. Status > "Report a bug / suggest" opens the same window (before 2.0.0 it gave the link only). Each `|` doubled so the box shows it as typed |
+| 35 | `/hab report` | One line to copy (`ns.Report`, Tracker.lua) into the bug report form: version, client (`GetBuildInfo`), class and level; each add-on's state and Questie's missing parts; your quests here / elsewhere / can't tell with the confidence of what decided; the item buttons (shown, waiting for combat); the session and history count; the sections in order (off ones marked) and tracker replacement; the last Questie scan; the errors caught. Shown in the bug report window (`ns.ShowReport`, Options.lua; laid out as Equip This!'s fight records export and Questie's trace export): the form's link to copy at the top (the bug form with the version filled in, or the ideas form), what to do, the report line selected and ready to copy, four counters (your quests, session, errors caught, add-ons connected) and what's included / never included. The settings window's "Report a bug" button (top right, by the ×) opens the same window (before 2.0.0 the Status page's button gave the link only). All windows are solid and come to the front whole when opened or clicked (`SetToplevel`): with several of the author's addons' settings open, they showed through and into each other Each `|` doubled so the box shows it as typed |
 | 36 | `/hab perf` | `ns.Measure` (Core.lua) times each list build, redraw and skipped rebuild (`debugprofilestop`, else `GetTime`); `/hab perf` prints counts, averages and maxima since the last `/hab perf` (or login), then counts afresh. Questie's scan records quests looked at, where from, frames used, its work and the longest frame (`Questie.lastScan`) |
 | 37 | Release check | `tests/check_release.py`: the version in the toc, CHANGELOG and README match; the toc's files exist and every Lua file is loaded; the release zip leaves the developer files out; the offline tests pass |
 
@@ -491,7 +491,7 @@ Milestone 6 verified in game; awaiting review before Milestone 7.
 2. Quest for a few minutes (a turn-in, a fight), then `/hab perf`: list builds, redraws and skips
    with their times, and the last Questie scan (quests, frames, ms). Run it again: "in the last N s"
    starts afresh. Note the numbers (the largest "at most" values especially).
-3. `/hab report` (and Status > "Report a bug / suggest"): the bug report window: the form's link at
+3. `/hab report` (and "Report a bug", top right of the settings window): the bug report window: the form's link at
    the top, the note, the report line selected (Ctrl+C, paste it somewhere: version, client,
    add-ons, quests, buttons, session, sections, errors), the four counters. "Suggest an idea
    instead": the link becomes the ideas form. Escape and Close close it.
@@ -507,7 +507,8 @@ Results (2.0.0 test build):
 - 3: the report was complete (2.0.0, client 1.60.1 (71139), interface 16001; every add-on; 3 here,
   11 elsewhere, 0 can't tell; no errors). Asked for: a window like Equip This!'s fight records
   (Questie's trace export): the link at the top, what to do, the text to copy. Changed: the bug
-  report window, also behind Status > "Report a bug / suggest" (recheck 3).
+  report window. Then: "Report a bug" moved to the settings window's top right, and the settings
+  windows made solid and raised whole (several addons' windows open showed through each other).
 - 4, 5: pass (history: two sessions listed; professions and weapon skills shown).
 
 ### Needs verification in WoW Forever

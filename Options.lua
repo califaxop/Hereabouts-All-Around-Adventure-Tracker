@@ -209,13 +209,21 @@ local function Window(name, width, height)
   win:SetClampedToScreen(true)
   tinsert(UISpecialFrames, name) -- Esc closes it
   Skin(function() ns.SkinWindow(win, 0.96) end)
+  -- solid underneath (the styles' backgrounds are see-through: with several addons' windows open,
+  -- one showed through another)
+  local solid = win:CreateTexture(nil, "BACKGROUND", nil, -8)
+  solid:SetColorTexture(0.04, 0.035, 0.03, 1)
+  solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
+  -- the one opened or clicked last comes to the front, whole (never interleaved with another)
+  win:SetToplevel(true)
+  win:HookScript("OnShow", function(self) self:Raise() end)
   CloseButton(win)
   return win
 end
 
 -- The bug report window (2.0.0; like Questie's trace export and Equip This!'s fight records): the
 -- form's link to copy at the top, what to do, the report line to copy, what's in it. Opened by
--- Status > "Report a bug / suggest" and /hab report. Addons can't open a browser: both are text
+-- the settings window's "Report a bug" (top right, by the ×) and /hab report. Addons can't open a browser: both are text
 -- boxes, selected and ready for Ctrl+C.
 local REPO = "https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new"
 local function FormURL(kind)
@@ -249,11 +257,8 @@ end
 local function BuildReport()
   local w = Window("XPPlannerReportWindow", 600, 330)
   -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
-  w:SetFrameStrata("FULLSCREEN_DIALOG"); w:SetToplevel(true)
+  w:SetFrameStrata("FULLSCREEN_DIALOG")
   w:SetMovable(false); w:SetScript("OnDragStart", nil); w:SetScript("OnDragStop", nil)
-  local solid = w:CreateTexture(nil, "BACKGROUND", nil, -8)
-  solid:SetColorTexture(0.04, 0.035, 0.03, 1)
-  solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
   w.shade = CreateFrame("Frame", nil, w)
   w.shade:EnableMouse(true)
   local dim = w.shade:CreateTexture(nil, "BACKGROUND")
@@ -496,12 +501,6 @@ local function PageStatus(p)
   reset:SetPoint("TOPLEFT", 0, y)
   Note(p, "Keeps where the list is and the quests you've ignored.", 140, y - 5, 320)
 
-  y = Section(p, "Feedback", 0, y - 44, PAGE_W)
-  local fb = Button(p, "Report a bug / suggest", 180, function()
-    ns.ShowReport()
-  end)
-  fb:SetPoint("TOPLEFT", 0, y)
-  Note(p, "The form's link and a report to paste into it (or /hab report).", 190, y - 5, 270)
 end
 
 local function PageSession(p)
@@ -604,6 +603,8 @@ local function BuildWindow()
   window = Window("XPPlannerOptionsWindow", 560, 500) -- (six tabs since 1.12.0)
   window:SetPoint("CENTER")
   reportHost = window
+  local bug = Button(window, "Report a bug", 110, function() ns.ShowReport() end)
+  bug:SetHeight(20); bug:SetPoint("TOPRIGHT", -34, -9)
   window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
   local title = Text(window, "title", "Hereabouts")
   title:SetPoint("TOPLEFT", 26, -20)
