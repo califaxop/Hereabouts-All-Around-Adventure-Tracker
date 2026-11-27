@@ -5,7 +5,7 @@
 The first release of the development plan. 1.7.0 to 1.12.0 below were test builds of its
 milestones (not published); 2.0.0 is all of them, plus Milestone 7:
 
-- New bug report window ("Report a bug" at the top right of the settings window, or `/hab report`): the bug form's link
+- New "Bugs & Feedback" window (the button at the top right of the settings window, or `/hab report`), for bug reports, feedback and feature requests: the form's link
   at the top and one line to copy into it with everything a report needs: version and client, the
   connected add-ons and any missing parts, where your quests count (here, elsewhere, can't tell,
   and what decided), the quest item buttons, the session, your sections and the errors caught.

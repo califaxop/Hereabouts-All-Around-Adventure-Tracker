@@ -223,7 +223,7 @@ end
 
 -- The bug report window (2.0.0; like Questie's trace export and Equip This!'s fight records): the
 -- form's link to copy at the top, what to do, the report line to copy, what's in it. Opened by
--- the settings window's "Report a bug" (top right, by the ×) and /hab report. Addons can't open a browser: both are text
+-- the settings window's "Bugs & Feedback" (top right, by the ×) and /hab report. Addons can't open a browser: both are text
 -- boxes, selected and ready for Ctrl+C.
 local REPO = "https://github.com/califaxop/Hereabouts-All-Around-Adventure-Tracker/issues/new"
 local function FormURL(kind)
@@ -233,9 +233,9 @@ local function FormURL(kind)
   return REPO .. "?template=bug_report.yml" .. ((ok and type(v) == "string") and ("&version=" .. v) or "")
 end
 local NOTE = {
-  bug = "Open the link above in your browser (needs a GitHub account), say what happened, and paste the line below into \"Debug output\". "
-    .. "Please open this window again for each report: the line holds things as they are right now.",
-  idea = "Open the link above in your browser (needs a GitHub account) and tell us your idea. The line below isn't needed for an idea.",
+  bug = "Found a bug? Open the link above in your browser (needs a GitHub account), say what happened and paste the line below into \"Debug output\" "
+    .. "(open this window again for each report). Feedback or a feature request? Click \"Feedback / feature request\" below.",
+  idea = "Feedback, an idea or a feature you'd like? Open the link above in your browser (needs a GitHub account) and tell us. The line below isn't needed for this.",
 }
 local INCLUDED = "Included: Hereabouts' version, the game client, your class and level, your add-ons, how your quests are placed, the session, your sections and any errors caught. Never: your name, realm, guild or other players."
 local reportWin, reportHost -- reportHost: the settings window, once built
@@ -255,7 +255,7 @@ local function CopyBox(parent, width, get)
   return e
 end
 local function BuildReport()
-  local w = Window("XPPlannerReportWindow", 600, 330)
+  local w = Window("XPPlannerReportWindow", 600, 342)
   -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
   w:SetFrameStrata("FULLSCREEN_DIALOG")
   w:SetMovable(false); w:SetScript("OnDragStart", nil); w:SetScript("OnDragStop", nil)
@@ -264,14 +264,14 @@ local function BuildReport()
   local dim = w.shade:CreateTexture(nil, "BACKGROUND")
   dim:SetAllPoints(); dim:SetColorTexture(0, 0, 0, 0.55)
   w:Hide()
-  local title = Text(w, "title", "Hereabouts Bug Report")
+  local title = Text(w, "title", "Hereabouts Bugs & Feedback")
   title:SetPoint("TOP", 0, -16)
   w.urlBox = CopyBox(w, 540, function() return w.url end)
   w.urlBox:SetPoint("TOP", 0, -42)
   w.note = Text(w, "note", "")
   w.note:SetPoint("TOP", 0, -74); w.note:SetWidth(540); w.note:SetJustifyH("CENTER")
   w.line = CopyBox(w, 540, function() return w.text end)
-  w.line:SetPoint("TOP", 0, -122)
+  w.line:SetPoint("TOP", 0, -134)
   -- what's in it, two columns
   w.stats = {}
   local ICONS = { "Interface\\Icons\\INV_Misc_Book_09", "Interface\\Icons\\INV_Misc_PocketWatch_01",
@@ -280,14 +280,14 @@ local function BuildReport()
     local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
     local icon = w:CreateTexture(nil, "ARTWORK")
     icon:SetTexture(ICONS[i]); icon:SetSize(18, 18)
-    icon:SetPoint("TOPLEFT", 40 + col * 290, -162 - row * 26)
+    icon:SetPoint("TOPLEFT", 40 + col * 290, -174 - row * 26)
     local t = Text(w, "line", "")
     t:SetPoint("LEFT", icon, "RIGHT", 8, 0)
     t:SetWidth(255); t:SetJustifyH("LEFT"); t:SetWordWrap(false) -- (cut short, never into the next column)
     w.stats[i] = t
   end
   local inc = Text(w, "note", INCLUDED)
-  inc:SetPoint("TOP", 0, -222); inc:SetWidth(540); inc:SetJustifyH("CENTER")
+  inc:SetPoint("TOP", 0, -234); inc:SetWidth(540); inc:SetJustifyH("CENTER")
   w.kindBtn = Button(w, "", 180, function() ns.ShowReport(w.kind == "bug" and "idea" or "bug") end)
   w.kindBtn:SetPoint("BOTTOMLEFT", 20, 16)
   local close = Button(w, "Close", 110, function() w:Hide() end)
@@ -306,7 +306,7 @@ function ns.ShowReport(kind)
   w.urlBox:SetText(w.url); if w.urlBox.SetCursorPosition then w.urlBox:SetCursorPosition(0) end
   w.line:SetText(text)
   w.note:SetText(NOTE[w.kind])
-  w.kindBtn.label:SetText(w.kind == "bug" and "Suggest an idea instead" or "Report a bug instead")
+  w.kindBtn.label:SetText(w.kind == "bug" and "Feedback / feature request" or "Report a bug instead")
   local G = "|cffffd200"
   local q = info and info.quests
   w.stats[1]:SetText("Your quests: " .. G .. (q and (format("%d here, %d elsewhere", q.here, q.elsewhere) .. (q.unknown > 0 and format(", %d can't tell", q.unknown) or "")) or "-") .. "|r")
@@ -603,7 +603,7 @@ local function BuildWindow()
   window = Window("XPPlannerOptionsWindow", 560, 500) -- (six tabs since 1.12.0)
   window:SetPoint("CENTER")
   reportHost = window
-  local bug = Button(window, "Report a bug", 110, function() ns.ShowReport() end)
+  local bug = Button(window, "Bugs & Feedback", 130, function() ns.ShowReport() end)
   bug:SetHeight(20); bug:SetPoint("TOPRIGHT", -34, -9)
   window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
   local title = Text(window, "title", "Hereabouts")
