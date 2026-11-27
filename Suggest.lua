@@ -78,10 +78,46 @@ local function RefreshZone()
     for _, q in ipairs(list) do if q.questID then onMap[q.questID] = true end end
   end
 end
--- In your zone? Questie knows where a quest is done (its turn-in once it's ready, otherwise its
--- zone and objectives); without Questie, the quest log's zone heading or the game's map decide.
--- Returns true/false and why (for /xpp zone).
+-- Is an active quest in your zone? (1.8.0) The evidence is gathered from every source, then decided
+-- by one rule (ns.LocationDecide), which says which source decided and how far it can be trusted
+-- (LOCATION_SOURCES.md):
+--   game      the game's own map for the quest, or on the game's map of this zone: authoritative
+--   questie   where Questie places what's left to do (its markers, its quest log, its database)
+--   text      the quest log's zone heading
+-- Returns true (here), false (elsewhere) or nil (can't tell: no source knows), the reason, and
+-- the source. A quest that can't be placed is never quietly counted as elsewhere: it stays listed.
+local CONFIDENCE = { game = "authoritative", questie = "Questie's data", text = "quest log heading", none = "unknown" }
+ns.LOCATION_CONFIDENCE = CONFIDENCE
+
+-- ev: { instance = { here, why } or nil, game = { here, where } or nil, onMap = true or nil,
+--       questie = { maps = set (map -> why) or nil, here = why or nil } or nil,
+--       heading = { text, zone } or nil }
+function ns.LocationDecide(ev)
+  if ev.instance then return ev.instance.here, ev.instance.why, "game" end
+  -- here: the game says so, or Questie places something left to do here (a quest that spans zones:
+  -- the game's map names only one of them)
+  if ev.game and ev.game.here then return true, "the game's map places it here (" .. ev.game.where .. ")", "game" end
+  if ev.onMap then return true, "on the game's map of this zone", "game" end
+  local qz = ev.questie
+  if qz and qz.here then return true, qz.here, "questie" end
+  -- elsewhere: the game says so, or Questie places all that's left elsewhere
+  if ev.game then
+    local also = (qz and qz.maps and next(qz.maps)) and "; Questie agrees" or ""
+    return false, "the game's map places it in " .. ev.game.where .. also, "game"
+  end
+  if qz and qz.maps and next(qz.maps) then return false, qz.complete and "turn-in elsewhere (Questie)" or "what's left is elsewhere (Questie)", "questie" end
+  -- the quest log's heading: the last word, and a weak one
+  local h = ev.heading
+  if h and h.text and h.text ~= "" and h.zone then
+    if h.text == h.zone then return true, "quest log heading", "text" end
+    return false, "quest log heading: " .. h.text, "text"
+  end
+  local unplaced = qz and qz.maps and " (Questie knows the quest, not where what's left is)" or ""
+  return nil, "no source knows where it is" .. unplaced, "none"
+end
+
 local function InZone(q)
+  local ev = {}
   -- in a dungeon: its quests are here. The game files them under the dungeon's name in the quest
   -- log ("Scarlet Monastery"), and may place them on the dungeon's own map rather than a zone.
   -- (not `a and f()`: that keeps only f's first value)
@@ -92,35 +128,27 @@ local function InZone(q)
   if inInstance then
     local instName = GetInstanceInfo and GetInstanceInfo()
     local hereRaw = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-    if graw and hereRaw and graw == hereRaw then return true, "the game's map places it in this dungeon" end
     local h = q.zone and q.zone:lower()
     local n = type(instName) == "string" and instName:lower() or nil
-    if h and n and h ~= "" and (n:find(h, 1, true) or h:find(n, 1, true)) then
-      return true, "quest log heading matches this dungeon (" .. q.zone .. ")"
+    if graw and hereRaw and graw == hereRaw then
+      ev.instance = { here = true, why = "the game's map places it in this dungeon" }
+    elseif h and n and h ~= "" and (n:find(h, 1, true) or h:find(n, 1, true)) then
+      ev.instance = { here = true, why = "quest log heading matches this dungeon (" .. q.zone .. ")" }
     end
   end
-  -- first: the game's own map for the quest (its built-in objective areas / turn-in), which also
-  -- knows quests Questie's data doesn't
+  local here = ns.Questie.CurrentZoneMap()
   if gz then
-    local here = ns.Questie.CurrentZoneMap()
     local info = C_Map.GetMapInfo and C_Map.GetMapInfo(gz)
-    local where = info and info.name or ("map " .. gz)
-    if here and gz == here then return true, "the game's map places it here (" .. where .. ")" end
-    return false, "the game's map places it in " .. where
+    ev.game = { here = here ~= nil and gz == here, where = info and info.name or ("map " .. gz) }
   end
+  if onMap and onMap[q.questID] then ev.onMap = true end
   local maps = ns.Questie.ActiveQuestMaps and ns.Questie.ActiveQuestMaps(q.questID, q.complete, q.objectives)
   if maps then
-    local here = ns.Questie.CurrentZoneMap()
     local why = here and maps[here]
-    if why then return true, (type(why) == "string" and why or "Questie") end
-    if not next(maps) then
-      return false, q.complete and "turn-in place unknown (Questie)" or "what's left has no known place (Questie)"
-    end
-    return false, q.complete and "turn-in elsewhere (Questie)" or "what's left is elsewhere (Questie)"
+    ev.questie = { maps = maps, here = why and (type(why) == "string" and why or "Questie") or nil, complete = q.complete }
   end
-  if zoneName and q.zone == zoneName then return true, "quest log heading" end
-  if onMap and onMap[q.questID] then return true, "on the game's map" end
-  return false, "no match"
+  if q.zone then ev.heading = { text = q.zone, zone = zoneName } end
+  return ns.LocationDecide(ev)
 end
 ns.QuestInZone = function(q) RefreshZone(); return InZone(q) end
 ns.LogQuests = function() return LogQuests() end
@@ -142,6 +170,12 @@ end
 -- an objective's words without its count: "1/8 Tumbled Crystal" and "Tumbled Crystal: 1/8" match
 function ns.ObjectiveKey(text)
   return ((text or ""):lower():gsub("[%d%%/:%-%.,%(%)]", " "):gsub("slain", " "):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
+end
+-- Does a name (a mob, object or item) match one of these objective keys exactly? (1.8.0) Never by
+-- part of a name: "Wolf" isn't "Wolf Pelt", "Defias" isn't "Defias Thug".
+function ns.ObjectiveMatches(name, keys)
+  if type(name) ~= "string" or name == "" then return false end
+  return keys[ns.ObjectiveKey(name)] == true
 end
 
 -- In combat: the quests of what you're fighting. A unit's tooltip lists them, readable in combat on
@@ -175,11 +209,25 @@ local function UnitQuests(unit, titles)
   return threat, name, found
 end
 
--- { [title] = { [objective key] = true } } and who it's for (a name, or "3 enemies"), or nil
+-- Is this unit fighting you (or your group)? (1.8.0) Either the game's threat API says you're on its
+-- threat list (UnitThreatSituation: a number), or its tooltip has the "N% Threat" line (English
+-- text). Either is enough; neither rules a unit out (the API may answer nothing outside a group,
+-- and the text is English only). Returns true and how it was told, or false.
+local function Fighting(unit, textThreat)
+  if UnitThreatSituation then
+    local ok, st = pcall(UnitThreatSituation, "player", unit)
+    if ok and Readable(st) then return true, "threat API" end
+  end
+  if textThreat then return true, "threat text" end
+  return false
+end
+
+-- { [title] = { [objective key] = true } }, who it's for ("Kobold Vermin", "Kobold Vermin x3",
+-- "3 enemies"), and how it was found; or nil
 function ns.CombatQuests()
   if not (ns.db.combatFocus and UnitAffectingCombat and UnitAffectingCombat("player")) then return nil end
   if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
-  local titles, any = {}, false
+  local titles = {}
   local _, name, found = UnitQuests("target")
   local function merge(list)
     for _, q in ipairs(list) do
@@ -189,33 +237,65 @@ function ns.CombatQuests()
   end
   if found and #found > 0 then
     merge(found)
-    return titles, name
+    return titles, name, "your target's tooltip"
   end
-  -- no quest target: the enemies fighting you
+  -- no quest target: the enemies fighting you, counted one by one (and by name)
   local plates = C_NamePlate and C_NamePlate.GetNamePlates and C_NamePlate.GetNamePlates()
-  local names, n = nil, 0
+  local count, names, first, how = 0, {}, nil, {}
   for _, plate in ipairs(type(plates) == "table" and plates or {}) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if type(unit) == "string" then
-      local threat, nm, q = UnitQuests(unit)
-      if threat and q and #q > 0 then
+      local textThreat, nm, q = UnitQuests(unit)
+      local fighting, by = Fighting(unit, textThreat)
+      if fighting and q and #q > 0 then
         merge(q)
-        any = true
-        if nm ~= names then n = n + 1; names = names or nm end
+        count = count + 1
+        how[by] = true
+        if nm and not names[nm] then names[nm] = true; first = first or nm end
       end
     end
   end
-  if any then return titles, (n > 1) and (n .. " enemies") or names end
+  if count == 0 then return nil end
+  local distinct = 0
+  for _ in pairs(names) do distinct = distinct + 1 end
+  local label = (distinct <= 1 and first) and (count > 1 and format("%s x%d", first, count) or first) or format("%d enemies", count)
+  local by = {}
+  for k in pairs(how) do by[#by + 1] = k end
+  table.sort(by)
+  return titles, label, "enemy nameplates (" .. table.concat(by, ", ") .. ")"
 end
 
--- what the focus is now, as a string (to tell when it changes)
-function ns.CombatFocusKey()
-  local titles, name = ns.CombatQuests()
+-- What the focus is now, as a string (to tell when it changes): each quest with the objectives
+-- you're fighting for, sorted (1.8.0: the objectives too, so a change in them refreshes the list; who
+-- you're fighting doesn't change what's shown, so it isn't in it). Pure.
+function ns.FocusKey(titles)
   if not titles then return "" end
   local t = {}
-  for k in pairs(titles) do t[#t + 1] = k end
+  for title, objs in pairs(titles) do
+    local o = {}
+    for k in pairs(objs) do o[#o + 1] = k end
+    table.sort(o)
+    t[#t + 1] = title .. ":" .. table.concat(o, ",")
+  end
   table.sort(t)
-  return (name or "") .. "|" .. table.concat(t, "|")
+  return table.concat(t, "|")
+end
+function ns.CombatFocusKey() return ns.FocusKey((ns.CombatQuests())) end
+
+-- /hab focus: what combat focus sees right now
+function ns.CombatFocusReport()
+  if not ns.db.combatFocus then return { "combat focus is off (/hab, Active Quests)." } end
+  if not (UnitAffectingCombat and UnitAffectingCombat("player")) then return { "not in combat: combat focus works in a fight." } end
+  local titles, label, how = ns.CombatQuests()
+  if not titles then return { "in combat, but nothing you're fighting is for one of your quests (your target's tooltip, enemy nameplates)." } end
+  local L = { format("fighting %s (found by %s):", tostring(label), tostring(how)) }
+  for title, objs in pairs(titles) do
+    local o = {}
+    for k in pairs(objs) do o[#o + 1] = k end
+    table.sort(o)
+    L[#L + 1] = format("  %s%s", title, #o > 0 and (": " .. table.concat(o, ", ")) or "")
+  end
+  return L
 end
 
 function ns.BuildSuggestions(logQuests)
@@ -241,14 +321,15 @@ function ns.BuildSuggestions(logQuests)
     if q.complete and db.showTurnIn and not q.focused then
       -- Quests to Turn In: every finished quest, with its own zone filter
       -- (InZone goes by where it's turned in). The focused quest stays pinned in Active Quests.
-      if db.turninZoneOnly and not InZone(q) then
+      if db.turninZoneOnly and InZone(q) == false then
         result.turninElsewhere = (result.turninElsewhere or 0) + 1
       else
         turnin[#turnin + 1] = q
       end
     else
       -- When replacing Blizzard's tracker, keep gray quests too (listed last) so none go missing.
-      local otherZone = db.activeZoneOnly and not q.focused and not InZone(q)
+      -- (a quest no source can place stays listed: never quietly counted as elsewhere)
+      local otherZone = db.activeZoneOnly and not q.focused and InZone(q) == false
       -- (Blizzard's tracking ticks don't matter here: the Zone / All switch decides what shows)
       local wanted = q.complete or not q.trivial or db.replaceTracker or q.focused
       if wanted and not otherZone then keep[#keep + 1] = q

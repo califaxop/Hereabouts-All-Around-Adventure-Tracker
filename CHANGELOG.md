@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.0 (Milestone 2: quest and location intelligence)
+
+- With "only this zone" on, a quest Hereabouts can't place stays listed (it was hidden as
+  "elsewhere").
+- A quest over two zones shows where what's left to do is, not only where the game's map points.
+- Fixed: finishing an item objective could drop a mob objective with a similar name ("Wolf Pelt"
+  and "Wolf") from where the quest counts as here.
+- Combat focus: the lit objective follows as objectives change; mobs fighting you are found by the
+  game's threat information too (not only the English "Threat" line).
+- `/hab zone` says here / elsewhere / can't tell, why, and how sure; new `/hab focus` shows what
+  combat focus sees.
+
 ## 1.7.0 (Milestone 1: reliability and data integrity)
 
 - Fixed: "Quests this session (~N to level)" used each quest's money reward as its XP.

@@ -36,6 +36,8 @@ specific behaviour was observed.
 | `C_Map.GetBestMapForUnit`, `GetMapInfo`, `GetAreaInfo`, `GetWorldPosFromMapPos` | zones, distances | Verified in WoW Forever |
 | `C_SuperTrack.GetSuperTrackedQuestID` | the focused quest | Verified in WoW Forever |
 | `C_TooltipInfo.GetUnit(unit)`, `Enum.TooltipDataLineType` | combat focus: a unit's quest lines, readable in combat | Verified in WoW Forever |
+| `UnitThreatSituation("player", unit)` | combat focus: is a nameplate's mob fighting you (1.8.0, with the tooltip's threat text as the other way) | Verified in WoW Forever in a group (Holdfast); solo: Inferred but untested (`/hab focus` shows which way found it) |
+| `C_NamePlate.GetNamePlates`, a plate's `namePlateUnitToken` | combat focus: enemies fighting you | Verified in WoW Forever |
 | `UnitXP`, `UnitXPMax`, `UnitLevel`, `GetXPExhaustion`, `IsPlayerAtEffectiveMaxLevel`, `GetMoney` | session | Verified in WoW Forever |
 | `UnitQuestTrivialLevelRange`, `GetQuestGreenRange` | grey quests | Documentation |
 | `C_Item.GetItemCount`, `C_Container.GetItemCooldown`, `C_Item.GetItemIconByID` | quest item buttons | Verified in WoW Forever |
@@ -85,4 +87,5 @@ Quests Nearby is off. `/hab questie` shows what's bound.
 - `/hab errors`: every error caught this session.
 - `/hab questie`, `/hab qinfo <questID>`: what's bound of Questie, and what each Questie source
   holds for one quest.
-- `/hab zone`: why each active quest counts as here or elsewhere.
+- `/hab zone`: each active quest: here / elsewhere / can't tell, why, and the source's confidence.
+- `/hab focus`: in a fight: who combat focus sees, how it found them, their quests and objectives.

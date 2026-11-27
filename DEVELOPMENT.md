@@ -13,7 +13,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
-| 2 | Quest and location intelligence | **In progress (1.8.0)** |
+| 2 | Quest and location intelligence | **Done in 1.8.0, waiting for in-game validation and review** |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Not started |
 | 4 | Unified location engine | Not started |
 | 5 | Character progression and analytics | Not started |
@@ -37,7 +37,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 - No unused code or settings. Offline tests for logic (`tests/run_tests.py`); game behaviour is
   checked in game (checklists below), never claimed from the tests.
 
-## Architecture (1.7.0)
+## Architecture (1.8.0)
 
 Load order (Hereabouts.toc): Core → Dungeons → QuestieSource → Training → Suggest → Session →
 QuestItems → Tracker → Options → Replace. Bindings.xml: the first three quest item buttons.
@@ -139,13 +139,34 @@ Low = cleanup.
 
 | # | Risk | Milestone |
 |---|---|---|
-| R1 | Zone filter: the game's quest map (`GetQuestUiMapID`) wins over Questie when present; a quest whose objectives span zones counts only where the game places it. | M2 |
-| R2 | Objective matching by text (`ObjectiveKey`, `finished(name)` substring match in `ActiveQuestMaps`): similar names can match ("Wolf" in "Wolf Pelt"). | M2 |
-| R3 | Combat focus reads unit tooltips (`C_TooltipInfo.GetUnit`) and the English "Threat" text; other locales fall back to the target only. Its fingerprint (`CombatFocusKey`) holds quest IDs, not objectives. | M2 |
+| R1 | Zone filter: the game's quest map (`GetQuestUiMapID`) wins over Questie when present; a quest whose objectives span zones counts only where the game places it. | 1.8.0: fixed (defect 10) |
+| R2 | Objective matching by text (`ObjectiveKey`, `finished(name)` substring match in `ActiveQuestMaps`): similar names can match ("Wolf" in "Wolf Pelt"). | 1.8.0: fixed (defect 11) |
+| R3 | Combat focus reads unit tooltips (`C_TooltipInfo.GetUnit`) and the English "Threat" text; other locales fall back to the target only. Its fingerprint (`CombatFocusKey`) holds quest IDs, not objectives. | 1.8.0: the threat API added (defect 13), objectives in the fingerprint (defect 12); the tooltip's quest lines remain the only source of which quests a unit is for |
 | R4 | Dungeon ranges and trainer cities / weapon masters are static Classic data; the reputation discount (10% at Honored and above) isn't verified on Forever. | M3 / M5 |
 | R5 | Tracker replacement: Blizzard's tracker is re-parented to a hidden frame out of combat, alpha 0 as a backup in combat; restoring alpha and parent, and other addons' trackers, not yet audited. | M3 |
 | R6 | Quest item buttons: `SetAlpha` and texture changes on a protected button in combat are assumed allowed (only position, size, shown state and attributes are protected). Inferred, to verify in game. | M1 check |
 | R7 | A quest item that runs out mid-fight is shown desaturated until the list is rebuilt out of combat. | — (by design) |
+
+## Milestone 2 (1.8.0)
+
+Audit of the location and combat focus code (1.7.0):
+
+| # | Sev. | Defect | Fix |
+|---|---|---|---|
+| 9 | High | A quest no source could place counted as **elsewhere**: hidden by "only this zone" though nothing said it was elsewhere ("no match", and Questie "what's left has no known place"). | Three answers: here, elsewhere, can't tell; can't tell stays listed (`ns.LocationDecide`) |
+| 10 | Medium | When the game's map named a zone for a quest, Questie wasn't asked: a quest over two zones counted only where the game's map put it, though what was left to do was here. | Every source is gathered; here when the game or Questie places what's left here |
+| 11 | Medium | A finished objective line containing a name finished it: "Wolf Pelt: 5/5" finished the "Wolf" objective, so its places dropped out. | Exact match of the objective's words (`ns.ObjectiveMatches`) |
+| 12 | Medium | Combat focus's fingerprint held quest titles only: when the objectives you were fighting for changed, the highlighted objective didn't follow until another change. | Each quest with its objectives, sorted (`ns.FocusKey`, pure); who you're fighting is left out (it isn't shown) |
+| 13 | Low | Enemies fighting you were found by the English "N% Threat" tooltip line only. | The threat API too (`UnitThreatSituation`: on its threat list); either is enough, neither rules a unit out |
+| 14 | Low | Enemy counting compared each name with the first one only (A, B, B counted 3 kinds). | Counted one by one and by distinct name ("Wolf x2", "3 enemies") |
+
+Changes:
+- `Suggest.lua`: `ns.LocationDecide(evidence)` (pure: here / elsewhere / nil, why, source),
+  `InZone` gathers the evidence; callers keep a can't-tell quest listed. `ns.ObjectiveMatches`.
+  Combat focus: `Fighting` (threat API or text), counting, `ns.FocusKey`, `ns.CombatFocusReport`.
+- `QuestieSource.lua`: finished objectives by exact match.
+- `Tracker.lua`: `/hab zone` shows here / elsewhere / can't tell, why, and the source's confidence;
+  `/hab focus`.
 
 ## Testing
 
@@ -156,7 +177,9 @@ pip install lupa
 python3 tests/run_tests.py
 ```
 
-11 tests (1.7.0): the files load against the mock client; nested defaults (copies, reset, saved
+17 tests (1.8.0): the location rule (every source, unknown kept), the zone filter keeping a quest
+it can't place, exact objective matching, the combat focus fingerprint, enemies and threat (API or
+text), quest ordering; the files load against the mock client; nested defaults (copies, reset, saved
 settings kept, future nested defaults); the turn-in event's XP and money; XP across level-ups;
 session save / restore and bad saved data; gold gained; Questie set changes; quest item buttons
 (association, stale in combat, nothing protected changed in combat, placed again after); errors
@@ -193,6 +216,21 @@ Results (1.7.0 test build):
 
 Milestone 1 verified in game and reviewed.
 
+### In-game checklist (Milestone 2 → 3)
+
+1. Install 1.8.0, `/reload`: the tracker as in 1.7.0; no Lua errors.
+2. `/hab zone`: each quest says here / elsewhere / can't tell, why, and which source (authoritative,
+   Questie's data, quest log heading, unknown). Note any that look wrong (screenshot with the quest).
+3. With "Active Quests: only this zone" on: a quest whose objectives are here but which is filed
+   under another zone's heading (or spans two zones) shows; a quest that's really elsewhere doesn't.
+4. A quest with an item objective named like a mob ("Wolf Pelt" and "Wolf", if you have one): after
+   finishing the pelts, the quest still counts as here where the wolves are.
+5. Combat focus: fight a quest mob without targeting it (it pulls you), then one you target; `/hab
+   focus` in the fight names it and how it was found ("threat API" or "threat text"); the quest is
+   highlighted, and the objective you're fighting for lights up; when that objective finishes the
+   highlight follows.
+6. Two mobs of one kind on you: `/hab focus` says "Name x2"; two kinds: "2 enemies".
+
 ### Needs verification in WoW Forever
 
 - `QUEST_TURNED_IN` arguments (questID, xpReward, moneyReward): consistent with check 3 (the
@@ -200,3 +238,5 @@ Milestone 1 verified in game and reviewed.
 - `SetAlpha` / `SetDesaturated` on a secure button in combat (R6): check 5.
 - `PLAYER_ENTERING_WORLD (isInitialLogin, isReloadingUi)` on Forever: in use since 1.x, the session
   carry-over has been seen working; recheck with check 3.
+- `UnitThreatSituation("player", nameplateN)` outside a group (1.8.0): does it answer for a mob that
+  pulled you solo? `/hab focus` says "threat API" when it does (M2 check 5).

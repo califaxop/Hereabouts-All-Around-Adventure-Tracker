@@ -1391,14 +1391,21 @@ SlashCmdList.XPPLANNER = function(msg)
     -- why each active quest counts as in your zone or not (for "only quests in my current zone")
     ns.Print(format("version %s, your zone: %s (map %s)", tostring(C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?"),
       GetRealZoneText() or "?", tostring(ns.Questie.CurrentZoneMap())))
+    -- each: here / elsewhere / can't tell (still listed), why, and which source decided (LOCATION_SOURCES.md)
     for _, q in ipairs(ns.LogQuests()) do
-      local inZone, why = ns.QuestInZone(q)
-      print(format("  %s[%s] %s|r - %s: %s (quest %s)", inZone and "|cff60ff60" or "|cff999999", tostring(q.level), q.title,
-        inZone and "here" or "elsewhere", why, tostring(q.questID)))
+      local inZone, why, source = ns.QuestInZone(q)
+      local color, state = "|cff999999", "elsewhere"
+      if inZone then color, state = "|cff60ff60", "here" elseif inZone == nil then color, state = "|cffffd200", "can't tell (listed)" end
+      print(format("  %s[%s] %s|r - %s: %s [%s] (quest %s)", color, tostring(q.level), q.title,
+        state, why, ns.LOCATION_CONFIDENCE[source] or tostring(source), tostring(q.questID)))
     end
     return
+  elseif cmd == "focus" then
+    -- what combat focus sees right now: who you're fighting, how it was found, and their quests
+    for _, l in ipairs(ns.CombatFocusReport()) do ns.Print(l) end
+    return
   else
-    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab questie  -  /hab status  -  /hab errors")
+    ns.Print("/hab (settings)  -  /hab lock | unlock  -  /hab replace  -  /hab toggle  -  /hab reset (position)  -  /hab quests <n>  -  /hab session (reset)  -  /hab dungeons  -  /hab zone  -  /hab focus  -  /hab questie  -  /hab status  -  /hab errors")
     return
   end
   ns.Refresh()

@@ -258,6 +258,119 @@ def _():
     """
 
 
+# ---------------------------------------------------------------------------------------------
+# Milestone 2: quest location, objectives, combat focus
+# ---------------------------------------------------------------------------------------------
+@test("location: one rule over every source; Questie here beats the game's elsewhere; unknown stays unknown")
+def _():
+    """
+    local D = NS.LocationDecide
+    local here, why, src = D({ instance = { here = true, why = "in this dungeon" }, game = { here = false, where = "Westfall" } })
+    assert(here == true and src == "game", "a dungeon's quest")
+    here, why, src = D({ game = { here = true, where = "Elwynn Forest" } }); assert(here and src == "game" and why:find("Elwynn"))
+    here, why, src = D({ onMap = true }); assert(here and src == "game")
+    here, why, src = D({ game = { here = false, where = "Westfall" }, questie = { maps = { [1429] = "objective: Kobold (mob/NPC)" }, here = "objective: Kobold (mob/NPC)" } })
+    assert(here == true and src == "questie" and why:find("Kobold"), "a quest over two zones: what's left is here (1.7.0: elsewhere)")
+    here, why, src = D({ game = { here = false, where = "Westfall" } }); assert(here == false and src == "game" and why:find("Westfall"))
+    here, why, src = D({ questie = { maps = { [1436] = "x" } } }); assert(here == false and src == "questie")
+    here, why, src = D({ questie = { maps = {} }, heading = { text = "Elwynn Forest", zone = "Elwynn Forest" } })
+    assert(here == true and src == "text", "Questie can't place what's left: the heading decides (1.7.0: elsewhere)")
+    here, why, src = D({ heading = { text = "Westfall", zone = "Elwynn Forest" } }); assert(here == false and src == "text")
+    here, why, src = D({ questie = { maps = {} } })
+    assert(here == nil and src == "none" and why:find("Questie knows the quest"), "nothing places it: unknown, not elsewhere")
+    here = D({}); assert(here == nil)
+    """
+
+@test("location: with 'only this zone' on, a quest no source can place stays listed; one placed elsewhere doesn't")
+def _():
+    """
+    NS.db.activeZoneOnly = true
+    NS.Questie.GameQuestZone = function() return nil end
+    NS.Questie.ActiveQuestMaps = function() return nil end
+    local quests = {
+      { questID = 1, title = "Nowhere", level = 20, xp = 100, complete = false, objectives = {}, zone = nil },
+      { questID = 2, title = "Over There", level = 20, xp = 100, complete = false, objectives = {}, zone = "Westfall" },
+      { questID = 3, title = "Right Here", level = 20, xp = 100, complete = false, objectives = {}, zone = "Elwynn Forest" },
+    }
+    local s = NS.BuildSuggestions(quests)
+    local shown = {}
+    for _, q in ipairs(s.quests) do shown[q.title] = true end
+    assert(shown["Nowhere"] and shown["Right Here"] and not shown["Over There"], "unknown listed, elsewhere not")
+    assert(s.questsElsewhere == 1, tostring(s.questsElsewhere))
+    """
+
+@test("objectives: a name matches a finished objective exactly, never by part of it")
+def _():
+    """
+    local keys = { [NS.ObjectiveKey("Wolf Pelt: 5/5")] = true, [NS.ObjectiveKey("Kobold Vermin slain: 10/10")] = true }
+    assert(not NS.ObjectiveMatches("Wolf", keys), "Wolf isn't Wolf Pelt (1.7.0: it was)")
+    assert(NS.ObjectiveMatches("Wolf Pelt", keys) and NS.ObjectiveMatches("kobold vermin", keys))
+    assert(not NS.ObjectiveMatches("Kobold", keys) and not NS.ObjectiveMatches("", keys) and not NS.ObjectiveMatches(nil, keys))
+    assert(NS.ObjectiveKey("1/8 Tumbled Crystal") == NS.ObjectiveKey("Tumbled Crystal: 1/8"))
+    """
+
+@test("combat focus: the fingerprint holds each quest's objectives (any order), not who you're fighting")
+def _():
+    """
+    local a = NS.FocusKey({ ["Q1"] = { ["wolf"] = true, ["bear"] = true }, ["Q2"] = {} })
+    local b = NS.FocusKey({ ["Q2"] = {}, ["Q1"] = { ["bear"] = true, ["wolf"] = true } })
+    assert(a == b, "order doesn't matter")
+    assert(NS.FocusKey({ ["Q1"] = { ["wolf"] = true } }) ~= a, "an objective changed: a new key (1.7.0: titles only, the same key)")
+    assert(NS.FocusKey(nil) == "")
+    """
+
+@test("combat focus: enemies counted one by one; the threat API or the threat text, either is enough")
+def _():
+    """
+    MOCK.combat = true
+    local T = { title = 17, player = 18, obj = 8 }
+    Enum = { TooltipDataLineType = { QuestTitle = T.title, QuestPlayer = T.player, QuestObjective = T.obj } }
+    local tips = {}
+    C_TooltipInfo = { GetUnit = function(u) return tips[u] end }
+    local function mob(name, threatLine)
+      local lines = { { leftText = name, type = 0 }, { leftText = "Wolf Hunt", type = T.title }, { leftText = "2/8 Wolf", type = T.obj } }
+      if threatLine then lines[#lines + 1] = { leftText = "100% Threat", type = 0 } end
+      return { lines = lines }
+    end
+    local plates = {}
+    C_NamePlate = { GetNamePlates = function() return plates end }
+    local onList = {}
+    UnitThreatSituation = function(_, u) return onList[u] end
+    tips["nameplate1"], tips["nameplate2"] = mob("Wolf", true), mob("Wolf", false)
+    plates = { { namePlateUnitToken = "nameplate1" }, { namePlateUnitToken = "nameplate2" } }
+    onList["nameplate2"] = 1
+    local titles, label, how = NS.CombatQuests()
+    assert(titles and titles["Wolf Hunt"]["wolf"], "the quest and its objective")
+    assert(label == "Wolf x2", "two of one kind: " .. tostring(label))
+    assert(how:find("threat API") and how:find("threat text"), how)
+    tips["nameplate3"] = mob("Bear", true); plates[3] = { namePlateUnitToken = "nameplate3" }
+    local _, label2 = NS.CombatQuests(); assert(label2 == "3 enemies", tostring(label2))
+    onList["nameplate2"] = nil
+    local _, label3 = NS.CombatQuests(); assert(label3 == "2 enemies", "not fighting you: left out: " .. tostring(label3))
+    local report = table.concat(NS.CombatFocusReport(), " / ")
+    assert(report:find("fighting 2 enemies") and report:find("Wolf Hunt: wolf"), report)
+    """
+
+@test("ranking: the focused quest first; by level when sorting by level, else finished then XP")
+def _():
+    """
+    NS.db.activeZoneOnly = false
+    local function Q(id, level, xp, extra) local q = { questID = id, title = "Q" .. id, level = level, xp = xp, complete = false, objectives = {} }
+      for k, v in pairs(extra or {}) do q[k] = v end; return q end
+    local list = { Q(1, 18, 500), Q(2, 21, 100), Q(3, 19, 900, { complete = true }), Q(4, 15, 50, { focused = true }) }
+    NS.db.sortByLevel = true
+    local s = NS.BuildSuggestions(list)
+    local order = {}
+    for i, q in ipairs(s.quests) do order[i] = q.questID end
+    assert(table.concat(order, ",") == "4,2,1", "focused, then by level (the finished one is in Turn In): " .. table.concat(order, ","))
+    NS.db.sortByLevel = false; NS.db.showTurnIn = false
+    s = NS.BuildSuggestions({ Q(1, 18, 500), Q(2, 21, 100), Q(3, 19, 900, { complete = true }) })
+    order = {}
+    for i, q in ipairs(s.quests) do order[i] = q.questID end
+    assert(table.concat(order, ",") == "3,1,2", "finished first, then XP: " .. table.concat(order, ","))
+    """
+
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

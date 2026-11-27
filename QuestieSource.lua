@@ -280,20 +280,17 @@ function Q.ActiveQuestMaps(id, complete, logObjectives)
     if m then return m end
   end
   -- what's still to do, by name, so finished objectives drop out (and the cache follows progress)
-  local doneText, todoKey = {}, {}
+  local doneKeys, todoKey = {}, {}
   for _, o in ipairs(logObjectives or {}) do
     if type(o.text) == "string" then
-      if o.done then doneText[#doneText + 1] = o.text:lower() else todoKey[#todoKey + 1] = o.text end
+      if o.done then doneKeys[ns.ObjectiveKey(o.text)] = true else todoKey[#todoKey + 1] = o.text end
     end
   end
   local key = id .. (complete and ":done" or (":todo:" .. table.concat(todoKey, "|")))
   if activeMaps[key] ~= nil then return activeMaps[key] or nil end
-  local function finished(name)
-    if type(name) ~= "string" or name == "" then return false end
-    local n = name:lower()
-    for _, t in ipairs(doneText) do if t:find(n, 1, true) then return true end end
-    return false
-  end
+  -- a mob, object or item is finished when a finished objective line names exactly it (1.8.0:
+  -- "Wolf Pelt: 5/5" no longer finishes "Wolf"; before, any line containing the name did)
+  local function finished(name) return ns.ObjectiveMatches(name, doneKeys) end
   local function nameOf(query, oid)
     local ok, n = pcall(query, oid, "name")
     return ok and n or nil

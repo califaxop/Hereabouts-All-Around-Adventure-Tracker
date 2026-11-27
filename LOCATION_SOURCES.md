@@ -1,7 +1,7 @@
 # Hereabouts: location sources
 
-Where Hereabouts gets its locations from, and how far each one can be trusted (1.7.0, as found in
-the Milestone 1 audit; Milestone 2 adds explicit confidence to the code itself).
+Where Hereabouts gets its locations from, and how far each one can be trusted (1.8.0: the code
+says which source decided each answer; Milestone 4 turns this into one location model).
 
 Confidence:
 - **Authoritative**: the game says so for this quest right now.
@@ -11,20 +11,28 @@ Confidence:
 - **Static**: written into Hereabouts (dungeons, trainer cities); Classic data, not verified for
   Forever.
 
-## Active quests: "is it here?" (Suggest.lua `InZone`), in this order
+## Active quests: "is it here?" (1.8.0: Suggest.lua `InZone` gathers, `ns.LocationDecide` decides)
 
-| Order | Source | API / data | Confidence | Notes |
-|---|---|---|---|---|
-| 0 | In a dungeon: the game's map for the quest is this dungeon's, or the quest log heading names the dungeon | `GetQuestUiMapID`, `GetInstanceInfo` | Authoritative / Derived | |
-| 1 | The game's map for the quest | `GetQuestUiMapID` (zone level) | Authoritative | wins when present (DEVELOPMENT.md R1) |
-| 2 | Where Questie has drawn the quest's markers | `QuestieMap.questIdFrames` (internal) | Database (follows progress) | `FromQuestieMarkers` |
-| 3 | Questie's own quest log: objectives and their spawns | `QuestiePlayer.currentQuestlog` (internal) | Database | `FromQuestieLog`, not for finished quests |
-| 4 | Questie's database: turn-in NPC / object (finished), objectives' mobs, objects and item drops still to do; the quest's zone when none are known | `QueryNPCSingle`, `QueryObjectSingle` (spawns, zoneOrSort) | Database + Derived (finished objectives dropped by name, R2) | `ActiveQuestMaps` |
-| 5 | The quest log's zone heading equals the zone's name | `C_QuestLog.GetInfo` headers, `GetRealZoneText` | Derived | |
-| 6 | On the game's map for this zone | `C_QuestLog.GetQuestsOnMap` | Authoritative | |
-| — | None of these | — | — | "no match": counted as elsewhere |
+Sources gathered for each quest:
 
-`/hab zone` prints each quest's decision and its source.
+| Source | API / data | Confidence |
+|---|---|---|
+| In a dungeon: the game's map for the quest is this dungeon's, or the quest log heading names it | `GetQuestUiMapID`, `GetInstanceInfo` | Authoritative / Derived |
+| The game's map for the quest (raised to its zone) | `GetQuestUiMapID` | Authoritative |
+| On the game's map of this zone | `C_QuestLog.GetQuestsOnMap` | Authoritative |
+| Where Questie places what's left (`ActiveQuestMaps`): its map markers (`QuestieMap.questIdFrames`, internal; follows progress), else its quest log's objectives and spawns (`QuestiePlayer.currentQuestlog`, internal), else its database: the turn-in NPC / object (finished), the objectives' mobs, objects and item drops still to do (finished ones dropped by exact name), the quest's zone when it lists no objectives | Questie | Database |
+| The quest log's zone heading | `C_QuestLog.GetInfo` headers, `GetRealZoneText` | Derived |
+
+The rule, in order:
+1. In a dungeon and placed there: here.
+2. Here if the game's map places it here, it's on the game's map of this zone, or Questie places
+   something left to do here (a quest over two zones: the game's map names one of them).
+3. Elsewhere if the game's map places it elsewhere, or Questie places all that's left elsewhere.
+4. The quest log heading: the zone's name: here; another name: elsewhere (weak).
+5. Nothing: **can't tell**, and the quest stays listed under "only this zone" (before 1.8.0 it
+   counted as elsewhere). Questie knowing the quest but not where what's left is counts as nothing.
+
+`/hab zone` prints each quest's answer, why, and the source's confidence.
 
 ## Quests to turn in
 
@@ -39,9 +47,11 @@ spawn on your map (`C_Map.GetWorldPosFromMapPos`).
 
 ## Combat focus
 
-What you're fighting: your target's tooltip, then enemy nameplates with a threat line (English
-"Threat" text, R3). Objectives matched by `ObjectiveKey` (lower case, numbers and punctuation
-removed).
+What you're fighting: your target's tooltip (its quest lines), then enemy nameplates fighting you:
+on the game's threat list (`UnitThreatSituation`) or with the "N% Threat" tooltip line (English);
+either is enough. Which quests a unit is for comes only from its tooltip's quest lines (Verified in
+WoW Forever). Objectives matched by `ObjectiveKey` (lower case, numbers and punctuation removed),
+exactly.
 
 ## Dungeons and training
 
