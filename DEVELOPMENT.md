@@ -15,7 +15,7 @@ from and how far to trust them: [LOCATION_SOURCES.md](LOCATION_SOURCES.md). Play
 | 1 | Reliability and data integrity | Done in 1.7.0, verified in game, reviewed |
 | 2 | Quest and location intelligence | Done in 1.8.0, verified in game, reviewed |
 | 3 | Integration compatibility (Questie / What's Training adapters, tracker replacement) | Done in 1.9.0, verified in game, reviewed |
-| 4 | Unified location engine | **Done in 1.10.0, waiting for in-game validation and review** |
+| 4 | Unified location engine | Done in 1.10.0, verified in game, reviewed |
 | 5 | Character progression and analytics | Not started |
 | 6 | Modular interface | Not started |
 | 7 | Diagnostics and release | Not started |
@@ -365,7 +365,9 @@ Results (1.10.0 test build):
 - 5: pass. `/hab where 608`: 5 places; giver Fleet Master Seahorn (27.2, 77.0) 627 yd; 3 objectives,
   nearest Captain Keelhaul 1125 yd; turn-in Fleet Master Seahorn; "left to do, nearest first:
   Captain Keelhaul > Fleet Master Firallon > Captain Stillwater".
-- 1: pending (errors).
+- 1: pass (the author: "M4 is good"); the item names on the list line and waypoint, checked.
+
+Milestone 4 verified in game and reviewed.
 
 ### Needs verification in WoW Forever
 
