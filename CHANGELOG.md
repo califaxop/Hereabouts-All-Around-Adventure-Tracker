@@ -2,12 +2,15 @@
 
 ## 2.1.0
 
-- A new look for the settings window. The Hereabouts emblem sits in the corner, and each page has
-  its title and what it's for. Settings are grouped in framed boxes, in two columns. The pages are
-  icon tabs down the window's right edge (hover one for its name), and long pages scroll.
-- Search: type part of a setting's name at the top right, then pick it (or press Enter) to jump to
-  it, flashing.
-- The window is bigger (640 x 600); it shrinks to fit smaller screens as before.
+- A new settings window in the game's own Settings design: the same frame, the pages listed down
+  the left under headings, each page's title with its divider, gold setting names on the left with
+  the game's checkboxes, sliders (with arrows) and buttons on the right, under white section
+  headings. Hover a setting for what it does.
+- Search: type part of a setting's name in the box at the top right, then pick it (or press Enter)
+  to jump to it, flashing.
+- Defaults (on the Status page) asks before putting every setting back.
+- The settings window always uses the game's look now; the tracker still follows FlareUI and
+  EllesmereUI.
 
 ## 2.0.0 (the development plan: Milestones 1-7)
 

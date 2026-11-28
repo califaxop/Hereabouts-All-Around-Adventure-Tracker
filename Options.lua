@@ -50,39 +50,6 @@ end
 ---------------------------------------------------------------------------
 -- Widgets
 ---------------------------------------------------------------------------
--- checkbox: a small bordered square with a gold tick, label in the tracker's line font
-local function Check(parent, label, x, y, opt, width)
-  local get, set = opt[1], opt[2]
-  local b = CreateFrame("Button", nil, parent)
-  b:SetPoint("TOPLEFT", x, y); b:SetSize(width or 220, 20)
-  local box = CreateFrame("Frame", nil, b, "BackdropTemplate")
-  box:SetSize(14, 14); box:SetPoint("LEFT", 0, 0)
-  box:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  local mark = box:CreateTexture(nil, "OVERLAY")
-  mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-  mark:SetSize(20, 20); mark:SetPoint("CENTER", 1, 1)
-  local text = Text(b, "line", label)
-  text:SetPoint("LEFT", box, "RIGHT", 7, 0); text:SetPoint("RIGHT", 0, 0)
-  local active, hover = true, false
-  local function paint(th)
-    th = th or ns.Theme()
-    box:SetBackdropColor(0, 0, 0, 0.55)
-    box:SetBackdropBorderColor(RGB((hover and active) and th.accent or th.edge, hover and active and 1 or 0.8))
-    mark:SetVertexColor(RGB(th.mark))
-    text:SetTextColor(RGB((hover and active) and th.hover or th.line))
-  end
-  Skin(paint)
-  b:SetScript("OnEnter", function() hover = true; paint() end)
-  b:SetScript("OnLeave", function() hover = false; paint() end)
-  b:SetScript("OnClick", function()
-    if not active then return end
-    set(not get()); b.Refresh(); Changed()
-  end)
-  b.Refresh = function() mark:SetShown(get() and true or false); paint() end
-  b.SetActive = function(on) active = on; b:SetAlpha(on and 1 or 0.4); paint() end
-  return b
-end
-
 -- slider: name on the left, value on the right, a thin bronze track with a gold handle
 local function Slider(parent, label, x, y, width, minV, maxV, step, opt, fmt)
   local get, set = opt[1], opt[2]
@@ -315,20 +282,24 @@ end
 local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
 
 ---------------------------------------------------------------------------
--- The settings window (2.1.0): laid out like Questie's options, in Hereabouts' own look. The logo
--- sits in a round frame at the top left. Each page has its title and what it's for, and holds
--- framed groups of settings in two columns (scrolling when long). The pages are tabs down the right
--- edge, one icon each, and the search box finds any setting and jumps to it.
+-- The settings window (2.1.0): Blizzard's own Settings window design, built from its parts.
+-- - Frame: Blizzard's settings frame (SettingsFrameTemplate) with its inner frame.
+-- - Categories down the left: the Options list's headers and highlights.
+-- - Each page: its title with the divider, and rows with gold labels on the left and Blizzard's
+--   controls on the right (the minimal checkbox, the slider with steppers, red buttons), under
+--   white section headings, in Blizzard's scroll frame.
+-- - A search box finds any setting and jumps to it.
+-- Every part is checked for first (Classic Era 1.15.9's interface has them all: Blizzard_SharedXML,
+-- Blizzard_Settings_Shared); any that's missing falls back to Hereabouts' own drawing.
 ---------------------------------------------------------------------------
 local window, refreshers, statusUpdate, ignUpdate = nil, {}, nil, nil
-local WIN_W, WIN_H = 640, 600
-local CHILD_W = 582                  -- a page's scrolling area
-local BOX_X, BOX_W = 8, 566          -- the framed groups
-local COL1, COL2 = 22, 302           -- the two columns inside a group
-local COL_W = 260
-local PAGE_W = BOX_W - 28            -- a full-width row inside a group
+local WIN_W, WIN_H = 920, 724        -- the size of Blizzard's settings window (its inner frame's art)
+local LIST_X, LIST_W = 18, 160       -- the categories
+local CONT_X = LIST_X + LIST_W + 16  -- the page
+local CHILD_W = WIN_W - CONT_X - 22 - 30
+local LABEL_X, CTRL_X = 37, 300      -- a row's label, and its control
+local ROW = 36
 local LOGO = "Interface\\AddOns\\Hereabouts\\media\\Logo"
-local ROUND = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 local function track(x) refreshers[#refreshers + 1] = x; return x end
 
@@ -341,7 +312,21 @@ end
 
 local function Restyle() ns.ApplyBackdrop(); ns.RestyleOptions(); ns.RefreshOptions() end
 
--- Search: every labelled setting, its page and where it is on it
+-- a Blizzard template or atlas, if this client has it
+local function Make(kind, parent, template, name)
+  local ok, f = pcall(CreateFrame, kind, name, parent, template)
+  if ok and f then return f end
+end
+local function HasAtlas(a)
+  if not (C_Texture and C_Texture.GetAtlasInfo) then return false end
+  local ok, info = pcall(C_Texture.GetAtlasInfo, a)
+  return ok and info ~= nil
+end
+local function Font(fs, obj) if _G[obj] then fs:SetFontObject(obj) end end
+-- a template's child frame or region, only if it's really there
+local function Part(f, key) local v = f and rawget(f, key); if type(v) == "table" or type(v) == "userdata" then return v end end
+
+-- Search: every setting, its page and where it is on it
 local index, building = {}, nil
 local function Index(label, frame, y)
   if type(label) == "string" and label ~= "" and building then
@@ -350,148 +335,226 @@ local function Index(label, frame, y)
   return frame
 end
 
--- A framed group: its title above, a box under it. `top` is the title's y; the rows go at g.y
--- (moving down with g:Next), and g:Close() sizes the box and gives the next group's top.
-local function Group(p, title, top)
-  local hdr = Text(p, "header", title)
-  hdr:SetPoint("TOPLEFT", BOX_X + 4, top)
-  Index(title, hdr, top)
-  local box = CreateFrame("Frame", nil, p, "BackdropTemplate")
-  box:SetPoint("TOPLEFT", BOX_X, top - 22); box:SetWidth(BOX_W)
-  box:SetFrameLevel(math.max(0, p:GetFrameLevel()))
-  box:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  Skin(function(th)
-    box:SetBackdropColor(0, 0, 0, th.eui and 0.35 or 0.28)
-    box:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.55))
-  end)
-  local g = { y = top - 34 }
-  function g.Next(_, h) g.y = g.y - (h or 26) end
-  function g.Close(_)
-    local h = (top - 22) - g.y + 4
-    box:SetHeight(h)
-    return top - 22 - h - 18
+---------------------------------------------------------------------------
+-- Blizzard's controls (with Hereabouts' own as the fallback)
+---------------------------------------------------------------------------
+local function BCheck(parent, opt)
+  local get, set = opt[1], opt[2]
+  local b = CreateFrame("CheckButton", nil, parent)
+  b:SetSize(30, 29)
+  if HasAtlas("checkbox-minimal") and HasAtlas("checkmark-minimal") then
+    local function tex(a) local t = b:CreateTexture(); t:SetAtlas(a, true); t:SetPoint("CENTER"); return t end
+    b:SetNormalTexture(tex("checkbox-minimal")); b:SetPushedTexture(tex("checkbox-minimal"))
+    b:SetCheckedTexture(tex("checkmark-minimal"))
+    if HasAtlas("checkmark-minimal-disabled") then b:SetDisabledCheckedTexture(tex("checkmark-minimal-disabled")) end
+  else
+    b:SetSize(26, 26)
+    b:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up"); b:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
+    b:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
+    b:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    b:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
   end
-  return g
+  b:SetScript("OnClick", function(self) set(self:GetChecked() and true or false); Changed() end)
+  b.Refresh = function() b:SetChecked(get() and true or false) end
+  b.SetActive = function(on) b:SetEnabled(on); b:SetAlpha(on and 1 or 0.5) end
+  return b
 end
 
--- the page builders: each gets its scrolling area `p` and returns how tall it is
-local function PageTracker(p)
-  local g = Group(p, "Position", 0)
-  Index("Lock in place", track(Check(p, "Lock in place", COL1, g.y, Setting("locked"), COL_W)), g.y)
-  Index("Replace the quest tracker", track(Check(p, "Replace the quest tracker", COL2, g.y,
-    Setting("replaceTracker", function() ns.ApplyReplace() end), COL_W)), g.y)
-  g:Next()
-  Index("Hide the list", track(Check(p, "Hide the list", COL1, g.y, Setting("hidden"), COL_W)), g.y)
-  local under = Button(p, "Move under quest tracker", 200, function() ns.db.pos = nil; ns.PlaceFrame(); Changed() end)
-  under:SetPoint("TOPLEFT", COL2, g.y)
-  Index("Move under quest tracker", under, g.y)
-  g:Next(28)
-  Note(p, "Unlock, then drag a section heading to move the list.", COL1, g.y, PAGE_W)
-  g:Next(18)
-  local top = g:Close()
+local function BSlider(parent, minV, maxV, step, opt, fmt, width)
+  local get, set = opt[1], opt[2]
+  local M = MinimalSliderWithSteppersMixin
+  local s = M and Make("Frame", parent, "MinimalSliderWithSteppersTemplate")
+  if not (s and s.Init and s.RegisterCallback and M.Label and M.Event) then
+    if s then s:Hide() end
+    local fb = Slider(parent, nil, 0, 0, (width or 250) - 60, minV, maxV, step, opt, fmt) -- (placed by the row)
+    return fb
+  end
+  s:SetWidth(width or 250)
+  local refreshing = false
+  local function snap(v) return math.floor(v / step + 0.5) * step end
+  s:Init(get() or minV, minV, maxV, math.max(1, math.floor((maxV - minV) / step + 0.5)), { [M.Label.Right] = function(v) return fmt(snap(v)) end })
+  s:RegisterCallback(M.Event.OnValueChanged, function(_, v)
+    v = snap(v)
+    if refreshing or get() == v then return end
+    set(v); Changed()
+  end, s)
+  s.Refresh = function()
+    refreshing = true
+    s:SetValue(get()); if s.FormatValue then s:FormatValue(get()) end
+    refreshing = false
+  end
+  s.SetActive = function(on) s:SetEnabled(on) end
+  return s
+end
 
-  g = Group(p, "Look", top)
+local function BButton(parent, text, width, onClick)
+  local b = Make("Button", parent, "UIPanelButtonTemplate")
+  if not b then return Button(parent, text, width, onClick) end
+  b:SetSize(width, 22); b:SetText(text)
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
+---------------------------------------------------------------------------
+-- A page's rows: section headings, then a gold label on the left and a control on the right
+---------------------------------------------------------------------------
+local function Rows(p)
+  local R = { y = 0, n = 0 }
+  local function Hover(row, label, tip)
+    local hover = row:CreateTexture(nil, "BACKGROUND")
+    hover:SetAllPoints(); hover:SetColorTexture(1, 1, 1, 0.05); hover:Hide()
+    row:EnableMouse(true)
+    row:SetScript("OnEnter", function(self)
+      hover:Show()
+      if tip then
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(label, 1, 1, 1)
+        GameTooltip:AddLine(tip, nil, nil, nil, true); GameTooltip:Show()
+      end
+    end)
+    row:SetScript("OnLeave", function() hover:Hide(); GameTooltip:Hide() end)
+  end
+  -- a white heading
+  function R.Section(_, title)
+    R.y = R.y - (R.n > 0 and 14 or 0)
+    local t = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    t:SetPoint("TOPLEFT", 7, R.y - 16); t:SetText(title)
+    Index(title, t, R.y)
+    R.y = R.y - 45
+  end
+  -- a row with its label; returns the row frame and its control's x
+  function R.Row(_, label, tip, indent)
+    local row = CreateFrame("Frame", nil, p)
+    row:SetPoint("TOPLEFT", 0, R.y); row:SetSize(CHILD_W, ROW)
+    local l = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    l:SetPoint("LEFT", LABEL_X + (indent and 20 or 0), 0); l:SetPoint("RIGHT", row, "LEFT", CTRL_X - 10, 0)
+    l:SetJustifyH("LEFT"); l:SetWordWrap(false); l:SetText(label)
+    row.label = l
+    Hover(row, label, tip)
+    Index(label, row, R.y)
+    R.y, R.n = R.y - ROW, R.n + 1
+    return row
+  end
+  function R.Check(_, label, opt, tip, indent)
+    local row = R:Row(label, tip, indent)
+    local c = track(BCheck(row, opt))
+    c:SetPoint("LEFT", CTRL_X, 0)
+    local sa = c.SetActive
+    c.SetActive = function(on) sa(on); Font(row.label, on and "GameFontNormal" or "GameFontDisable") end
+    return c, row
+  end
+  function R.Slider(_, label, minV, maxV, step, opt, fmt, tip, x)
+    local row = R:Row(label, tip)
+    local s = track(BSlider(row, minV, maxV, step, opt, fmt))
+    s:ClearAllPoints(); s:SetPoint("LEFT", x or CTRL_X, 0)
+    return s, row
+  end
+  function R.Button(_, label, text, width, onClick, tip)
+    local row = R:Row(label, tip)
+    local b = BButton(row, text, width, onClick)
+    b:SetPoint("LEFT", CTRL_X, 0)
+    return b, row
+  end
+  -- a short grey note under the rows above (no control)
+  function R.Note(_, text)
+    local n = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    n:SetPoint("TOPLEFT", LABEL_X, R.y + 4); n:SetWidth(CHILD_W - LABEL_X - 30); n:SetJustifyH("LEFT")
+    n:SetTextColor(0.7, 0.7, 0.7); n:SetText(text)
+    R.y = R.y - math.max(16, (n:GetStringHeight() or 12) + 10)
+    return n
+  end
+  function R.Height(_) return -R.y + 20 end
+  return R
+end
+
+---------------------------------------------------------------------------
+-- The pages
+---------------------------------------------------------------------------
+local function PageTracker(p)
+  local R = Rows(p)
+  R:Section("Position")
+  R:Check("Lock in place", Setting("locked"), "Unlock to drag the list by a section heading.")
+  R:Check("Replace the quest tracker", Setting("replaceTracker", function() ns.ApplyReplace() end),
+    "Hide the game's quest tracker (or FlareUI's / EllesmereUI's) and take its place.")
+  R:Check("Hide the list", Setting("hidden"))
+  R:Button("Position", "Move under quest tracker", 200, function() ns.db.pos = nil; ns.PlaceFrame(); Changed() end,
+    "Put the list back under the game's quest tracker.")
+
+  R:Section("Look")
   -- (the look follows EllesmereUI / FlareUI on its own when they're installed)
-  local border = track(Check(p, "Border (without FlareUI / EllesmereUI)", COL1, g.y, Setting("showBorder", Restyle), COL_W))
+  local border = R:Check("Border", Setting("showBorder", Restyle), "A border around the list. FlareUI and EllesmereUI draw their own.")
   local r = border.Refresh
   border.Refresh = function() r(); border.SetActive(not ns.UsingFlare() and not ns.UsingEUI()) end
-  Index("Border", border, g.y)
   -- the earlier section headings (the quest tracker's header art), for those who prefer them
-  local classic = track(Check(p, "Classic section headings", COL2, g.y, Setting("classicHeaders", function() ns.Refresh() end), COL_W))
+  local classic = R:Check("Classic section headings", Setting("classicHeaders", function() ns.Refresh() end),
+    "The quest tracker's own heading art for each section (without FlareUI).")
   local rc = classic.Refresh
   classic.Refresh = function() rc(); classic.SetActive(not ns.UsingFlare()) end
-  Index("Classic section headings", classic, g.y)
-  g:Next(32)
-  Index("Scale", track(Slider(p, "Scale", COL1, g.y, 240, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct)), g.y)
-  Index("Background opacity", track(Slider(p, "Background opacity", COL2, g.y, 240, 0, 1, 0.05,
-    Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct)), g.y)
-  g:Next(42)
-  Index("Max height", track(Slider(p, "Max height (then scrolls)", COL1, g.y, 240, 120, 900, 10, Setting("maxHeight"),
-    function(v) return v .. " px" end)), g.y)
-  g:Next(38)
-  top = g:Close()
+  R:Slider("Scale", 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct)
+  R:Slider("Background opacity", 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct)
+  R:Slider("Max height", 120, 900, 10, Setting("maxHeight"), function(v) return v .. " px" end, "Taller than this, the list scrolls.")
 
   -- which sections show in dungeons and in combat (ticked = shown)
-  g = Group(p, "Show in dungeons and in combat", top)
-  local C1, C2 = 330, 440
-  Text(p, "note", "In dungeons"):SetPoint("TOPLEFT", C1 - 22, g.y)
-  Text(p, "note", "In combat"):SetPoint("TOPLEFT", C2 - 18, g.y)
-  g:Next(20)
+  R:Section("Show in dungeons and in combat")
+  local head = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  head:SetPoint("TOPLEFT", CTRL_X - 14, R.y + 6); head:SetText("In dungeons")
+  local head2 = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  head2:SetPoint("TOPLEFT", CTRL_X + 96, R.y + 6); head2:SetText("In combat")
+  R.y = R.y - 10
   local function Shown(tbl, key)
     return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
       function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
   end
   for _, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests Nearby" },
       { "training", "Training" }, { "dungeons", "Dungeons" } }) do
-    local name = Text(p, "line", sec[2]); name:SetPoint("TOPLEFT", COL1, g.y - 2)
-    Index(sec[2] .. " in dungeons and combat", name, g.y)
-    track(Check(p, nil, C1, g.y, Shown("hideInInstance", sec[1]), 24))
-    track(Check(p, nil, C2, g.y, Shown("hideInCombat", sec[1]), 24))
-    g:Next(22)
+    local row = R:Row(sec[2], "Ticked: this section shows in dungeons / in combat.")
+    local a = track(BCheck(row, Shown("hideInInstance", sec[1]))); a:SetPoint("LEFT", CTRL_X, 0)
+    local b = track(BCheck(row, Shown("hideInCombat", sec[1]))); b:SetPoint("LEFT", CTRL_X + 110, 0)
   end
-  return -g:Close()
+  return R:Height()
 end
 
 local function PageLists(p)
-  local g = Group(p, "What to list", 0)
+  local R = Rows(p)
   local count = function(v) return "up to " .. v end
-  -- one row per section: on/off on the left, how many on the right; options indented under it
+  R:Section("What to list")
+  -- one row per section: on/off and how many; its options indented under it
   local function Row(label, key, maxKey, maxV)
-    local s = maxKey and Slider(p, nil, COL2, g.y, 170, 1, maxV, 1, Setting(maxKey), count)
-    local c = Check(p, label, COL1, g.y, { function() return ns.db[key] end, function(v)
+    local c, row = R:Check(label, { function() return ns.db[key] end, function(v)
       ns.db[key] = v; ns.RefreshOptions() -- greys out its slider and options
-    end }, COL_W)
-    track(c); Index(label, c, g.y)
-    if s then
-      track(s)
-      local r = c.Refresh
-      c.Refresh = function() r(); s.SetActive(ns.db[key] and true or false) end
-    end
-    g:Next(24)
+    end })
+    local s = track(BSlider(row, 1, maxV, 1, Setting(maxKey), count, 230))
+    s:ClearAllPoints(); s:SetPoint("LEFT", CTRL_X + 44, 0)
+    local r = c.Refresh
+    c.Refresh = function() r(); s.SetActive(ns.db[key] and true or false) end
   end
   local function Sub(label, key, parentKey)
-    local c = Check(p, label, COL1 + 22, g.y, Setting(key), COL_W - 22)
-    track(c); Index(label, c, g.y)
+    local c = R:Check(label, Setting(key), nil, true)
     local r = c.Refresh
     c.Refresh = function() r(); c.SetActive(ns.db[parentKey] and true or false) end
-    g:Next(30)
   end
   Row("Active Quests", "showActive", "maxQuests", 20)
   Sub("Only quests in my current zone", "activeZoneOnly", "showActive")
-  Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20); g:Next(6)
-  Row("Quests Nearby (Questie)", "showPickup", "maxPickup", 20); g:Next(6)
+  Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20)
+  Row("Quests Nearby (Questie)", "showPickup", "maxPickup", 20)
   Row("Dungeons", "showDungeons", "maxDungeons", 6)
   Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons")
   Row("Training (What's Training)", "showTraining", "maxTraining", 30)
   Sub("Also spells at my next level", "showNextLevel", "showTraining")
-  local top = g:Close()
 
-  g = Group(p, "Details", top)
-  local function C(label, key, col, onSet, indentOf)
-    local c = track(Check(p, label, (col == 2 and COL2 or COL1) + (indentOf and 22 or 0), g.y, Setting(key, onSet), COL_W - (indentOf and 22 or 0)))
-    Index(label, c, g.y)
-    if indentOf then
-      local r = c.Refresh
-      c.Refresh = function() r(); c.SetActive(ns.db[indentOf] and true or false) end
-    end
-    return c
-  end
-  C("Sort by level (highest first)", "sortByLevel", 1); C("XP reward", "showXP", 2); g:Next()
-  C("Objectives under active quests", "showObjectives", 1, function() ns.RefreshOptions() end); C("Quest giver and zone", "showStarter", 2); g:Next()
-  C("Hide finished objectives", "hideDoneObjectives", 1, nil, "showObjectives"); C("Training prices by city", "showCityPrices", 2); g:Next()
-  C("Quest item buttons (beside the quest)", "showQuestItems", 1, function() ns.Refresh() end)
-  local cf = C("In combat: mark my enemy's quests", "combatFocus", 2, function() ns.Refresh() end)
-  cf:HookScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("In combat: mark my enemy's quests", 1, 1, 1)
-    GameTooltip:AddLine("While you fight something a quest of yours needs (to kill it, or for what it drops), that quest is highlighted light blue where it is in Active Quests (nothing moves), with the objective it counts for lit up. Your target first; with no quest target, the enemies fighting you (needs enemy nameplates on). Back to normal when combat ends.", 0.85, 0.85, 0.85, true)
-    GameTooltip:Show()
-  end)
-  cf:HookScript("OnLeave", function() GameTooltip:Hide() end)
-  g:Next()
-  C("Soft animations (objective progress, combat mark)", "animations", 1)
-  g:Next()
-  return -g:Close()
+  R:Section("Details")
+  R:Check("Sort by level (highest first)", Setting("sortByLevel"))
+  R:Check("Objectives under active quests", Setting("showObjectives", function() ns.RefreshOptions() end))
+  local hide = R:Check("Hide finished objectives", Setting("hideDoneObjectives"), nil, true)
+  local hr = hide.Refresh
+  hide.Refresh = function() hr(); hide.SetActive(ns.db.showObjectives and true or false) end
+  R:Check("XP reward", Setting("showXP"))
+  R:Check("Quest giver and zone", Setting("showStarter"))
+  R:Check("Training prices by city", Setting("showCityPrices"))
+  R:Check("Quest item buttons (beside the quest)", Setting("showQuestItems", function() ns.Refresh() end))
+  R:Check("In combat: mark my enemy's quests", Setting("combatFocus", function() ns.Refresh() end),
+    "While you fight something a quest of yours needs (to kill it, or for what it drops), that quest is highlighted light blue where it is in Active Quests (nothing moves), with the objective it counts for lit up. Your target first; with no quest target, the enemies fighting you (needs enemy nameplates on). Back to normal when combat ends.")
+  R:Check("Soft animations", Setting("animations"), "Objectives flash when they progress; the combat mark fades in and out.")
+  return R:Height()
 end
 
 -- Layout (1.12.0): the sections' order and whether each shows, presets, and three saved layouts
@@ -502,173 +565,125 @@ local function PageLayout(p)
     if ns.Session then ns.Session.Paint() end
     ns.Print(what)
   end
-  local function Tip(b, title, text)
-    b:HookScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(title, 1, 1, 1)
-      GameTooltip:AddLine(text, 0.85, 0.85, 0.85, true); GameTooltip:Show()
-    end)
-    b:HookScript("OnLeave", function() GameTooltip:Hide() end)
-  end
-  local g = Group(p, "Sections, top to bottom", 0)
-  local first = g.y -- (the rows are placed on every refresh, from here)
+  local R = Rows(p)
+  R:Section("Sections, top to bottom")
+  local first = R.y -- (the rows are placed on every refresh, in the order)
   local rows = {}
   for _, m in ipairs(ns.MODULES) do
-    local r = {}
-    r.check = track(Check(p, m.name, COL1, first, Setting(m.show, function() ns.RefreshOptions() end), 240))
-    Index(m.name, r.check, first)
-    r.up = Button(p, "Up", 56, function() ns.MoveSection(m.key, -1); Changed(); ns.RefreshOptions() end)
-    r.down = Button(p, "Down", 56, function() ns.MoveSection(m.key, 1); Changed(); ns.RefreshOptions() end)
-    rows[m.key] = r
+    local _, row = R:Check(m.name, Setting(m.show, function() ns.RefreshOptions() end))
+    local up = BButton(row, "Up", 60, function() ns.MoveSection(m.key, -1); Changed(); ns.RefreshOptions() end)
+    up:SetPoint("LEFT", CTRL_X + 44, 0)
+    local down = BButton(row, "Down", 60, function() ns.MoveSection(m.key, 1); Changed(); ns.RefreshOptions() end)
+    down:SetPoint("LEFT", up, "RIGHT", 4, 0)
+    rows[m.key] = { row = row, up = up, down = down }
   end
   track({ Refresh = function()
     for i, key in ipairs(ns.SectionOrder()) do
-      local r, ry = rows[key], first - (i - 1) * 26
-      r.check:ClearAllPoints(); r.check:SetPoint("TOPLEFT", COL1, ry)
-      r.up:ClearAllPoints(); r.up:SetPoint("TOPLEFT", COL2, ry)
-      r.down:ClearAllPoints(); r.down:SetPoint("TOPLEFT", COL2 + 62, ry)
-      r.up:SetAlpha(i > 1 and 1 or 0.35); r.down:SetAlpha(i < #ns.MODULES and 1 or 0.35)
+      local r = rows[key]
+      r.row:ClearAllPoints(); r.row:SetPoint("TOPLEFT", 0, first - (i - 1) * ROW)
+      r.up:SetEnabled(i > 1); r.down:SetEnabled(i < #ns.MODULES)
     end
   end })
-  g:Next(#ns.MODULES * 26)
-  local top = g:Close()
 
-  g = Group(p, "Presets", top)
-  for i, pr in ipairs(ns.PRESETS) do
-    local b = Button(p, pr[2], 100, function()
-      ns.ApplyPreset(pr[1]); applied(format("layout: %s.", pr[2]))
-    end)
-    b:SetPoint("TOPLEFT", COL1 + (i - 1) * 106, g.y)
-    Tip(b, pr[2], pr[3])
-    Index("Preset: " .. pr[2], b, g.y)
+  R:Section("Presets")
+  for _, pr in ipairs(ns.PRESETS) do
+    R:Button(pr[2], "Use", 96, function() ns.ApplyPreset(pr[1]); applied(format("layout: %s.", pr[2])) end, pr[3])
   end
-  g:Next(30)
-  Note(p, "A preset sets what shows and where, not the look. Save your layout below first to come back to it.", COL1, g.y, PAGE_W)
-  g:Next(20)
-  top = g:Close()
+  R:Note("A preset sets what shows and where, not the look. Save your layout below first to come back to it.")
 
-  g = Group(p, "Your layouts", top)
+  R:Section("Your layouts")
   for slot = 1, ns.LAYOUT_SLOTS do
-    local label = Text(p, "line", "")
-    label:SetPoint("TOPLEFT", COL1, g.y - 4)
-    local save = Button(p, "Save", 64, function() ns.SaveLayout(slot); applied(format("layout %d saved.", slot)) end)
-    save:SetPoint("TOPLEFT", COL2, g.y)
-    local load = Button(p, "Load", 64, function()
+    local row = R:Row("Layout " .. slot)
+    local save = BButton(row, "Save", 80, function() ns.SaveLayout(slot); applied(format("layout %d saved.", slot)) end)
+    save:SetPoint("LEFT", CTRL_X, 0)
+    local load = BButton(row, "Load", 80, function()
       if ns.LoadLayout(slot) then applied(format("layout %d loaded.", slot)) end
     end)
-    load:SetPoint("TOPLEFT", COL2 + 70, g.y)
-    Index("Layout " .. slot, label, g.y)
+    load:SetPoint("LEFT", save, "RIGHT", 4, 0)
+    local when = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    when:SetPoint("LEFT", load, "RIGHT", 12, 0)
     track({ Refresh = function()
       local l = type(ns.db.layouts) == "table" and ns.db.layouts[slot]
-      label:SetText(format("Layout %d: %s", slot, (l and l.savedAt and l.savedAt > 0) and ("saved " .. date("%d %b %H:%M", l.savedAt)) or "empty"))
-      load:SetAlpha(l and 1 or 0.35)
+      local saved = l and l.savedAt and l.savedAt > 0
+      when:SetText(saved and ("saved " .. date("%d %b %H:%M", l.savedAt)) or "empty")
+      load:SetEnabled(l and true or false)
     end })
-    g:Next(26)
   end
-  return -g:Close()
+  return R:Height()
 end
 
 local function PagePicking(p)
-  local g = Group(p, "Which quests to suggest", 0)
-  Index("Only quests from my current zone", track(Check(p, "Only quests from my current zone", COL1, g.y, Setting("pickupZoneOnly"), COL_W)), g.y)
-  g:Next(28)
-  Note(p, "Quests Nearby needs Questie. Which quests show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options.", COL1, g.y, PAGE_W)
-  g:Next(40)
-  Index("Current-zone bonus", track(Slider(p, "Current-zone bonus", COL1, g.y, 240, 1, 3, 0.1, Setting("zoneBonus"),
-    function(v) return format("x%.1f", v) end)), g.y)
-  Note(p, "With All zones, quests in your zone rank higher, since there's less travel.", COL2, g.y - 4, COL_W)
-  g:Next(42)
-  local top = g:Close()
+  local R = Rows(p)
+  R:Section("Which quests to suggest")
+  R:Check("Only quests from my current zone", Setting("pickupZoneOnly"))
+  R:Slider("Current-zone bonus", 1, 3, 0.1, Setting("zoneBonus"), function(v) return format("x%.1f", v) end,
+    "With All zones, quests in your zone rank higher, since there's less travel.")
+  R:Note("Quests Nearby needs Questie. Which quests show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options.")
 
-  g = Group(p, "Ignored quests", top)
-  local count = Text(p, "line", "")
-  count:SetPoint("TOPLEFT", COL1, g.y - 4)
-  local manage = Button(p, "Manage...", 120, function() ns.OpenIgnored() end)
-  manage:SetPoint("TOPLEFT", COL2, g.y)
-  Index("Ignored quests: manage", manage, g.y)
-  g:Next(30)
-  Note(p, "Right-click a quest under Quests Nearby to ignore it.", COL1, g.y, PAGE_W)
-  g:Next(18)
+  R:Section("Ignored quests")
+  local _, row = R:Button("Ignored quests", "Manage...", 120, function() ns.OpenIgnored() end)
+  local count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  count:SetPoint("LEFT", CTRL_X + 132, 0)
+  R:Note("Right-click a quest under Quests Nearby to ignore it.")
   ignUpdate = function()
     local n = 0
     for _ in pairs(ns.db.ignoredQuests or {}) do n = n + 1 end
-    count:SetText(n == 0 and "No quests ignored." or format(n == 1 and "%d quest ignored." or "%d quests ignored.", n))
+    count:SetText(n == 0 and "none" or format(n == 1 and "%d quest" or "%d quests", n))
   end
-  return -g:Close()
+  return R:Height()
 end
 
 local function PageSession(p)
   local function repaint() if ns.Session then ns.Session.Paint() end end
-  local g = Group(p, "Session bar", 0)
-  Index("Show the session bar", track(Check(p, "Show the session bar under the tracker", COL1, g.y, Setting("showSession", repaint), 340)), g.y)
-  g:Next(28)
-  Note(p, "A small bar under Hereabouts with this session's numbers. Hover it for all of them, right-click it to reset.", COL1, g.y, PAGE_W)
-  g:Next(20)
-  local top = g:Close()
-
-  g = Group(p, "What it shows", top)
-  for i, st in ipairs(ns.Session.STATS) do
+  local R = Rows(p)
+  R:Section("Session bar")
+  R:Check("Show the session bar", Setting("showSession", repaint),
+    "A small bar under Hereabouts with this session's numbers. Hover it for all of them, right-click it to reset.")
+  R:Section("What it shows")
+  for _, st in ipairs(ns.Session.STATS) do
     local key = st[1]
-    local col = (i - 1) % 2
-    local c = track(Check(p, st[2], col == 0 and COL1 or COL2, g.y, {
+    local c = R:Check(st[2], {
       function() return (ns.db.sessionStats or {})[key] and true or false end,
-      function(v) ns.db.sessionStats = ns.db.sessionStats or {}; ns.db.sessionStats[key] = v or nil; repaint() end }, COL_W))
-    Index(st[2], c, g.y)
+      function(v) ns.db.sessionStats = ns.db.sessionStats or {}; ns.db.sessionStats[key] = v or nil; repaint() end })
     local r = c.Refresh
     c.Refresh = function() r(); c.SetActive(ns.db.showSession and true or false) end
-    if col == 1 or i == #ns.Session.STATS then g:Next() end
   end
-  g:Next(4)
-  Note(p, "Hover the XP bar for everything on XP (per hour, time to level, this session, quests, rested), the gold bar for everything on gold (per hour, gained, what training costs now). Gold counts what comes in, not what you spend.",
-    COL1, g.y, PAGE_W)
-  g:Next(42)
-  local reset = Button(p, "Reset session", 130, function() ns.Session.Reset(); ns.Print("session stats reset.") end)
-  reset:SetPoint("TOPLEFT", COL1, g.y)
-  Index("Reset session", reset, g.y)
-  g:Next(28)
-  return -g:Close()
+  R:Note("Hover the XP bar for everything on XP (per hour, time to level, this session, quests, rested), the gold bar for everything on gold (per hour, gained, what training costs now). Gold counts what comes in, not what you spend.")
+  R:Button("Reset the session", "Reset", 96, function() ns.Session.Reset(); ns.Print("session stats reset.") end,
+    "Start the session's numbers again (this one goes into your history).")
+  return R:Height()
 end
 
 local function PageStatus(p)
-  local g = Group(p, "Connected addons", 0)
+  local R = Rows(p)
+  R:Section("Connected addons")
   local rows = {}
-  local NAMES = { "Questie", "What's Training", "FlareUI", "EllesmereUI", "TomTom" } -- (ns.Integrations' order)
-  for _, n in ipairs(NAMES) do
-    local dot = p:CreateTexture(nil, "ARTWORK")
-    dot:SetTexture(W); dot:SetSize(8, 8); dot:SetPoint("TOPLEFT", COL1 + 2, g.y - 5)
-    local name = Text(p, "line", n); name:SetPoint("TOPLEFT", COL1 + 18, g.y)
-    Index(n, name, g.y)
-    local state = Text(p, "note", ""); state:SetPoint("TOPLEFT", COL1 + 160, g.y - 1); state:SetWidth(PAGE_W - 160)
+  for _, n in ipairs({ "Questie", "What's Training", "FlareUI", "EllesmereUI", "TomTom" }) do -- (ns.Integrations' order)
+    local row = R:Row(n)
+    local dot = row:CreateTexture(nil, "ARTWORK")
+    dot:SetTexture(W); dot:SetSize(8, 8); dot:SetPoint("LEFT", CTRL_X, 0)
+    local state = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    state:SetPoint("LEFT", dot, "RIGHT", 8, 0); state:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+    state:SetJustifyH("LEFT"); state:SetWordWrap(true)
     rows[n] = { dot = dot, state = state }
-    g:Next(30)
   end
   local COLORS = { on = { 0.35, 0.9, 0.35 }, partial = { 1, 0.82, 0.2 }, loading = { 1, 0.82, 0.2 }, off = { 0.45, 0.45, 0.45 } }
-  local level = Text(p, "line", "")
-  level:SetPoint("TOPLEFT", COL1, g.y)
-  local rescan = Button(p, "Rescan Questie", 130, function() ns.Questie.Scan(); if statusUpdate then statusUpdate() end end)
-  rescan:SetPoint("TOPLEFT", COL2, g.y + 4)
-  Index("Rescan Questie", rescan, g.y)
-  g:Next(28)
+  local rescan, rrow = R:Button("Your level", "Rescan Questie", 130, function() ns.Questie.Scan(); if statusUpdate then statusUpdate() end end)
+  Index("Rescan Questie", rescan, R.y)
   statusUpdate = function()
     for _, it in ipairs(ns.Integrations()) do
       local r, c = rows[it[1]], COLORS[it[2]]
       if r then r.dot:SetVertexColor(c[1], c[2], c[3]); r.state:SetText(it[3]) end
     end
-    level:SetText(format("Your level: %d", UnitLevel("player")))
+    rrow.label:SetText(format("Your level: %d", UnitLevel("player")))
   end
-  local top = g:Close()
-
-  g = Group(p, "Reset", top)
-  local reset = Button(p, "Reset to defaults", 140, function()
-    ns.ResetDB(); ns.PlaceFrame(); ns.Questie.RescanSoon(); Restyle(); Changed(); ns.RefreshOptions()
-  end)
-  reset:SetPoint("TOPLEFT", COL1, g.y)
-  Index("Reset to defaults", reset, g.y)
-  Note(p, "Keeps where the list is, the quests you've ignored and your saved layouts.", COL1 + 152, g.y - 5, PAGE_W - 152)
-  g:Next(30)
-  return -g:Close()
+  R:Section("Reset")
+  R:Button("Reset to defaults", "Defaults", 96, function() ns.ConfirmDefaults() end,
+    "Every setting back to its default. Keeps where the list is, the quests you've ignored and your saved layouts.")
+  return R:Height()
 end
 
--- name, icon, what it's for, builder
+-- name, icon, what it's for, builder; under a category heading
 local PAGES = {
   { "Tracker", "Interface\\Icons\\INV_Misc_Map_01", "Where the list sits, how it looks, and what shows in dungeons and in combat.", PageTracker },
   { "Lists", "Interface\\Icons\\INV_Scroll_03", "Which sections list what, and the details under each quest.", PageLists },
@@ -678,192 +693,169 @@ local PAGES = {
   { "Status", "Interface\\Icons\\INV_Misc_Note_01", "The addons Hereabouts works with, and starting afresh.", PageStatus },
 }
 ns.OPTION_PAGES = PAGES
+local CATEGORIES = { { "Hereabouts", { 1, 2, 3, 4, 5 } }, { "Help", { 6 } } }
 
--- a thin scrollbar in the window's colours: wheel or drag
-local function Scroller(scroll, child)
-  local bar = CreateFrame("Frame", nil, scroll:GetParent())
-  bar:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", 12, 0); bar:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 12, 0)
-  bar:SetWidth(6)
-  local trackTex = bar:CreateTexture(nil, "BACKGROUND")
-  trackTex:SetAllPoints()
-  local thumb = CreateFrame("Frame", nil, bar)
-  thumb:SetWidth(6)
-  local thumbTex = thumb:CreateTexture(nil, "ARTWORK")
-  thumbTex:SetAllPoints()
-  Skin(function(th)
-    trackTex:SetColorTexture(RGB(th.eui and th.edge or th.accent, 0.25))
-    thumbTex:SetColorTexture(RGB(th.eui and th.accent or th.title, 0.8))
-  end)
-  local function Max() return math.max(0, child:GetHeight() - scroll:GetHeight()) end
-  local function Place()
-    local max, h = Max(), scroll:GetHeight()
-    bar:SetShown(max > 0)
-    if max <= 0 then return end
-    local th = math.max(24, h * h / child:GetHeight())
-    thumb:SetHeight(th)
-    thumb:ClearAllPoints()
-    thumb:SetPoint("TOP", bar, "TOP", 0, -(h - th) * scroll:GetVerticalScroll() / max)
+-- "Defaults": every setting back to its default, after asking (the game's own dialog)
+function ns.ConfirmDefaults()
+  local function reset()
+    ns.ResetDB(); ns.PlaceFrame(); ns.Questie.RescanSoon(); Restyle(); Changed(); ns.RefreshOptions()
+    ns.Print("settings back to their defaults.")
   end
-  function scroll.ScrollTo(v)
-    scroll:SetVerticalScroll(math.max(0, math.min(Max(), v)))
-    Place()
-  end
-  scroll:EnableMouseWheel(true)
-  scroll:SetScript("OnMouseWheel", function(_, d) scroll.ScrollTo(scroll:GetVerticalScroll() - d * 48) end)
-  scroll:SetScript("OnSizeChanged", Place)
-  thumb:EnableMouse(true)
-  thumb:SetScript("OnMouseDown", function()
-    local _, y0 = GetCursorPosition()
-    local s0, k = scroll:GetVerticalScroll(), thumb:GetEffectiveScale()
-    thumb:SetScript("OnUpdate", function()
-      local _, y = GetCursorPosition()
-      local free = scroll:GetHeight() - thumb:GetHeight()
-      if free > 0 then scroll.ScrollTo(s0 + (y0 - y) / k * Max() / free) end
-    end)
-  end)
-  thumb:SetScript("OnMouseUp", function() thumb:SetScript("OnUpdate", nil) end)
-  scroll.PlaceBar = Place
+  if not (StaticPopupDialogs and StaticPopup_Show) then reset(); return end
+  StaticPopupDialogs.HEREABOUTS_DEFAULTS = StaticPopupDialogs.HEREABOUTS_DEFAULTS or {
+    text = "Put every Hereabouts setting back to its default?\n\nWhere the list is, the quests you've ignored and your saved layouts are kept.",
+    button1 = OKAY or "Okay", button2 = CANCEL or "Cancel",
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+  }
+  StaticPopupDialogs.HEREABOUTS_DEFAULTS.OnAccept = reset
+  StaticPopup_Show("HEREABOUTS_DEFAULTS")
 end
 
--- the logo in a round frame, overlapping the window's top left corner (like Questie's emblem)
-local function Emblem(win)
-  local e = CreateFrame("Frame", nil, win)
-  e:SetSize(66, 66); e:SetPoint("TOPLEFT", -18, 18)
-  e:SetFrameLevel(win:GetFrameLevel() + 20)
-  local ring = e:CreateTexture(nil, "BACKGROUND")
-  ring:SetAllPoints()
-  local inner = e:CreateTexture(nil, "BORDER")
-  inner:SetPoint("TOPLEFT", 4, -4); inner:SetPoint("BOTTOMRIGHT", -4, 4)
-  inner:SetColorTexture(0.04, 0.035, 0.03, 1)
-  local logo = e:CreateTexture(nil, "ARTWORK")
-  logo:SetPoint("TOPLEFT", 7, -7); logo:SetPoint("BOTTOMRIGHT", -7, 7)
-  logo:SetTexture(LOGO)
-  -- round (the game's portrait mask); a square logo if the client can't
-  pcall(function()
-    for _, t in ipairs({ ring, inner, logo }) do
-      local m = e:CreateMaskTexture()
-      m:SetTexture(ROUND, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-      m:SetAllPoints(t)
-      t:AddMaskTexture(m)
-    end
-  end)
-  Skin(function(th) ring:SetColorTexture(RGB(th.eui and th.accent or th.accent)) end)
-  return e
+-- the window: Blizzard's settings frame, else Hereabouts' own
+local function Frame()
+  local f = Make("Frame", UIParent, "SettingsFrameTemplate", "XPPlannerOptionsWindow")
+  if not f then
+    local w = Window("XPPlannerOptionsWindow", WIN_W, WIN_H)
+    Text(w, "title", "Hereabouts"):SetPoint("TOP", 0, -12)
+    return w
+  end
+  f:SetSize(WIN_W, WIN_H)
+  f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
+  f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetClampedToScreen(true)
+  f:HookScript("OnShow", function(self) self:Raise() end)
+  tinsert(UISpecialFrames, "XPPlannerOptionsWindow") -- Esc closes it
+  local text = Part(Part(f, "NineSlice"), "Text")
+  if text then text:SetText("Hereabouts") end
+  if HasAtlas("Options_InnerFrame") then
+    local inner = f:CreateTexture(nil, "BACKGROUND")
+    inner:SetAtlas("Options_InnerFrame", true); inner:SetPoint("TOPLEFT", 17, -64)
+  end
+  return f
 end
 
 local function BuildWindow()
   wipe(index)
-  window = Window("XPPlannerOptionsWindow", WIN_W, WIN_H)
+  window = Frame()
   window:SetPoint("CENTER")
   reportHost = window
   window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
-  Emblem(window)
 
-  -- title bar: the name in the middle, Bugs & Feedback and the × on the right
-  local band = window:CreateTexture(nil, "BORDER")
-  band:SetPoint("TOPLEFT", 4, -4); band:SetPoint("TOPRIGHT", -4, -4); band:SetHeight(30)
-  local bandLine = window:CreateTexture(nil, "BORDER")
-  bandLine:SetPoint("TOPLEFT", band, "BOTTOMLEFT"); bandLine:SetPoint("TOPRIGHT", band, "BOTTOMRIGHT"); bandLine:SetHeight(1)
-  Skin(function(th)
-    band:SetColorTexture(0, 0, 0, 0.35)
-    bandLine:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.6))
-  end)
-  local title = Text(window, "title", "Hereabouts")
-  title:SetPoint("TOP", 0, -12)
-  local bug = Button(window, "Bugs & Feedback", 130, function() ns.ShowReport() end)
-  bug:SetHeight(20); bug:SetPoint("TOPRIGHT", -34, -9)
+  -- top left: the logo and what Hereabouts is
+  local logo = window:CreateTexture(nil, "ARTWORK")
+  logo:SetSize(28, 28); logo:SetPoint("TOPLEFT", 30, -30); logo:SetTexture(LOGO)
+  local tagline = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  tagline:SetPoint("LEFT", logo, "RIGHT", 8, 0); tagline:SetText("Your quests, filtered to where you are.")
 
-  -- the page's own title and what it's for
-  local pageTitle = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  pageTitle:SetPoint("TOPLEFT", 60, -44)
-  local pageNote = Text(window, "note", "")
-  pageNote:SetPoint("TOPLEFT", 60, -66); pageNote:SetWidth(330)
-  Skin(function(th) pageTitle:SetTextColor(RGB(th.title)) end)
+  -- the page
+  local container = CreateFrame("Frame", nil, window)
+  container:SetPoint("TOPLEFT", CONT_X, -76); container:SetPoint("BOTTOMRIGHT", -22, 46)
+  local title = container:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
+  title:SetPoint("TOPLEFT", 7, -22)
+  if HasAtlas("Options_HorizontalDivider") then
+    local div = container:CreateTexture(nil, "ARTWORK")
+    div:SetAtlas("Options_HorizontalDivider", true); div:SetPoint("TOP", 0, -50)
+  end
+  local bug = BButton(container, "Bugs & Feedback", 140, function() ns.ShowReport() end)
+  bug:SetPoint("TOPRIGHT", -36, -16)
 
-  -- the panel the pages scroll in
-  local panel = CreateFrame("Frame", nil, window, "BackdropTemplate")
-  panel:SetPoint("TOPLEFT", 16, -92); panel:SetPoint("BOTTOMRIGHT", -16, 16)
-  panel:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  Skin(function(th)
-    panel:SetBackdropColor(0, 0, 0, 0.25)
-    panel:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.7))
-  end)
+  -- the buttons at the bottom
+  local close = BButton(window, CLOSE or "Close", 96, function() window:Hide() end)
+  close:SetPoint("BOTTOMRIGHT", -16, 16)
 
-  -- pages and their tabs (icons down the right edge)
-  local pages, tabs, current = {}, {}, 1
-  local function paintTabs(th)
-    th = th or ns.Theme()
-    for i, t in ipairs(tabs) do
-      local on = i == current
-      t:SetBackdropColor(0.04, 0.035, 0.03, 1)
-      t:SetBackdropBorderColor(RGB(on and th.title or (t.hover and th.hover or (th.eui and th.edge or th.accent)), 1))
-      t.icon:SetDesaturated(not on and not t.hover)
-      t.icon:SetAlpha((on or t.hover) and 1 or 0.75)
-      t:ClearAllPoints()
-      t:SetPoint("TOPLEFT", window, "TOPRIGHT", on and 1 or -3, -92 - (i - 1) * 48)
+  -- the categories
+  local pages, items, current = {}, {}, 1
+  local function paintItems()
+    for i, it in ipairs(items) do
+      local on, over = i == current, it.over
+      Font(it.label, on and "GameFontHighlight" or "GameFontNormal")
+      if on and HasAtlas("Options_List_Active") then it.tex:SetAtlas("Options_List_Active", true); it.tex:Show()
+      elseif over and HasAtlas("Options_List_Hover") then it.tex:SetAtlas("Options_List_Hover", true); it.tex:Show()
+      elseif on or over then it.tex:SetColorTexture(1, 1, 1, on and 0.12 or 0.06); it.tex:SetAllPoints(); it.tex:Show()
+      else it.tex:Hide() end
     end
   end
   local function Select(i)
     current = i
     for k, pg in ipairs(pages) do pg.scroll:SetShown(k == i) end
-    pageTitle:SetText(PAGES[i][1]); pageNote:SetText(PAGES[i][3])
-    paintTabs()
-    pages[i].scroll.PlaceBar()
+    title:SetText(PAGES[i][1])
+    paintItems()
   end
+  local y = -76
+  for h, cat in ipairs(CATEGORIES) do
+    local head = CreateFrame("Frame", nil, window)
+    head:SetSize(175, 30); head:SetPoint("TOPLEFT", LIST_X - 8, y)
+    local bg = head:CreateTexture(nil, "ARTWORK")
+    bg:SetPoint("TOPLEFT")
+    if HasAtlas("Options_CategoryHeader_" .. h) then bg:SetAtlas("Options_CategoryHeader_" .. h, true) end
+    local hl = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
+    if not _G.GameFontHighlightMedium then hl:SetFontObject("GameFontHighlightLarge") end
+    hl:SetPoint("LEFT", 20, -1); hl:SetText(cat[1])
+    y = y - 34
+    for _, i in ipairs(cat[2]) do
+      local b = CreateFrame("Button", nil, window)
+      b:SetSize(175, 20); b:SetPoint("TOPLEFT", LIST_X - 8, y)
+      b.tex = b:CreateTexture(nil, "BACKGROUND"); b.tex:SetPoint("CENTER")
+      b.label = b:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+      b.label:SetPoint("TOPLEFT", 36, 1); b.label:SetPoint("BOTTOMRIGHT"); b.label:SetJustifyH("LEFT")
+      b.label:SetText(PAGES[i][1])
+      b:SetScript("OnClick", function() Select(i) end)
+      b:SetScript("OnEnter", function(self)
+        self.over = true; paintItems()
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(PAGES[i][1], 1, 1, 1)
+        GameTooltip:AddLine(PAGES[i][3], nil, nil, nil, true); GameTooltip:Show()
+      end)
+      b:SetScript("OnLeave", function(self) self.over = false; paintItems(); GameTooltip:Hide() end)
+      items[i] = b
+      y = y - 26
+    end
+    y = y - 18
+  end
+
+  -- each page in Blizzard's scroll frame (its minimal scroll bar), else a plain one with the wheel
   for i, def in ipairs(PAGES) do
-    local scroll = CreateFrame("ScrollFrame", nil, panel)
-    scroll:SetPoint("TOPLEFT", 4, -10); scroll:SetPoint("BOTTOMRIGHT", -16, 8)
+    local scroll = Make("ScrollFrame", container, "ScrollFrameTemplate") or CreateFrame("ScrollFrame", nil, container)
+    scroll:SetPoint("TOPLEFT", 0, -56); scroll:SetPoint("BOTTOMRIGHT", -26, 0)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetWidth(CHILD_W)
     scroll:SetScrollChild(child)
     building = i
-    local h = def[4](child)
+    child:SetHeight(math.max(1, def[4](child)))
     building = nil
-    child:SetHeight(math.max(1, h))
-    Scroller(scroll, child)
+    if not Part(scroll, "ScrollBar") then
+      scroll:EnableMouseWheel(true)
+      scroll:SetScript("OnMouseWheel", function(self, d)
+        local max = math.max(0, child:GetHeight() - self:GetHeight())
+        self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - d * 48)))
+      end)
+    end
+    function scroll.ScrollTo(v)
+      local max = math.max(0, child:GetHeight() - scroll:GetHeight())
+      scroll:SetVerticalScroll(math.max(0, math.min(max, v)))
+    end
     scroll:Hide()
     pages[i] = { scroll = scroll, child = child }
-
-    local t = CreateFrame("Button", nil, window, "BackdropTemplate")
-    t:SetSize(42, 42)
-    t:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-    t.icon = t:CreateTexture(nil, "ARTWORK")
-    t.icon:SetPoint("TOPLEFT", 4, -4); t.icon:SetPoint("BOTTOMRIGHT", -4, 4)
-    t.icon:SetTexture(def[2]); t.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    t:SetScript("OnClick", function() Select(i) end)
-    t:SetScript("OnEnter", function(self)
-      self.hover = true; paintTabs()
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(def[1], 1, 1, 1)
-      GameTooltip:AddLine(def[3], 0.85, 0.85, 0.85, true); GameTooltip:Show()
-    end)
-    t:SetScript("OnLeave", function(self) self.hover = false; paintTabs(); GameTooltip:Hide() end)
-    tabs[i] = t
   end
-  Skin(paintTabs)
 
-  -- search: any setting by name; pick one to go to its page and see it flash
-  local search = CreateFrame("EditBox", nil, window, "BackdropTemplate")
-  search:SetSize(190, 20); search:SetPoint("TOPRIGHT", -18, -52)
-  search:SetAutoFocus(false); search:SetTextInsets(6, 6, 0, 0)
-  search:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  local hint = Text(search, "note", "Search settings")
-  hint:SetPoint("LEFT", 7, 0)
-  Skin(function(th)
-    search:SetFontObject(th.lineFont); search:SetTextColor(RGB(th.title))
-    search:SetBackdropColor(0, 0, 0, 0.55); search:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, 0.8))
-  end)
+  -- search (Blizzard's search box): any setting by name; pick one to go to it and see it flash
+  local search = Make("EditBox", window, "SearchBoxTemplate") or CreateFrame("EditBox", nil, window, "BackdropTemplate")
+  search:SetSize(260, 20); search:SetAutoFocus(false)
+  search:SetPoint("BOTTOMRIGHT", container, "TOPRIGHT", 4, 20)
+  if not Part(search, "Instructions") then
+    search:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 }); search:SetBackdropColor(0, 0, 0, 0.6)
+    search:SetBackdropBorderColor(0.5, 0.5, 0.5, 1); search:SetFontObject("GameFontHighlight"); search:SetTextInsets(6, 6, 0, 0)
+  end
   local results = CreateFrame("Frame", nil, window, "BackdropTemplate")
-  results:SetPoint("TOPRIGHT", search, "BOTTOMRIGHT", 0, -2); results:SetWidth(300)
-  results:SetFrameLevel(window:GetFrameLevel() + 30)
-  results:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  Skin(function(th)
-    results:SetBackdropColor(0.04, 0.035, 0.03, 0.98); results:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, 1))
-  end)
+  results:SetPoint("TOPRIGHT", search, "BOTTOMRIGHT", 0, -2); results:SetWidth(320)
+  results:SetFrameLevel(window:GetFrameLevel() + 40)
+  results:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+  results:SetBackdropColor(0.05, 0.05, 0.05, 0.97); results:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
   results:Hide()
   local lines = {}
   local function Flash(f)
     local t = 0
-    f:SetScript("OnUpdate", nil)
     local holder = CreateFrame("Frame")
     holder:SetScript("OnUpdate", function(self, dt)
       t = t + dt
@@ -874,34 +866,28 @@ local function BuildWindow()
   local function Go(e)
     results:Hide(); search:SetText(""); search:ClearFocus()
     Select(e.page)
-    pages[e.page].scroll.ScrollTo(-e.y - 30)
+    pages[e.page].scroll.ScrollTo(-e.y - 40)
     Flash(e.frame)
   end
   local function Find(text)
-    local q = (text or ""):lower()
-    local found = {}
+    local q, found = (text or ""):lower(), {}
     if #q < 2 then return found end
     for _, e in ipairs(index) do
       if e.label:lower():find(q, 1, true) then found[#found + 1] = e end
-      if #found >= 8 then break end
+      if #found >= 10 then break end
     end
     return found
   end
-  search:SetScript("OnTextChanged", function(self)
-    local text = self:GetText() or ""
-    hint:SetShown(text == "")
-    local found = Find(text)
+  search:HookScript("OnTextChanged", function(self)
+    local found = Find(self:GetText())
     for i = 1, math.max(#found, #lines) do
-      local e = found[i]
-      local b = lines[i]
+      local e, b = found[i], lines[i]
       if e and not b then
         b = CreateFrame("Button", nil, results)
-        b:SetSize(292, 20)
-        b:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 20)
-        b.text = Text(b, "line", ""); b.text:SetPoint("LEFT", 4, 0); b.text:SetPoint("RIGHT", -4, 0); b.text:SetWordWrap(false)
-        b.hl = b:CreateTexture(nil, "BACKGROUND"); b.hl:SetAllPoints(); b.hl:SetColorTexture(1, 1, 1, 0.08); b.hl:Hide()
-        b:SetScript("OnEnter", function() b.hl:Show() end)
-        b:SetScript("OnLeave", function() b.hl:Hide() end)
+        b:SetSize(308, 20); b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 20)
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.text:SetPoint("LEFT", 4, 0); b.text:SetPoint("RIGHT", -4, 0); b.text:SetJustifyH("LEFT"); b.text:SetWordWrap(false)
+        b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
         lines[i] = b
       end
       if b then
@@ -912,18 +898,17 @@ local function BuildWindow()
         end
       end
     end
-    results:SetHeight(#found * 20 + 8)
+    results:SetHeight(#found * 20 + 12)
     results:SetShown(#found > 0)
   end)
-  search:SetScript("OnEnterPressed", function(self)
+  search:HookScript("OnEnterPressed", function(self)
     local e = Find(self:GetText())[1]
     if e then Go(e) else self:ClearFocus() end
   end)
-  search:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
   window:HookScript("OnHide", function() results:Hide() end)
 
   Select(1)
-  window:SetScript("OnShow", function() ns.RefreshOptions(); pages[current].scroll.PlaceBar() end)
+  window:SetScript("OnShow", function(self) self:Raise(); ns.RefreshOptions() end)
   local t = 0
   window:SetScript("OnUpdate", function(_, dt)
     t = t + dt
