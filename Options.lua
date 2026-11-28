@@ -572,11 +572,8 @@ local function BuildWindow()
   reportHost = window
   window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
 
-  -- top left: the logo and what Hereabouts is
-  local logo = window:CreateTexture(nil, "ARTWORK")
-  logo:SetSize(28, 28); logo:SetPoint("TOPLEFT", 30, -30); logo:SetTexture(LOGO)
-  local tagline = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  tagline:SetPoint("LEFT", logo, "RIGHT", 8, 0); tagline:SetText("Your quests, filtered to where you are.")
+  -- top left: the author's installed addons as icon tabs (Suite.lua), Hereabouts' tagline after them
+  ns.Suite.Tabs(window, "Hereabouts", 30, -27)
 
   -- the page
   local container = CreateFrame("Frame", nil, window)
@@ -732,14 +729,22 @@ local function BuildWindow()
 end
 ns.OptionsIndex = function() return index end
 
-function ns.OpenOptions()
+-- the settings window, built the first time it's asked for
+local function GetWindow()
   if not window then
     local ok, e = pcall(BuildWindow)
     if not ok then if window then window:Hide() end; window = nil; ns.Print("settings failed: " .. tostring(e)); return end
   end
+  return window
+end
+function ns.OpenOptions()
+  if not GetWindow() then return end
   window:SetScale(math.max(0.5, math.min(1, (UIParent:GetHeight() - 40) / window:GetHeight())))
   window:SetShown(not window:IsShown())
 end
+-- in the icon tabs of every settings window of the author's addons (Suite.lua)
+ns.Suite.Register({ key = "Hereabouts", name = "Hereabouts", tagline = "Your quests, filtered to where you are.",
+  icon = LOGO, order = 1, window = GetWindow })
 
 -- Esc > Options > AddOns: a short page with a button that opens the window
 local settingsPanel

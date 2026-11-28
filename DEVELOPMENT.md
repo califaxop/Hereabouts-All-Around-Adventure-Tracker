@@ -56,6 +56,7 @@ Progress → QuestItems → Tracker → Integrations → Options → Replace. Bi
 | QuestItems.lua | `ns.QuestItems` | Secure quest item buttons beside their quests (out of combat placed; in combat marked stale when the list changes) |
 | Tracker.lua | — | The tracker frame, skins (Blizzard / FlareUI / EllesmereUI), pools, sections, animations, waypoints, the refresh scheduler, events, `/hab` |
 | Integrations.lua | — | Every add-on Hereabouts works with, in one list (`ns.Integrations`): state (on / partial / loading / off) and what it gives, for the settings window and `/hab status` (1.9.0) |
+| Suite.lua | `ns.Suite` | The author's addons together: each installed one's settings window shows them all as icon tabs (a shared list, `CalifaxOPAddons`); the same file in every addon |
 | Options.lua | — | The settings window |
 | Replace.lua | — | Replacing Blizzard's, FlareUI's and EllesmereUI's trackers |
 

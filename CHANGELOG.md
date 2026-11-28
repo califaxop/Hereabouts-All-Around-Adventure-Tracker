@@ -15,6 +15,7 @@
   clean ones), and EllesmereUI's flat button in its style. FlareUI keeps its bronze box.
 - Tidied: the settings windows' old FlareUI / EllesmereUI styling and the unused border colour
   setting are gone.
+- With several of the author's addons installed, each settings window shows them all as icon tabs at its top left: click one for its settings, in the same place.
 
 ## 2.0.0 (the development plan: Milestones 1-7)
 

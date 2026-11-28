@@ -53,10 +53,12 @@ MOCK.methods = {
   GetFont = function() return "Fonts\\FRIZQT__.TTF", 12, "" end,
   SetDesaturated = function(s, v) s._desat = v end,
 }
+MOCK.created = {}
 CreateFrame = function(kind, name, parent, template)
   local o = obj(name)
   o._parent = parent
   if template and tostring(template):find("Secure") then o._protected = true end
+  MOCK.created[#MOCK.created + 1] = o
   return o
 end
 UIParent = obj("UIParent"); GameTooltip = obj("GameTooltip"); WorldFrame = obj("WorldFrame")

@@ -892,6 +892,25 @@ def _():
     NS.Refresh()
     """
 
+@test("the author's addons together (2.1.0): each installed one is an icon tab; clicking another opens its settings in place")
+def _():
+    """
+    local other = MOCK.obj(); other._shown = false
+    NS.Suite.Register({ key = "Stormbar", name = "Stormbar", tagline = "t", icon = "x", order = 5, window = function() return other end })
+    assert(#CalifaxOPAddons == 2, "a shared list")
+    NS.Suite.Register({ key = "Stormbar", name = "Stormbar", tagline = "t", icon = "x", order = 5, window = function() return other end })
+    assert(#CalifaxOPAddons == 2, "registered once")
+    NS.OpenOptions()
+    local w = XPPlannerOptionsWindow
+    assert(w and w._shown, "settings shown")
+    -- find the Stormbar tab among the window's buttons with an entry
+    local tab
+    for _, b in ipairs(MOCK.created) do if b.entry and b.entry.key == "Stormbar" then tab = b end end
+    assert(tab, "a Stormbar tab")
+    tab._scripts.OnClick(tab)
+    assert(other._shown and not w._shown, "switched")
+    """
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)

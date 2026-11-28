@@ -21,5 +21,6 @@ Progress.lua
 QuestItems.lua
 Tracker.lua
 Integrations.lua
+Suite.lua
 Options.lua
 Replace.lua
