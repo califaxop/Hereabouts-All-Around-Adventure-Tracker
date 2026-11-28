@@ -34,24 +34,6 @@ local function Text(parent, role, str)
   return fs
 end
 
--- a section heading with the tracker's divider under it; returns the y below it
-local function Section(parent, str, x, y, width)
-  Text(parent, "header", str):SetPoint("TOPLEFT", x, y)
-  local div = parent:CreateTexture(nil, "ARTWORK")
-  div:SetPoint("TOPLEFT", x, y - 18)
-  div:SetWidth(width)
-  Skin(function(th)
-    if th.flare then
-      div:SetTexture(th.divider); div:SetVertexColor(1, 1, 1, 1); div:SetHeight(8)
-    elseif th.eui then
-      div:SetColorTexture(RGB(th.edge, 1)); div:SetHeight(1)
-    else
-      div:SetColorTexture(RGB(th.accent, 0.7)); div:SetHeight(1)
-    end
-  end)
-  return y - 30
-end
-
 local function Note(parent, str, x, y, width)
   local n = Text(parent, "note", str)
   n:SetPoint("TOPLEFT", x, y); n:SetWidth(width or 220)
@@ -333,10 +315,20 @@ end
 local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
 
 ---------------------------------------------------------------------------
--- The settings window: a tab per topic
+-- The settings window (2.1.0): laid out like Questie's options, in Hereabouts' own look. The logo
+-- sits in a round frame at the top left. Each page has its title and what it's for, and holds
+-- framed groups of settings in two columns (scrolling when long). The pages are tabs down the right
+-- edge, one icon each, and the search box finds any setting and jumps to it.
 ---------------------------------------------------------------------------
 local window, refreshers, statusUpdate, ignUpdate = nil, {}, nil, nil
-local PAGE_W, COL2 = 468, 244
+local WIN_W, WIN_H = 640, 600
+local CHILD_W = 582                  -- a page's scrolling area
+local BOX_X, BOX_W = 8, 566          -- the framed groups
+local COL1, COL2 = 22, 302           -- the two columns inside a group
+local COL_W = 260
+local PAGE_W = BOX_W - 28            -- a full-width row inside a group
+local LOGO = "Interface\\AddOns\\Hereabouts\\media\\Logo"
+local ROUND = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 local function track(x) refreshers[#refreshers + 1] = x; return x end
 
@@ -349,92 +341,146 @@ end
 
 local function Restyle() ns.ApplyBackdrop(); ns.RestyleOptions(); ns.RefreshOptions() end
 
-local function PageTracker(p)
-  local y = Section(p, "Position", 0, 0, 220)
-  track(Check(p, "Lock in place", 0, y, Setting("locked")))
-  track(Check(p, "Replace the quest tracker", 0, y - 24, Setting("replaceTracker", function() ns.ApplyReplace() end)))
-  track(Check(p, "Hide the list", 0, y - 48, Setting("hidden")))
-  local under = Button(p, "Move under quest tracker", 200, function() ns.db.pos = nil; ns.PlaceFrame(); Changed() end)
-  under:SetPoint("TOPLEFT", 0, y - 80)
-  Note(p, "Unlock, then drag a section heading to move the list.", 0, y - 110, 220)
+-- Search: every labelled setting, its page and where it is on it
+local index, building = {}, nil
+local function Index(label, frame, y)
+  if type(label) == "string" and label ~= "" and building then
+    index[#index + 1] = { label = label, page = building, frame = frame, y = y }
+  end
+  return frame
+end
 
-  y = Section(p, "Look", COL2, 0, 224)
+-- A framed group: its title above, a box under it. `top` is the title's y; the rows go at g.y
+-- (moving down with g:Next), and g:Close() sizes the box and gives the next group's top.
+local function Group(p, title, top)
+  local hdr = Text(p, "header", title)
+  hdr:SetPoint("TOPLEFT", BOX_X + 4, top)
+  Index(title, hdr, top)
+  local box = CreateFrame("Frame", nil, p, "BackdropTemplate")
+  box:SetPoint("TOPLEFT", BOX_X, top - 22); box:SetWidth(BOX_W)
+  box:SetFrameLevel(math.max(0, p:GetFrameLevel()))
+  box:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
+  Skin(function(th)
+    box:SetBackdropColor(0, 0, 0, th.eui and 0.35 or 0.28)
+    box:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.55))
+  end)
+  local g = { y = top - 34 }
+  function g.Next(_, h) g.y = g.y - (h or 26) end
+  function g.Close(_)
+    local h = (top - 22) - g.y + 4
+    box:SetHeight(h)
+    return top - 22 - h - 18
+  end
+  return g
+end
+
+-- the page builders: each gets its scrolling area `p` and returns how tall it is
+local function PageTracker(p)
+  local g = Group(p, "Position", 0)
+  Index("Lock in place", track(Check(p, "Lock in place", COL1, g.y, Setting("locked"), COL_W)), g.y)
+  Index("Replace the quest tracker", track(Check(p, "Replace the quest tracker", COL2, g.y,
+    Setting("replaceTracker", function() ns.ApplyReplace() end), COL_W)), g.y)
+  g:Next()
+  Index("Hide the list", track(Check(p, "Hide the list", COL1, g.y, Setting("hidden"), COL_W)), g.y)
+  local under = Button(p, "Move under quest tracker", 200, function() ns.db.pos = nil; ns.PlaceFrame(); Changed() end)
+  under:SetPoint("TOPLEFT", COL2, g.y)
+  Index("Move under quest tracker", under, g.y)
+  g:Next(28)
+  Note(p, "Unlock, then drag a section heading to move the list.", COL1, g.y, PAGE_W)
+  g:Next(18)
+  local top = g:Close()
+
+  g = Group(p, "Look", top)
   -- (the look follows EllesmereUI / FlareUI on its own when they're installed)
-  local border = track(Check(p, "Border (without FlareUI / EllesmereUI)", COL2, y, Setting("showBorder", Restyle), 224))
+  local border = track(Check(p, "Border (without FlareUI / EllesmereUI)", COL1, g.y, Setting("showBorder", Restyle), COL_W))
   local r = border.Refresh
   border.Refresh = function() r(); border.SetActive(not ns.UsingFlare() and not ns.UsingEUI()) end
+  Index("Border", border, g.y)
   -- the earlier section headings (the quest tracker's header art), for those who prefer them
-  local classic = track(Check(p, "Classic section headings", COL2, y - 24, Setting("classicHeaders", function() ns.Refresh() end), 224))
+  local classic = track(Check(p, "Classic section headings", COL2, g.y, Setting("classicHeaders", function() ns.Refresh() end), COL_W))
   local rc = classic.Refresh
   classic.Refresh = function() rc(); classic.SetActive(not ns.UsingFlare()) end
-  track(Slider(p, "Scale", COL2, y - 64, 224, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct))
-  track(Slider(p, "Background opacity", COL2, y - 100, 224, 0, 1, 0.05, Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct))
-  track(Slider(p, "Max height (then scrolls)", COL2, y - 136, 224, 120, 900, 10, Setting("maxHeight"),
-    function(v) return v .. " px" end))
+  Index("Classic section headings", classic, g.y)
+  g:Next(32)
+  Index("Scale", track(Slider(p, "Scale", COL1, g.y, 240, 0.6, 1.5, 0.05, Setting("scale", function() ns.PlaceFrame() end), pct)), g.y)
+  Index("Background opacity", track(Slider(p, "Background opacity", COL2, g.y, 240, 0, 1, 0.05,
+    Setting("bgAlpha", function() ns.ApplyBackdrop() end), pct)), g.y)
+  g:Next(42)
+  Index("Max height", track(Slider(p, "Max height (then scrolls)", COL1, g.y, 240, 120, 900, 10, Setting("maxHeight"),
+    function(v) return v .. " px" end)), g.y)
+  g:Next(38)
+  top = g:Close()
 
   -- which sections show in dungeons and in combat (ticked = shown)
-  y = Section(p, "Show in dungeons and in combat", 0, -224, PAGE_W)
-  local C1, C2 = 300, 390
-  Text(p, "note", "In dungeons"):SetPoint("TOPLEFT", C1 - 22, y)
-  Text(p, "note", "In combat"):SetPoint("TOPLEFT", C2 - 18, y)
-  y = y - 18
+  g = Group(p, "Show in dungeons and in combat", top)
+  local C1, C2 = 330, 440
+  Text(p, "note", "In dungeons"):SetPoint("TOPLEFT", C1 - 22, g.y)
+  Text(p, "note", "In combat"):SetPoint("TOPLEFT", C2 - 18, g.y)
+  g:Next(20)
   local function Shown(tbl, key)
     return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
       function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
   end
-  for i, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests Nearby" },
+  for _, sec in ipairs({ { "quests", "Active Quests" }, { "turnin", "Quests to Turn In" }, { "pickup", "Quests Nearby" },
       { "training", "Training" }, { "dungeons", "Dungeons" } }) do
-    local ry = y - (i - 1) * 20
-    Text(p, "line", sec[2]):SetPoint("TOPLEFT", 0, ry - 2)
-    track(Check(p, nil, C1, ry, Shown("hideInInstance", sec[1]), 24))
-    track(Check(p, nil, C2, ry, Shown("hideInCombat", sec[1]), 24))
+    local name = Text(p, "line", sec[2]); name:SetPoint("TOPLEFT", COL1, g.y - 2)
+    Index(sec[2] .. " in dungeons and combat", name, g.y)
+    track(Check(p, nil, C1, g.y, Shown("hideInInstance", sec[1]), 24))
+    track(Check(p, nil, C2, g.y, Shown("hideInCombat", sec[1]), 24))
+    g:Next(22)
   end
+  return -g:Close()
 end
 
 local function PageLists(p)
-  local y = Section(p, "What to list", 0, 0, PAGE_W)
+  local g = Group(p, "What to list", 0)
   local count = function(v) return "up to " .. v end
   -- one row per section: on/off on the left, how many on the right; options indented under it
-  local function Row(label, key, maxKey, maxV, ry)
-    local s = maxKey and Slider(p, nil, COL2, ry, 150, 1, maxV, 1, Setting(maxKey), count)
-    local c = Check(p, label, 0, ry, { function() return ns.db[key] end, function(v)
+  local function Row(label, key, maxKey, maxV)
+    local s = maxKey and Slider(p, nil, COL2, g.y, 170, 1, maxV, 1, Setting(maxKey), count)
+    local c = Check(p, label, COL1, g.y, { function() return ns.db[key] end, function(v)
       ns.db[key] = v; ns.RefreshOptions() -- greys out its slider and options
-    end }, 230)
-    track(c)
+    end }, COL_W)
+    track(c); Index(label, c, g.y)
     if s then
       track(s)
       local r = c.Refresh
       c.Refresh = function() r(); s.SetActive(ns.db[key] and true or false) end
     end
-    return c
+    g:Next(24)
   end
-  local function Sub(label, key, parentKey, ry)
-    local c = Check(p, label, 22, ry, Setting(key), 208)
-    track(c)
+  local function Sub(label, key, parentKey)
+    local c = Check(p, label, COL1 + 22, g.y, Setting(key), COL_W - 22)
+    track(c); Index(label, c, g.y)
     local r = c.Refresh
     c.Refresh = function() r(); c.SetActive(ns.db[parentKey] and true or false) end
+    g:Next(30)
+  end
+  Row("Active Quests", "showActive", "maxQuests", 20)
+  Sub("Only quests in my current zone", "activeZoneOnly", "showActive")
+  Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20); g:Next(6)
+  Row("Quests Nearby (Questie)", "showPickup", "maxPickup", 20); g:Next(6)
+  Row("Dungeons", "showDungeons", "maxDungeons", 6)
+  Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons")
+  Row("Training (What's Training)", "showTraining", "maxTraining", 30)
+  Sub("Also spells at my next level", "showNextLevel", "showTraining")
+  local top = g:Close()
+
+  g = Group(p, "Details", top)
+  local function C(label, key, col, onSet, indentOf)
+    local c = track(Check(p, label, (col == 2 and COL2 or COL1) + (indentOf and 22 or 0), g.y, Setting(key, onSet), COL_W - (indentOf and 22 or 0)))
+    Index(label, c, g.y)
+    if indentOf then
+      local r = c.Refresh
+      c.Refresh = function() r(); c.SetActive(ns.db[indentOf] and true or false) end
+    end
     return c
   end
-  Row("Active Quests", "showActive", "maxQuests", 20, y)
-  Sub("Only quests in my current zone", "activeZoneOnly", "showActive", y - 24)
-  Row("Quests to Turn In", "showTurnIn", "maxTurnIn", 20, y - 54)
-  Row("Quests Nearby (Questie)", "showPickup", "maxPickup", 20, y - 84)
-  Row("Dungeons", "showDungeons", "maxDungeons", 6, y - 114)
-  Sub("Only dungeons in my current zone", "dungeonZoneOnly", "showDungeons", y - 138)
-  Row("Training (What's Training)", "showTraining", "maxTraining", 30, y - 168)
-  Sub("Also spells at my next level", "showNextLevel", "showTraining", y - 192)
-
-  y = Section(p, "Details", 0, y - 230, PAGE_W)
-  track(Check(p, "Sort by level (highest first)", 0, y, Setting("sortByLevel")))
-  track(Check(p, "Objectives under active quests", 0, y - 24, Setting("showObjectives", function() ns.RefreshOptions() end)))
-  local hideDone = track(Check(p, "Hide finished objectives", 22, y - 48, Setting("hideDoneObjectives"), 208))
-  local hr = hideDone.Refresh
-  hideDone.Refresh = function() hr(); hideDone.SetActive(ns.db.showObjectives and true or false) end
-  track(Check(p, "XP reward", COL2, y, Setting("showXP"), 224))
-  track(Check(p, "Quest giver and zone", COL2, y - 24, Setting("showStarter"), 224))
-  track(Check(p, "Training prices by city", COL2, y - 48, Setting("showCityPrices"), 224))
-  track(Check(p, "Quest item buttons (beside the quest)", 0, y - 72, Setting("showQuestItems", function() ns.Refresh() end), 230))
-  local cf = track(Check(p, "In combat: mark my enemy's quests", COL2, y - 72, Setting("combatFocus", function() ns.Refresh() end), 224))
+  C("Sort by level (highest first)", "sortByLevel", 1); C("XP reward", "showXP", 2); g:Next()
+  C("Objectives under active quests", "showObjectives", 1, function() ns.RefreshOptions() end); C("Quest giver and zone", "showStarter", 2); g:Next()
+  C("Hide finished objectives", "hideDoneObjectives", 1, nil, "showObjectives"); C("Training prices by city", "showCityPrices", 2); g:Next()
+  C("Quest item buttons (beside the quest)", "showQuestItems", 1, function() ns.Refresh() end)
+  local cf = C("In combat: mark my enemy's quests", "combatFocus", 2, function() ns.Refresh() end)
   cf:HookScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText("In combat: mark my enemy's quests", 1, 1, 1)
@@ -442,87 +488,10 @@ local function PageLists(p)
     GameTooltip:Show()
   end)
   cf:HookScript("OnLeave", function() GameTooltip:Hide() end)
-  track(Check(p, "Soft animations (objective progress, combat mark)", 0, y - 96, Setting("animations"), 300))
-end
-
-local function PagePicking(p)
-  local y = Section(p, "Which quests to suggest", 0, 0, PAGE_W)
-  track(Check(p, "Only quests from my current zone", 0, y, Setting("pickupZoneOnly"), 220))
-  Note(p, "Quests Nearby needs Questie. Which quests show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options.", 0, y - 28, PAGE_W)
-  track(Slider(p, "Current-zone bonus", 0, y - 80, 220, 1, 3, 0.1, Setting("zoneBonus"),
-    function(v) return format("x%.1f", v) end))
-  Note(p, "With All zones, quests in your zone rank higher, since there's less travel.", COL2, y - 84, 224)
-
-  y = Section(p, "Ignored quests", 0, y - 132, PAGE_W)
-  local count = Text(p, "line", "")
-  count:SetPoint("TOPLEFT", 0, y - 4)
-  local manage = Button(p, "Manage...", 120, function() ns.OpenIgnored() end)
-  manage:SetPoint("TOPLEFT", COL2, y)
-  Note(p, "Right-click a quest under Quests Nearby to ignore it.", 0, y - 30, PAGE_W)
-  ignUpdate = function()
-    local n = 0
-    for _ in pairs(ns.db.ignoredQuests or {}) do n = n + 1 end
-    count:SetText(n == 0 and "No quests ignored." or format(n == 1 and "%d quest ignored." or "%d quests ignored.", n))
-  end
-end
-
-local function PageStatus(p)
-  local y = Section(p, "Connected addons", 0, 0, PAGE_W)
-  local rows = {}
-  local NAMES = { "Questie", "What's Training", "FlareUI", "EllesmereUI", "TomTom" } -- (ns.Integrations' order)
-  for i, n in ipairs(NAMES) do
-    local ry = y - (i - 1) * 30
-    local dot = p:CreateTexture(nil, "ARTWORK")
-    dot:SetTexture(W); dot:SetSize(8, 8); dot:SetPoint("TOPLEFT", 2, ry - 5)
-    local name = Text(p, "line", n); name:SetPoint("TOPLEFT", 18, ry)
-    local state = Text(p, "note", ""); state:SetPoint("TOPLEFT", 150, ry - 1); state:SetWidth(318)
-    rows[n] = { dot = dot, state = state }
-  end
-  local COLORS = { on = { 0.35, 0.9, 0.35 }, partial = { 1, 0.82, 0.2 }, loading = { 1, 0.82, 0.2 }, off = { 0.45, 0.45, 0.45 } }
-
-  local level = Text(p, "line", "")
-  level:SetPoint("TOPLEFT", 0, y - 152)
-
-  statusUpdate = function()
-    for _, it in ipairs(ns.Integrations()) do
-      local r, c = rows[it[1]], COLORS[it[2]]
-      if r then r.dot:SetVertexColor(c[1], c[2], c[3]); r.state:SetText(it[3]) end
-    end
-    level:SetText(format("Your level: %d", UnitLevel("player")))
-  end
-
-  local rescan = Button(p, "Rescan Questie", 130, function() ns.Questie.Scan(); statusUpdate() end)
-  rescan:SetPoint("TOPLEFT", 0, y - 176)
-
-  y = Section(p, "Reset", 0, y - 226, PAGE_W)
-  local reset = Button(p, "Reset to defaults", 130, function()
-    ns.ResetDB(); ns.PlaceFrame(); ns.Questie.RescanSoon(); Restyle(); Changed(); ns.RefreshOptions()
-  end)
-  reset:SetPoint("TOPLEFT", 0, y)
-  Note(p, "Keeps where the list is and the quests you've ignored.", 140, y - 5, 320)
-
-end
-
-local function PageSession(p)
-  local y = Section(p, "Session bar", 0, 0, PAGE_W)
-  local function repaint() if ns.Session then ns.Session.Paint() end end
-  track(Check(p, "Show the session bar under the tracker", 0, y, Setting("showSession", repaint), 320))
-  Note(p, "A small bar under Hereabouts with this session's numbers. Hover it for all of them, right-click it to reset.", 0, y - 26, PAGE_W)
-  y = Section(p, "What it shows", 0, y - 70, PAGE_W)
-  for i, st in ipairs(ns.Session.STATS) do
-    local key = st[1]
-    local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-    local c = track(Check(p, st[2], col == 0 and 0 or COL2, y - row * 24, {
-      function() return (ns.db.sessionStats or {})[key] and true or false end,
-      function(v) ns.db.sessionStats = ns.db.sessionStats or {}; ns.db.sessionStats[key] = v or nil; repaint() end }, 220))
-    local r = c.Refresh
-    c.Refresh = function() r(); c.SetActive(ns.db.showSession and true or false) end
-  end
-  local rows = math.ceil(#ns.Session.STATS / 2)
-  Note(p, "Hover the XP bar for everything on XP (per hour, time to level, this session, quests, rested), the gold bar for everything on gold (per hour, gained, what training costs now). Gold counts what comes in, not what you spend.",
-    0, y - rows * 24 - 8, PAGE_W)
-  local reset = Button(p, "Reset session", 130, function() ns.Session.Reset(); ns.Print("session stats reset.") end)
-  reset:SetPoint("TOPLEFT", 0, y - rows * 24 - 62)
+  g:Next()
+  C("Soft animations (objective progress, combat mark)", "animations", 1)
+  g:Next()
+  return -g:Close()
 end
 
 -- Layout (1.12.0): the sections' order and whether each shows, presets, and three saved layouts
@@ -540,125 +509,421 @@ local function PageLayout(p)
     end)
     b:HookScript("OnLeave", function() GameTooltip:Hide() end)
   end
-  local y = Section(p, "Sections, top to bottom", 0, 0, PAGE_W)
-  local top = y -- (the rows are placed on every refresh: from here, not from `y`, which moves on)
+  local g = Group(p, "Sections, top to bottom", 0)
+  local first = g.y -- (the rows are placed on every refresh, from here)
   local rows = {}
   for _, m in ipairs(ns.MODULES) do
     local r = {}
-    r.check = track(Check(p, m.name, 0, y, Setting(m.show, function() ns.RefreshOptions() end), 200))
-    r.up = Button(p, "Up", 50, function() ns.MoveSection(m.key, -1); Changed(); ns.RefreshOptions() end)
-    r.down = Button(p, "Down", 50, function() ns.MoveSection(m.key, 1); Changed(); ns.RefreshOptions() end)
+    r.check = track(Check(p, m.name, COL1, first, Setting(m.show, function() ns.RefreshOptions() end), 240))
+    Index(m.name, r.check, first)
+    r.up = Button(p, "Up", 56, function() ns.MoveSection(m.key, -1); Changed(); ns.RefreshOptions() end)
+    r.down = Button(p, "Down", 56, function() ns.MoveSection(m.key, 1); Changed(); ns.RefreshOptions() end)
     rows[m.key] = r
   end
-  -- (placed by the order on every refresh)
   track({ Refresh = function()
     for i, key in ipairs(ns.SectionOrder()) do
-      local r, ry = rows[key], top - (i - 1) * 26
-      r.check:ClearAllPoints(); r.check:SetPoint("TOPLEFT", 0, ry)
-      r.up:ClearAllPoints(); r.up:SetPoint("TOPLEFT", 230, ry)
-      r.down:ClearAllPoints(); r.down:SetPoint("TOPLEFT", 286, ry)
+      local r, ry = rows[key], first - (i - 1) * 26
+      r.check:ClearAllPoints(); r.check:SetPoint("TOPLEFT", COL1, ry)
+      r.up:ClearAllPoints(); r.up:SetPoint("TOPLEFT", COL2, ry)
+      r.down:ClearAllPoints(); r.down:SetPoint("TOPLEFT", COL2 + 62, ry)
       r.up:SetAlpha(i > 1 and 1 or 0.35); r.down:SetAlpha(i < #ns.MODULES and 1 or 0.35)
     end
   end })
+  g:Next(#ns.MODULES * 26)
+  local top = g:Close()
 
-  y = Section(p, "Presets", 0, y - #ns.MODULES * 26 - 14, PAGE_W)
+  g = Group(p, "Presets", top)
   for i, pr in ipairs(ns.PRESETS) do
-    local b = Button(p, pr[2], 88, function()
+    local b = Button(p, pr[2], 100, function()
       ns.ApplyPreset(pr[1]); applied(format("layout: %s.", pr[2]))
     end)
-    b:SetPoint("TOPLEFT", (i - 1) * 94, y)
+    b:SetPoint("TOPLEFT", COL1 + (i - 1) * 106, g.y)
     Tip(b, pr[2], pr[3])
+    Index("Preset: " .. pr[2], b, g.y)
   end
-  Note(p, "A preset sets what shows and where, not the look. Save your layout below first to come back to it.", 0, y - 30, PAGE_W)
+  g:Next(30)
+  Note(p, "A preset sets what shows and where, not the look. Save your layout below first to come back to it.", COL1, g.y, PAGE_W)
+  g:Next(20)
+  top = g:Close()
 
-  y = Section(p, "Your layouts", 0, y - 70, PAGE_W)
+  g = Group(p, "Your layouts", top)
   for slot = 1, ns.LAYOUT_SLOTS do
-    local ry = y - (slot - 1) * 26
     local label = Text(p, "line", "")
-    label:SetPoint("TOPLEFT", 0, ry - 4)
-    local save = Button(p, "Save", 60, function() ns.SaveLayout(slot); applied(format("layout %d saved.", slot)) end)
-    save:SetPoint("TOPLEFT", 230, ry)
-    local load = Button(p, "Load", 60, function()
+    label:SetPoint("TOPLEFT", COL1, g.y - 4)
+    local save = Button(p, "Save", 64, function() ns.SaveLayout(slot); applied(format("layout %d saved.", slot)) end)
+    save:SetPoint("TOPLEFT", COL2, g.y)
+    local load = Button(p, "Load", 64, function()
       if ns.LoadLayout(slot) then applied(format("layout %d loaded.", slot)) end
     end)
-    load:SetPoint("TOPLEFT", 296, ry)
+    load:SetPoint("TOPLEFT", COL2 + 70, g.y)
+    Index("Layout " .. slot, label, g.y)
     track({ Refresh = function()
       local l = type(ns.db.layouts) == "table" and ns.db.layouts[slot]
       label:SetText(format("Layout %d: %s", slot, (l and l.savedAt and l.savedAt > 0) and ("saved " .. date("%d %b %H:%M", l.savedAt)) or "empty"))
       load:SetAlpha(l and 1 or 0.35)
     end })
+    g:Next(26)
   end
+  return -g:Close()
 end
 
-local TABS = {
-  { "Tracker", PageTracker },
-  { "Lists", PageLists },
-  { "Layout", PageLayout },
-  { "Picking Quests", PagePicking },
-  { "Session", PageSession },
-  { "Status", PageStatus },
+local function PagePicking(p)
+  local g = Group(p, "Which quests to suggest", 0)
+  Index("Only quests from my current zone", track(Check(p, "Only quests from my current zone", COL1, g.y, Setting("pickupZoneOnly"), COL_W)), g.y)
+  g:Next(28)
+  Note(p, "Quests Nearby needs Questie. Which quests show (levels, low-level, repeatable, dungeon and PvP quests) follows Questie's own settings: Questie options, Quest Level Options.", COL1, g.y, PAGE_W)
+  g:Next(40)
+  Index("Current-zone bonus", track(Slider(p, "Current-zone bonus", COL1, g.y, 240, 1, 3, 0.1, Setting("zoneBonus"),
+    function(v) return format("x%.1f", v) end)), g.y)
+  Note(p, "With All zones, quests in your zone rank higher, since there's less travel.", COL2, g.y - 4, COL_W)
+  g:Next(42)
+  local top = g:Close()
+
+  g = Group(p, "Ignored quests", top)
+  local count = Text(p, "line", "")
+  count:SetPoint("TOPLEFT", COL1, g.y - 4)
+  local manage = Button(p, "Manage...", 120, function() ns.OpenIgnored() end)
+  manage:SetPoint("TOPLEFT", COL2, g.y)
+  Index("Ignored quests: manage", manage, g.y)
+  g:Next(30)
+  Note(p, "Right-click a quest under Quests Nearby to ignore it.", COL1, g.y, PAGE_W)
+  g:Next(18)
+  ignUpdate = function()
+    local n = 0
+    for _ in pairs(ns.db.ignoredQuests or {}) do n = n + 1 end
+    count:SetText(n == 0 and "No quests ignored." or format(n == 1 and "%d quest ignored." or "%d quests ignored.", n))
+  end
+  return -g:Close()
+end
+
+local function PageSession(p)
+  local function repaint() if ns.Session then ns.Session.Paint() end end
+  local g = Group(p, "Session bar", 0)
+  Index("Show the session bar", track(Check(p, "Show the session bar under the tracker", COL1, g.y, Setting("showSession", repaint), 340)), g.y)
+  g:Next(28)
+  Note(p, "A small bar under Hereabouts with this session's numbers. Hover it for all of them, right-click it to reset.", COL1, g.y, PAGE_W)
+  g:Next(20)
+  local top = g:Close()
+
+  g = Group(p, "What it shows", top)
+  for i, st in ipairs(ns.Session.STATS) do
+    local key = st[1]
+    local col = (i - 1) % 2
+    local c = track(Check(p, st[2], col == 0 and COL1 or COL2, g.y, {
+      function() return (ns.db.sessionStats or {})[key] and true or false end,
+      function(v) ns.db.sessionStats = ns.db.sessionStats or {}; ns.db.sessionStats[key] = v or nil; repaint() end }, COL_W))
+    Index(st[2], c, g.y)
+    local r = c.Refresh
+    c.Refresh = function() r(); c.SetActive(ns.db.showSession and true or false) end
+    if col == 1 or i == #ns.Session.STATS then g:Next() end
+  end
+  g:Next(4)
+  Note(p, "Hover the XP bar for everything on XP (per hour, time to level, this session, quests, rested), the gold bar for everything on gold (per hour, gained, what training costs now). Gold counts what comes in, not what you spend.",
+    COL1, g.y, PAGE_W)
+  g:Next(42)
+  local reset = Button(p, "Reset session", 130, function() ns.Session.Reset(); ns.Print("session stats reset.") end)
+  reset:SetPoint("TOPLEFT", COL1, g.y)
+  Index("Reset session", reset, g.y)
+  g:Next(28)
+  return -g:Close()
+end
+
+local function PageStatus(p)
+  local g = Group(p, "Connected addons", 0)
+  local rows = {}
+  local NAMES = { "Questie", "What's Training", "FlareUI", "EllesmereUI", "TomTom" } -- (ns.Integrations' order)
+  for _, n in ipairs(NAMES) do
+    local dot = p:CreateTexture(nil, "ARTWORK")
+    dot:SetTexture(W); dot:SetSize(8, 8); dot:SetPoint("TOPLEFT", COL1 + 2, g.y - 5)
+    local name = Text(p, "line", n); name:SetPoint("TOPLEFT", COL1 + 18, g.y)
+    Index(n, name, g.y)
+    local state = Text(p, "note", ""); state:SetPoint("TOPLEFT", COL1 + 160, g.y - 1); state:SetWidth(PAGE_W - 160)
+    rows[n] = { dot = dot, state = state }
+    g:Next(30)
+  end
+  local COLORS = { on = { 0.35, 0.9, 0.35 }, partial = { 1, 0.82, 0.2 }, loading = { 1, 0.82, 0.2 }, off = { 0.45, 0.45, 0.45 } }
+  local level = Text(p, "line", "")
+  level:SetPoint("TOPLEFT", COL1, g.y)
+  local rescan = Button(p, "Rescan Questie", 130, function() ns.Questie.Scan(); if statusUpdate then statusUpdate() end end)
+  rescan:SetPoint("TOPLEFT", COL2, g.y + 4)
+  Index("Rescan Questie", rescan, g.y)
+  g:Next(28)
+  statusUpdate = function()
+    for _, it in ipairs(ns.Integrations()) do
+      local r, c = rows[it[1]], COLORS[it[2]]
+      if r then r.dot:SetVertexColor(c[1], c[2], c[3]); r.state:SetText(it[3]) end
+    end
+    level:SetText(format("Your level: %d", UnitLevel("player")))
+  end
+  local top = g:Close()
+
+  g = Group(p, "Reset", top)
+  local reset = Button(p, "Reset to defaults", 140, function()
+    ns.ResetDB(); ns.PlaceFrame(); ns.Questie.RescanSoon(); Restyle(); Changed(); ns.RefreshOptions()
+  end)
+  reset:SetPoint("TOPLEFT", COL1, g.y)
+  Index("Reset to defaults", reset, g.y)
+  Note(p, "Keeps where the list is, the quests you've ignored and your saved layouts.", COL1 + 152, g.y - 5, PAGE_W - 152)
+  g:Next(30)
+  return -g:Close()
+end
+
+-- name, icon, what it's for, builder
+local PAGES = {
+  { "Tracker", "Interface\\Icons\\INV_Misc_Map_01", "Where the list sits, how it looks, and what shows in dungeons and in combat.", PageTracker },
+  { "Lists", "Interface\\Icons\\INV_Scroll_03", "Which sections list what, and the details under each quest.", PageLists },
+  { "Layout", "Interface\\Icons\\INV_Misc_Gear_01", "The sections' order, presets, and your saved layouts.", PageLayout },
+  { "Picking Quests", "Interface\\Icons\\INV_Misc_Spyglass_02", "Which quests Quests Nearby suggests.", PagePicking },
+  { "Session", "Interface\\Icons\\INV_Misc_PocketWatch_01", "The session bars under the tracker.", PageSession },
+  { "Status", "Interface\\Icons\\INV_Misc_Note_01", "The addons Hereabouts works with, and starting afresh.", PageStatus },
 }
+ns.OPTION_PAGES = PAGES
+
+-- a thin scrollbar in the window's colours: wheel or drag
+local function Scroller(scroll, child)
+  local bar = CreateFrame("Frame", nil, scroll:GetParent())
+  bar:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", 12, 0); bar:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 12, 0)
+  bar:SetWidth(6)
+  local trackTex = bar:CreateTexture(nil, "BACKGROUND")
+  trackTex:SetAllPoints()
+  local thumb = CreateFrame("Frame", nil, bar)
+  thumb:SetWidth(6)
+  local thumbTex = thumb:CreateTexture(nil, "ARTWORK")
+  thumbTex:SetAllPoints()
+  Skin(function(th)
+    trackTex:SetColorTexture(RGB(th.eui and th.edge or th.accent, 0.25))
+    thumbTex:SetColorTexture(RGB(th.eui and th.accent or th.title, 0.8))
+  end)
+  local function Max() return math.max(0, child:GetHeight() - scroll:GetHeight()) end
+  local function Place()
+    local max, h = Max(), scroll:GetHeight()
+    bar:SetShown(max > 0)
+    if max <= 0 then return end
+    local th = math.max(24, h * h / child:GetHeight())
+    thumb:SetHeight(th)
+    thumb:ClearAllPoints()
+    thumb:SetPoint("TOP", bar, "TOP", 0, -(h - th) * scroll:GetVerticalScroll() / max)
+  end
+  function scroll.ScrollTo(v)
+    scroll:SetVerticalScroll(math.max(0, math.min(Max(), v)))
+    Place()
+  end
+  scroll:EnableMouseWheel(true)
+  scroll:SetScript("OnMouseWheel", function(_, d) scroll.ScrollTo(scroll:GetVerticalScroll() - d * 48) end)
+  scroll:SetScript("OnSizeChanged", Place)
+  thumb:EnableMouse(true)
+  thumb:SetScript("OnMouseDown", function()
+    local _, y0 = GetCursorPosition()
+    local s0, k = scroll:GetVerticalScroll(), thumb:GetEffectiveScale()
+    thumb:SetScript("OnUpdate", function()
+      local _, y = GetCursorPosition()
+      local free = scroll:GetHeight() - thumb:GetHeight()
+      if free > 0 then scroll.ScrollTo(s0 + (y0 - y) / k * Max() / free) end
+    end)
+  end)
+  thumb:SetScript("OnMouseUp", function() thumb:SetScript("OnUpdate", nil) end)
+  scroll.PlaceBar = Place
+end
+
+-- the logo in a round frame, overlapping the window's top left corner (like Questie's emblem)
+local function Emblem(win)
+  local e = CreateFrame("Frame", nil, win)
+  e:SetSize(66, 66); e:SetPoint("TOPLEFT", -18, 18)
+  e:SetFrameLevel(win:GetFrameLevel() + 20)
+  local ring = e:CreateTexture(nil, "BACKGROUND")
+  ring:SetAllPoints()
+  local inner = e:CreateTexture(nil, "BORDER")
+  inner:SetPoint("TOPLEFT", 4, -4); inner:SetPoint("BOTTOMRIGHT", -4, 4)
+  inner:SetColorTexture(0.04, 0.035, 0.03, 1)
+  local logo = e:CreateTexture(nil, "ARTWORK")
+  logo:SetPoint("TOPLEFT", 7, -7); logo:SetPoint("BOTTOMRIGHT", -7, 7)
+  logo:SetTexture(LOGO)
+  -- round (the game's portrait mask); a square logo if the client can't
+  pcall(function()
+    for _, t in ipairs({ ring, inner, logo }) do
+      local m = e:CreateMaskTexture()
+      m:SetTexture(ROUND, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+      m:SetAllPoints(t)
+      t:AddMaskTexture(m)
+    end
+  end)
+  Skin(function(th) ring:SetColorTexture(RGB(th.eui and th.accent or th.accent)) end)
+  return e
+end
 
 local function BuildWindow()
-  window = Window("XPPlannerOptionsWindow", 560, 500) -- (six tabs since 1.12.0)
+  wipe(index)
+  window = Window("XPPlannerOptionsWindow", WIN_W, WIN_H)
   window:SetPoint("CENTER")
   reportHost = window
+  window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
+  Emblem(window)
+
+  -- title bar: the name in the middle, Bugs & Feedback and the × on the right
+  local band = window:CreateTexture(nil, "BORDER")
+  band:SetPoint("TOPLEFT", 4, -4); band:SetPoint("TOPRIGHT", -4, -4); band:SetHeight(30)
+  local bandLine = window:CreateTexture(nil, "BORDER")
+  bandLine:SetPoint("TOPLEFT", band, "BOTTOMLEFT"); bandLine:SetPoint("TOPRIGHT", band, "BOTTOMRIGHT"); bandLine:SetHeight(1)
+  Skin(function(th)
+    band:SetColorTexture(0, 0, 0, 0.35)
+    bandLine:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.6))
+  end)
+  local title = Text(window, "title", "Hereabouts")
+  title:SetPoint("TOP", 0, -12)
   local bug = Button(window, "Bugs & Feedback", 130, function() ns.ShowReport() end)
   bug:SetHeight(20); bug:SetPoint("TOPRIGHT", -34, -9)
-  window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
-  local title = Text(window, "title", "Hereabouts")
-  title:SetPoint("TOPLEFT", 26, -20)
-  local sub = Text(window, "note", "Your quests, filtered to where you are.")
-  sub:SetPoint("LEFT", title, "RIGHT", 10, -1)
 
-  -- tabs: text in the heading font, the active one underlined in bronze
-  local tabs, pages = {}, {}
-  local current = 1
-  local x = 26
-  local line = window:CreateTexture(nil, "ARTWORK")
-  line:SetPoint("TOPLEFT", 26, -72); line:SetPoint("TOPRIGHT", -26, -72); line:SetHeight(1)
+  -- the page's own title and what it's for
+  local pageTitle = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  pageTitle:SetPoint("TOPLEFT", 60, -44)
+  local pageNote = Text(window, "note", "")
+  pageNote:SetPoint("TOPLEFT", 60, -66); pageNote:SetWidth(330)
+  Skin(function(th) pageTitle:SetTextColor(RGB(th.title)) end)
+
+  -- the panel the pages scroll in
+  local panel = CreateFrame("Frame", nil, window, "BackdropTemplate")
+  panel:SetPoint("TOPLEFT", 16, -92); panel:SetPoint("BOTTOMRIGHT", -16, 16)
+  panel:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
+  Skin(function(th)
+    panel:SetBackdropColor(0, 0, 0, 0.25)
+    panel:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.7))
+  end)
+
+  -- pages and their tabs (icons down the right edge)
+  local pages, tabs, current = {}, {}, 1
   local function paintTabs(th)
     th = th or ns.Theme()
-    line:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.5))
     for i, t in ipairs(tabs) do
-      local on = (i == current)
-      t.text:SetTextColor(RGB(on and th.title or (t.hover and th.hover or th.dim)))
-      t.bar:SetColorTexture(RGB(th.accent)); t.bar:SetShown(on)
+      local on = i == current
+      t:SetBackdropColor(0.04, 0.035, 0.03, 1)
+      t:SetBackdropBorderColor(RGB(on and th.title or (t.hover and th.hover or (th.eui and th.edge or th.accent)), 1))
+      t.icon:SetDesaturated(not on and not t.hover)
+      t.icon:SetAlpha((on or t.hover) and 1 or 0.75)
+      t:ClearAllPoints()
+      t:SetPoint("TOPLEFT", window, "TOPRIGHT", on and 1 or -3, -92 - (i - 1) * 48)
     end
   end
   local function Select(i)
     current = i
-    for k, pg in ipairs(pages) do pg:SetShown(k == i) end
+    for k, pg in ipairs(pages) do pg.scroll:SetShown(k == i) end
+    pageTitle:SetText(PAGES[i][1]); pageNote:SetText(PAGES[i][3])
     paintTabs()
+    pages[i].scroll.PlaceBar()
   end
-  for i, def in ipairs(TABS) do
-    local t = CreateFrame("Button", nil, window)
-    t.text = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    t.text:SetFontObject(ns.Theme().headerFont); t.text:SetText(def[1])
-    t.text:SetPoint("BOTTOM", 0, 6)
-    local w = math.max(60, math.floor((t.text:GetStringWidth() or 0) + 0.5) + 20)
-    t:SetSize(w, 26); t:SetPoint("BOTTOMLEFT", window, "TOPLEFT", x, -72)
-    t.bar = t:CreateTexture(nil, "OVERLAY")
-    t.bar:SetHeight(2); t.bar:SetPoint("BOTTOMLEFT", 6, 0); t.bar:SetPoint("BOTTOMRIGHT", -6, 0)
+  for i, def in ipairs(PAGES) do
+    local scroll = CreateFrame("ScrollFrame", nil, panel)
+    scroll:SetPoint("TOPLEFT", 4, -10); scroll:SetPoint("BOTTOMRIGHT", -16, 8)
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetWidth(CHILD_W)
+    scroll:SetScrollChild(child)
+    building = i
+    local h = def[4](child)
+    building = nil
+    child:SetHeight(math.max(1, h))
+    Scroller(scroll, child)
+    scroll:Hide()
+    pages[i] = { scroll = scroll, child = child }
+
+    local t = CreateFrame("Button", nil, window, "BackdropTemplate")
+    t:SetSize(42, 42)
+    t:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
+    t.icon = t:CreateTexture(nil, "ARTWORK")
+    t.icon:SetPoint("TOPLEFT", 4, -4); t.icon:SetPoint("BOTTOMRIGHT", -4, 4)
+    t.icon:SetTexture(def[2]); t.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     t:SetScript("OnClick", function() Select(i) end)
-    t:SetScript("OnEnter", function() t.hover = true; paintTabs() end)
-    t:SetScript("OnLeave", function() t.hover = false; paintTabs() end)
+    t:SetScript("OnEnter", function(self)
+      self.hover = true; paintTabs()
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(def[1], 1, 1, 1)
+      GameTooltip:AddLine(def[3], 0.85, 0.85, 0.85, true); GameTooltip:Show()
+    end)
+    t:SetScript("OnLeave", function(self) self.hover = false; paintTabs(); GameTooltip:Hide() end)
     tabs[i] = t
-    x = x + w + 4
-
-    local pg = CreateFrame("Frame", nil, window)
-    pg:SetPoint("TOPLEFT", 26, -88); pg:SetSize(PAGE_W, 390)
-    def[2](pg)
-    pg:Hide()
-    pages[i] = pg
   end
-  Skin(function(th)
-    for _, t in ipairs(tabs) do t.text:SetFontObject(th.headerFont) end
-    paintTabs(th)
-  end)
-  Select(1)
+  Skin(paintTabs)
 
-  window:SetScript("OnShow", function() ns.RefreshOptions() end)
+  -- search: any setting by name; pick one to go to its page and see it flash
+  local search = CreateFrame("EditBox", nil, window, "BackdropTemplate")
+  search:SetSize(190, 20); search:SetPoint("TOPRIGHT", -18, -52)
+  search:SetAutoFocus(false); search:SetTextInsets(6, 6, 0, 0)
+  search:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
+  local hint = Text(search, "note", "Search settings")
+  hint:SetPoint("LEFT", 7, 0)
+  Skin(function(th)
+    search:SetFontObject(th.lineFont); search:SetTextColor(RGB(th.title))
+    search:SetBackdropColor(0, 0, 0, 0.55); search:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, 0.8))
+  end)
+  local results = CreateFrame("Frame", nil, window, "BackdropTemplate")
+  results:SetPoint("TOPRIGHT", search, "BOTTOMRIGHT", 0, -2); results:SetWidth(300)
+  results:SetFrameLevel(window:GetFrameLevel() + 30)
+  results:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
+  Skin(function(th)
+    results:SetBackdropColor(0.04, 0.035, 0.03, 0.98); results:SetBackdropBorderColor(RGB(th.eui and th.edge or th.accent, 1))
+  end)
+  results:Hide()
+  local lines = {}
+  local function Flash(f)
+    local t = 0
+    f:SetScript("OnUpdate", nil)
+    local holder = CreateFrame("Frame")
+    holder:SetScript("OnUpdate", function(self, dt)
+      t = t + dt
+      f:SetAlpha(0.35 + 0.65 * math.abs(math.cos(t * 6)))
+      if t > 1.6 then f:SetAlpha(1); self:SetScript("OnUpdate", nil) end
+    end)
+  end
+  local function Go(e)
+    results:Hide(); search:SetText(""); search:ClearFocus()
+    Select(e.page)
+    pages[e.page].scroll.ScrollTo(-e.y - 30)
+    Flash(e.frame)
+  end
+  local function Find(text)
+    local q = (text or ""):lower()
+    local found = {}
+    if #q < 2 then return found end
+    for _, e in ipairs(index) do
+      if e.label:lower():find(q, 1, true) then found[#found + 1] = e end
+      if #found >= 8 then break end
+    end
+    return found
+  end
+  search:SetScript("OnTextChanged", function(self)
+    local text = self:GetText() or ""
+    hint:SetShown(text == "")
+    local found = Find(text)
+    for i = 1, math.max(#found, #lines) do
+      local e = found[i]
+      local b = lines[i]
+      if e and not b then
+        b = CreateFrame("Button", nil, results)
+        b:SetSize(292, 20)
+        b:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 20)
+        b.text = Text(b, "line", ""); b.text:SetPoint("LEFT", 4, 0); b.text:SetPoint("RIGHT", -4, 0); b.text:SetWordWrap(false)
+        b.hl = b:CreateTexture(nil, "BACKGROUND"); b.hl:SetAllPoints(); b.hl:SetColorTexture(1, 1, 1, 0.08); b.hl:Hide()
+        b:SetScript("OnEnter", function() b.hl:Show() end)
+        b:SetScript("OnLeave", function() b.hl:Hide() end)
+        lines[i] = b
+      end
+      if b then
+        b:SetShown(e ~= nil)
+        if e then
+          b.text:SetText(e.label .. "  |cff9d9d9d" .. PAGES[e.page][1] .. "|r")
+          b:SetScript("OnClick", function() Go(e) end)
+        end
+      end
+    end
+    results:SetHeight(#found * 20 + 8)
+    results:SetShown(#found > 0)
+  end)
+  search:SetScript("OnEnterPressed", function(self)
+    local e = Find(self:GetText())[1]
+    if e then Go(e) else self:ClearFocus() end
+  end)
+  search:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+  window:HookScript("OnHide", function() results:Hide() end)
+
+  Select(1)
+  window:SetScript("OnShow", function() ns.RefreshOptions(); pages[current].scroll.PlaceBar() end)
   local t = 0
   window:SetScript("OnUpdate", function(_, dt)
     t = t + dt
@@ -666,6 +931,7 @@ local function BuildWindow()
   end)
   window:Hide()
 end
+ns.OptionsIndex = function() return index end
 
 function ns.OpenOptions()
   if not window then

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0
+
+- A new look for the settings window. The Hereabouts emblem sits in the corner, and each page has
+  its title and what it's for. Settings are grouped in framed boxes, in two columns. The pages are
+  icon tabs down the window's right edge (hover one for its name), and long pages scroll.
+- Search: type part of a setting's name at the top right, then pick it (or press Enter) to jump to
+  it, flashing.
+- The window is bigger (640 x 600); it shrinks to fit smaller screens as before.
+
 ## 2.0.0 (the development plan: Milestones 1-7)
 
 The first release of the development plan. 1.7.0 to 1.12.0 below were test builds of its

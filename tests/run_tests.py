@@ -852,6 +852,24 @@ def _():
     assert(t:find("Gold to train now=1g 50s (2 spells), short by 1g 0s", 1, true), t)
     """
 
+@test("settings window (2.1.0): six pages with tabs, framed groups, and a search index that knows each setting's page")
+def _():
+    """
+    NS.OpenOptions()
+    assert(XPPlannerOptionsWindow, "built")
+    local idx = NS.OptionsIndex()
+    local where, per = {}, {}
+    for _, e in ipairs(idx) do where[e.label] = e.page; per[e.page] = (per[e.page] or 0) + 1 end
+    assert(#NS.OPTION_PAGES == 6, "six pages")
+    for i = 1, 6 do assert((per[i] or 0) >= 3, NS.OPTION_PAGES[i][1] .. " has searchable settings: " .. tostring(per[i])) end
+    assert(where["Replace the quest tracker"] == 1 and where["Scale"] == 1, "Tracker")
+    assert(where["Hide finished objectives"] == 2 and where["Layout 3"] == 3 and where["Current-zone bonus"] == 4, "Lists, Layout, Picking")
+    assert(where["Show the session bar"] == 5 and where["Reset to defaults"] == 6, "Session, Status")
+    for _, e in ipairs(idx) do assert(type(e.y) == "number" and e.y <= 0 and e.frame, e.label) end
+    XPPlannerOptionsWindow._shown = true
+    NS.RefreshOptions()
+    """
+
 if __name__ == '__main__':
     print(f"\n{count - len(failures)}/{count} passed")
     sys.exit(1 if failures else 0)
