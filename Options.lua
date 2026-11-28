@@ -294,10 +294,10 @@ local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
 ---------------------------------------------------------------------------
 local window, refreshers, statusUpdate, ignUpdate = nil, {}, nil, nil
 local WIN_W, WIN_H = 920, 724        -- the size of Blizzard's settings window (its inner frame's art)
-local LIST_X, LIST_W = 18, 160       -- the categories
-local CONT_X = LIST_X + LIST_W + 16  -- the page
+local LIST_X, LIST_W = 18, 186       -- the categories: up to the inner frame's divider (x 212, measured in game)
+local CONT_X = 230                   -- the page: right of that divider
 local CHILD_W = WIN_W - CONT_X - 22 - 30
-local LABEL_X, CTRL_X = 37, 270      -- a row's label, and its control (Blizzard: the row's middle less 80)
+local LABEL_X, CTRL_X = 37, 250      -- a row's label, and its control (Blizzard: the row's middle less 80)
 local ROW = 30
 local LOGO = "Interface\\AddOns\\Hereabouts\\media\\Logo"
 
@@ -789,17 +789,19 @@ local function BuildWindow()
   local y = -76
   for h, cat in ipairs(CATEGORIES) do
     local head = CreateFrame("Frame", nil, window)
-    head:SetSize(LIST_W + 12, 30); head:SetPoint("TOPLEFT", LIST_X + 4, y)
+    head:SetSize(LIST_W, 30); head:SetPoint("TOPLEFT", LIST_X, y)
+    -- the header band at its own height, behind the name, as wide as the list
     local bg = head:CreateTexture(nil, "ARTWORK")
-    bg:SetAllPoints()
-    if HasAtlas("Options_CategoryHeader_" .. h) then bg:SetAtlas("Options_CategoryHeader_" .. h) end
+    if HasAtlas("Options_CategoryHeader_" .. h) then
+      bg:SetAtlas("Options_CategoryHeader_" .. h, true); bg:SetWidth(LIST_W); bg:SetPoint("LEFT")
+    end
     local hl = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
     if not _G.GameFontHighlightMedium then hl:SetFontObject("GameFontHighlightLarge") end
     hl:SetPoint("LEFT", 20, -1); hl:SetText(cat[1])
     y = y - 32
     for _, i in ipairs(cat[2]) do
       local b = CreateFrame("Button", nil, window)
-      b:SetSize(LIST_W + 12, 20); b:SetPoint("TOPLEFT", LIST_X + 4, y)
+      b:SetSize(LIST_W, 20); b:SetPoint("TOPLEFT", LIST_X, y)
       b.tex = b:CreateTexture(nil, "BACKGROUND")
       b.label = b:CreateFontString(nil, "ARTWORK", "GameFontNormal")
       b.label:SetPoint("TOPLEFT", 36, 1); b.label:SetPoint("BOTTOMRIGHT"); b.label:SetJustifyH("LEFT")
