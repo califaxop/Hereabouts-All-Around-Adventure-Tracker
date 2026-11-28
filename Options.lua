@@ -297,8 +297,8 @@ local WIN_W, WIN_H = 920, 724        -- the size of Blizzard's settings window (
 local LIST_X, LIST_W = 18, 160       -- the categories
 local CONT_X = LIST_X + LIST_W + 16  -- the page
 local CHILD_W = WIN_W - CONT_X - 22 - 30
-local LABEL_X, CTRL_X = 37, 300      -- a row's label, and its control
-local ROW = 36
+local LABEL_X, CTRL_X = 37, 270      -- a row's label, and its control (Blizzard: the row's middle less 80)
+local ROW = 30
 local LOGO = "Interface\\AddOns\\Hereabouts\\media\\Logo"
 
 local function track(x) refreshers[#refreshers + 1] = x; return x end
@@ -415,11 +415,11 @@ local function Rows(p)
   end
   -- a white heading
   function R.Section(_, title)
-    R.y = R.y - (R.n > 0 and 14 or 0)
+    R.y = R.y - (R.n > 0 and 8 or 0)
     local t = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    t:SetPoint("TOPLEFT", 7, R.y - 16); t:SetText(title)
+    t:SetPoint("TOPLEFT", 7, R.y - 10); t:SetText(title)
     Index(title, t, R.y)
-    R.y = R.y - 45
+    R.y = R.y - 36
   end
   -- a row with its label; returns the row frame and its control's x
   function R.Row(_, label, tip, indent)
@@ -427,7 +427,7 @@ local function Rows(p)
     row:SetPoint("TOPLEFT", 0, R.y); row:SetSize(CHILD_W, ROW)
     local l = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     l:SetPoint("LEFT", LABEL_X + (indent and 20 or 0), 0); l:SetPoint("RIGHT", row, "LEFT", CTRL_X - 10, 0)
-    l:SetJustifyH("LEFT"); l:SetWordWrap(false); l:SetText(label)
+    l:SetJustifyH("LEFT"); l:SetWordWrap(true); l:SetMaxLines(2); l:SetText(label)
     row.label = l
     Hover(row, label, tip)
     Index(label, row, R.y)
@@ -495,11 +495,11 @@ local function PageTracker(p)
 
   -- which sections show in dungeons and in combat (ticked = shown)
   R:Section("Show in dungeons and in combat")
-  local head = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  head:SetPoint("TOPLEFT", CTRL_X - 14, R.y + 6); head:SetText("In dungeons")
-  local head2 = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  head2:SetPoint("TOPLEFT", CTRL_X + 96, R.y + 6); head2:SetText("In combat")
-  R.y = R.y - 10
+  local heads = {}
+  for i, t in ipairs({ "In dungeons", "In combat" }) do
+    heads[i] = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); heads[i]:SetText(t)
+  end
+  R.y = R.y - 8
   local function Shown(tbl, key)
     return { function() return not (ns.db[tbl] and ns.db[tbl][key]) end,
       function(v) ns.db[tbl] = ns.db[tbl] or {}; ns.db[tbl][key] = (not v) or nil end }
@@ -509,6 +509,9 @@ local function PageTracker(p)
     local row = R:Row(sec[2], "Ticked: this section shows in dungeons / in combat.")
     local a = track(BCheck(row, Shown("hideInInstance", sec[1]))); a:SetPoint("LEFT", CTRL_X, 0)
     local b = track(BCheck(row, Shown("hideInCombat", sec[1]))); b:SetPoint("LEFT", CTRL_X + 110, 0)
+    if sec[1] == "quests" then
+      heads[1]:SetPoint("BOTTOM", a, "TOP", 0, 0); heads[2]:SetPoint("BOTTOM", b, "TOP", 0, 0)
+    end
   end
   return R:Height()
 end
@@ -755,10 +758,11 @@ local function BuildWindow()
   title:SetPoint("TOPLEFT", 7, -22)
   if HasAtlas("Options_HorizontalDivider") then
     local div = container:CreateTexture(nil, "ARTWORK")
-    div:SetAtlas("Options_HorizontalDivider", true); div:SetPoint("TOP", 0, -50)
+    div:SetAtlas("Options_HorizontalDivider"); div:SetHeight(2)
+    div:SetPoint("TOPLEFT", 7, -50); div:SetPoint("TOPRIGHT", -26, -50)
   end
   local bug = BButton(container, "Bugs & Feedback", 140, function() ns.ShowReport() end)
-  bug:SetPoint("TOPRIGHT", -36, -16)
+  bug:SetPoint("TOPRIGHT", -26, -16)
 
   -- the buttons at the bottom
   local close = BButton(window, CLOSE or "Close", 96, function() window:Hide() end)
@@ -770,8 +774,8 @@ local function BuildWindow()
     for i, it in ipairs(items) do
       local on, over = i == current, it.over
       Font(it.label, on and "GameFontHighlight" or "GameFontNormal")
-      if on and HasAtlas("Options_List_Active") then it.tex:SetAtlas("Options_List_Active", true); it.tex:Show()
-      elseif over and HasAtlas("Options_List_Hover") then it.tex:SetAtlas("Options_List_Hover", true); it.tex:Show()
+      if on and HasAtlas("Options_List_Active") then it.tex:SetAtlas("Options_List_Active"); it.tex:SetAllPoints(); it.tex:Show()
+      elseif over and HasAtlas("Options_List_Hover") then it.tex:SetAtlas("Options_List_Hover"); it.tex:SetAllPoints(); it.tex:Show()
       elseif on or over then it.tex:SetColorTexture(1, 1, 1, on and 0.12 or 0.06); it.tex:SetAllPoints(); it.tex:Show()
       else it.tex:Hide() end
     end
@@ -785,18 +789,18 @@ local function BuildWindow()
   local y = -76
   for h, cat in ipairs(CATEGORIES) do
     local head = CreateFrame("Frame", nil, window)
-    head:SetSize(175, 30); head:SetPoint("TOPLEFT", LIST_X - 8, y)
+    head:SetSize(LIST_W + 12, 30); head:SetPoint("TOPLEFT", LIST_X + 4, y)
     local bg = head:CreateTexture(nil, "ARTWORK")
-    bg:SetPoint("TOPLEFT")
-    if HasAtlas("Options_CategoryHeader_" .. h) then bg:SetAtlas("Options_CategoryHeader_" .. h, true) end
+    bg:SetAllPoints()
+    if HasAtlas("Options_CategoryHeader_" .. h) then bg:SetAtlas("Options_CategoryHeader_" .. h) end
     local hl = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
     if not _G.GameFontHighlightMedium then hl:SetFontObject("GameFontHighlightLarge") end
     hl:SetPoint("LEFT", 20, -1); hl:SetText(cat[1])
-    y = y - 34
+    y = y - 32
     for _, i in ipairs(cat[2]) do
       local b = CreateFrame("Button", nil, window)
-      b:SetSize(175, 20); b:SetPoint("TOPLEFT", LIST_X - 8, y)
-      b.tex = b:CreateTexture(nil, "BACKGROUND"); b.tex:SetPoint("CENTER")
+      b:SetSize(LIST_W + 12, 20); b:SetPoint("TOPLEFT", LIST_X + 4, y)
+      b.tex = b:CreateTexture(nil, "BACKGROUND")
       b.label = b:CreateFontString(nil, "ARTWORK", "GameFontNormal")
       b.label:SetPoint("TOPLEFT", 36, 1); b.label:SetPoint("BOTTOMRIGHT"); b.label:SetJustifyH("LEFT")
       b.label:SetText(PAGES[i][1])
@@ -808,7 +812,7 @@ local function BuildWindow()
       end)
       b:SetScript("OnLeave", function(self) self.over = false; paintItems(); GameTooltip:Hide() end)
       items[i] = b
-      y = y - 26
+      y = y - 22
     end
     y = y - 18
   end
