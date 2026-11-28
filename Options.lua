@@ -1,44 +1,14 @@
--- XP Planner: settings window (/hab, or Esc > Options > AddOns > XP Planner), drawn in the
--- tracker's own style: its border, background, fonts and colours (EllesmereUI's or FlareUI's when installed).
+-- Hereabouts: the settings windows (/hab, or Esc > Options > AddOns > Hereabouts), and the Ignored
+-- Quests and Bugs & Feedback windows. Always in the game's own Settings design, whatever UI is
+-- installed (the tracker follows FlareUI / EllesmereUI; these windows don't).
+-- Every Blizzard part here was seen working in WoW: Forever (the 2.1.0 test builds): the settings
+-- frame and its art, the minimal checkbox, the slider with steppers, the red buttons, the scroll
+-- frame and the search box.
 local _, ns = ...
 
 local W = "Interface\\Buttons\\WHITE8X8"
 
 local function Changed() ns.Refresh() end
-
----------------------------------------------------------------------------
--- Styling: every widget registers a paint function, re-run when the tracker's style changes
----------------------------------------------------------------------------
-local skins = {}
-local function Skin(fn) skins[#skins + 1] = fn; fn(ns.Theme()) end
-function ns.RestyleOptions()
-  local th = ns.Theme()
-  for _, fn in ipairs(skins) do fn(th) end
-end
-local function RGB(c, a) return c[1], c[2], c[3], a or 1 end
-
--- text in one of the tracker's roles: "title", "header", "line", "value", "note"
-local function Text(parent, role, str)
-  -- created with a font, and the text set only after the theme's font is applied:
-  -- WoW refuses SetText on a font string that has no font yet
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  fs:SetJustifyH("LEFT")
-  Skin(function(th)
-    if role == "header" then fs:SetFontObject(th.headerFont); fs:SetTextColor(RGB(th.header))
-    elseif role == "title" then fs:SetFontObject(th.headerFont); fs:SetTextColor(RGB(th.title))
-    elseif role == "value" then fs:SetFontObject(th.lineFont); fs:SetTextColor(RGB(th.title))
-    elseif role == "note" then fs:SetFontObject("GameFontHighlightSmall"); fs:SetTextColor(RGB(th.dim))
-    else fs:SetFontObject(th.lineFont); fs:SetTextColor(RGB(th.line)) end
-  end)
-  fs:SetText(str or "")
-  return fs
-end
-
-local function Note(parent, str, x, y, width)
-  local n = Text(parent, "note", str)
-  n:SetPoint("TOPLEFT", x, y); n:SetWidth(width or 220)
-  return n
-end
 
 -- a setting in ns.db; onSet runs after it changes
 -- returned as a { get, set } pair (Lua drops a second return value mid-argument-list)
@@ -47,127 +17,46 @@ local function Setting(key, onSet)
     function(v) ns.db[key] = v; if onSet then onSet(v) end end }
 end
 
----------------------------------------------------------------------------
--- Widgets
----------------------------------------------------------------------------
--- slider: name on the left, value on the right, a thin bronze track with a gold handle
-local function Slider(parent, label, x, y, width, minV, maxV, step, opt, fmt)
-  local get, set = opt[1], opt[2]
-  -- label nil = inline: the slider sits on the line at y, its value to its right
-  local name = label and Text(parent, "line", label)
-  local value = Text(parent, "value", "")
-  local s = CreateFrame("Slider", nil, parent)
-  s:SetSize(width, 14)
-  if label then
-    name:SetPoint("TOPLEFT", x, y)
-    value:SetPoint("TOPRIGHT", parent, "TOPLEFT", x + width, y); value:SetJustifyH("RIGHT")
-    s:SetPoint("TOPLEFT", x, y - 18)
-  else
-    s:SetPoint("TOPLEFT", x, y - 3)
-    value:SetPoint("LEFT", s, "RIGHT", 10, 0)
-  end
-  s:SetOrientation("HORIZONTAL")
-  s:SetMinMaxValues(minV, maxV); s:SetValueStep(step); s:SetObeyStepOnDrag(true)
-  local trackBg = s:CreateTexture(nil, "BACKGROUND")
-  trackBg:SetTexture(W); trackBg:SetHeight(4)
-  trackBg:SetPoint("LEFT"); trackBg:SetPoint("RIGHT")
-  local fill = s:CreateTexture(nil, "ARTWORK")
-  fill:SetTexture(W); fill:SetHeight(4); fill:SetPoint("LEFT")
-  local thumb = s:CreateTexture(nil, "OVERLAY")
-  thumb:SetTexture(W); thumb:SetSize(7, 14)
-  s:SetThumbTexture(thumb)
-  local function paintFill(v)
-    local f = (maxV > minV) and (v - minV) / (maxV - minV) or 0
-    fill:SetWidth(math.max(1, f * width))
-  end
-  Skin(function(th)
-    trackBg:SetVertexColor(RGB(th.box, 0.35))
-    fill:SetVertexColor(RGB(th.accent, 0.9))
-    thumb:SetVertexColor(RGB(th.title))
-  end)
-  s:EnableMouseWheel(true)
-  s:SetScript("OnMouseWheel", function(self, d) self:SetValue(self:GetValue() + d * step) end)
-  local refreshing = false
-  s:SetScript("OnValueChanged", function(_, v)
-    v = math.floor(v / step + 0.5) * step
-    value:SetText(fmt(v)); paintFill(v)
-    if refreshing or get() == v then return end
-    set(v); Changed()
-  end)
-  s.Refresh = function()
-    refreshing = true
-    s:SetValue(get()); value:SetText(fmt(get())); paintFill(get())
-    refreshing = false
-  end
-  s.SetActive = function(on)
-    s:SetEnabled(on)
-    for _, r in ipairs({ s, name or s, value }) do r:SetAlpha(on and 1 or 0.4) end
-  end
-  return s
+-- a template's child frame or region (its parentKey), only if it's really there
+local function Part(f, key) local v = f and rawget(f, key); if type(v) == "table" or type(v) == "userdata" then return v end end
+
+local function Font(parent, font, str)
+  local fs = parent:CreateFontString(nil, "OVERLAY", font)
+  fs:SetJustifyH("LEFT"); fs:SetText(str or "")
+  return fs
 end
 
--- flat button in the tracker's bronze
-local function Button(parent, label, width, onClick)
-  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(width, 22)
-  b:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  local fs = Text(b, "line", label)
-  fs:SetPoint("CENTER"); fs:SetJustifyH("CENTER")
-  b.label = fs
-  local hover = false
-  local function paint(th)
-    th = th or ns.Theme()
-    if th.eui then
-      b:SetBackdropColor(RGB(th.box, hover and 1 or 0.85))
-      b:SetBackdropBorderColor(RGB(hover and th.accent or th.edge, 1))
-    else
-      b:SetBackdropColor(RGB(th.box, hover and 0.55 or 0.3))
-      b:SetBackdropBorderColor(RGB(th.accent, hover and 1 or 0.8))
-    end
-    fs:SetTextColor(RGB(hover and th.hover or th.title))
-  end
-  Skin(paint)
-  b:SetScript("OnEnter", function() hover = true; paint() end)
-  b:SetScript("OnLeave", function() hover = false; paint() end)
+-- the game's red button
+local function BButton(parent, text, width, onClick)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(width, 22); b:SetText(text)
   b:SetScript("OnClick", onClick)
   return b
 end
 
--- "×" close button in the corner
-local function CloseButton(win)
-  local b = CreateFrame("Button", nil, win)
-  b:SetSize(22, 22); b:SetPoint("TOPRIGHT", -8, -8)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  fs:SetPoint("CENTER"); fs:SetText("\195\151")
-  local hover = false
-  local function paint(th) th = th or ns.Theme(); fs:SetTextColor(RGB(hover and th.hover or th.header)) end
-  Skin(paint)
-  b:SetScript("OnEnter", function() hover = true; paint() end)
-  b:SetScript("OnLeave", function() hover = false; paint() end)
-  b:SetScript("OnClick", function() win:Hide() end)
-  return b
+-- a window: Blizzard's settings frame (title bar, close button, its background)
+local function Window(name, width, height, title)
+  local f = CreateFrame("Frame", name, UIParent, "SettingsFrameTemplate")
+  f:SetSize(width, height)
+  f:SetFrameStrata("DIALOG")
+  f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetClampedToScreen(true)
+  -- the one opened or clicked last comes to the front, whole (never interleaved with another)
+  f:SetToplevel(true)
+  f:HookScript("OnShow", function(self) self:Raise() end)
+  tinsert(UISpecialFrames, name) -- Esc closes it
+  local text = Part(Part(f, "NineSlice"), "Text")
+  if text then text:SetText(title) end
+  return f
 end
 
-local function Window(name, width, height)
-  local win = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-  win:SetSize(width, height)
-  win:SetFrameStrata("DIALOG")
-  win:SetMovable(true); win:EnableMouse(true); win:RegisterForDrag("LeftButton")
-  win:SetScript("OnDragStart", win.StartMoving)
-  win:SetScript("OnDragStop", win.StopMovingOrSizing)
-  win:SetClampedToScreen(true)
-  tinsert(UISpecialFrames, name) -- Esc closes it
-  Skin(function() ns.SkinWindow(win, 0.96) end)
-  -- solid underneath (the styles' backgrounds are see-through: with several addons' windows open,
-  -- one showed through another)
-  local solid = win:CreateTexture(nil, "BACKGROUND", nil, -8)
-  solid:SetColorTexture(0.04, 0.035, 0.03, 1)
-  solid:SetPoint("TOPLEFT", 3, -3); solid:SetPoint("BOTTOMRIGHT", -3, 3)
-  -- the one opened or clicked last comes to the front, whole (never interleaved with another)
-  win:SetToplevel(true)
-  win:HookScript("OnShow", function(self) self:Raise() end)
-  CloseButton(win)
-  return win
+-- the settings page's divider line, across a frame at y
+local function Divider(parent, y, left, right)
+  local d = parent:CreateTexture(nil, "ARTWORK")
+  d:SetAtlas("Options_HorizontalDivider"); d:SetHeight(2)
+  d:SetPoint("TOPLEFT", left, y); d:SetPoint("TOPRIGHT", -right, y)
+  return d
 end
 
 -- The bug report window (2.0.0; like Questie's trace export and Equip This!'s fight records): the
@@ -190,13 +79,9 @@ local INCLUDED = "Included: Hereabouts' version, the game client, your class and
 local reportWin, reportHost -- reportHost: the settings window, once built
 -- a one-line box that keeps its text (typing in it puts it back), selected when clicked
 local function CopyBox(parent, width, get)
-  local e = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
-  e:SetSize(width, 22); e:SetAutoFocus(false); e:SetTextInsets(6, 6, 0, 0); e:SetMaxLetters(0)
-  e:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 })
-  Skin(function(th)
-    e:SetFontObject(th.lineFont); e:SetTextColor(RGB(th.title))
-    e:SetBackdropColor(0, 0, 0, 0.55); e:SetBackdropBorderColor(RGB(th.eui and th.edge or th.title, 0.7))
-  end)
+  local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate") -- (the game's text box)
+  e:SetSize(width, 22); e:SetAutoFocus(false); e:SetMaxLetters(0)
+  e:SetFontObject("GameFontHighlight")
   e:SetScript("OnTextChanged", function(self, user) if user and self:GetText() ~= get() then self:SetText(get()); self:HighlightText() end end)
   e:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
   e:SetScript("OnEscapePressed", function() parent:Hide() end)
@@ -204,7 +89,7 @@ local function CopyBox(parent, width, get)
   return e
 end
 local function BuildReport()
-  local w = Window("XPPlannerReportWindow", 600, 342)
+  local w = Window("XPPlannerReportWindow", 600, 350, "Hereabouts Bugs & Feedback")
   -- a pop-up: solid, held over the settings window (dimmed and unclickable behind it)
   w:SetFrameStrata("FULLSCREEN_DIALOG")
   w:SetMovable(false); w:SetScript("OnDragStart", nil); w:SetScript("OnDragStop", nil)
@@ -213,14 +98,13 @@ local function BuildReport()
   local dim = w.shade:CreateTexture(nil, "BACKGROUND")
   dim:SetAllPoints(); dim:SetColorTexture(0, 0, 0, 0.55)
   w:Hide()
-  local title = Text(w, "title", "Hereabouts Bugs & Feedback")
-  title:SetPoint("TOP", 0, -16)
   w.urlBox = CopyBox(w, 540, function() return w.url end)
   w.urlBox:SetPoint("TOP", 0, -42)
-  w.note = Text(w, "note", "")
+  w.note = Font(w, "GameFontHighlightSmall")
   w.note:SetPoint("TOP", 0, -74); w.note:SetWidth(540); w.note:SetJustifyH("CENTER")
   w.line = CopyBox(w, 540, function() return w.text end)
   w.line:SetPoint("TOP", 0, -134)
+  Divider(w, -164, 30, 30)
   -- what's in it, two columns
   w.stats = {}
   local ICONS = { "Interface\\Icons\\INV_Misc_Book_09", "Interface\\Icons\\INV_Misc_PocketWatch_01",
@@ -230,16 +114,16 @@ local function BuildReport()
     local icon = w:CreateTexture(nil, "ARTWORK")
     icon:SetTexture(ICONS[i]); icon:SetSize(18, 18)
     icon:SetPoint("TOPLEFT", 40 + col * 290, -174 - row * 26)
-    local t = Text(w, "line", "")
+    local t = Font(w, "GameFontNormal")
     t:SetPoint("LEFT", icon, "RIGHT", 8, 0)
     t:SetWidth(255); t:SetJustifyH("LEFT"); t:SetWordWrap(false) -- (cut short, never into the next column)
     w.stats[i] = t
   end
-  local inc = Text(w, "note", INCLUDED)
+  local inc = Font(w, "GameFontHighlightSmall", INCLUDED)
   inc:SetPoint("TOP", 0, -234); inc:SetWidth(540); inc:SetJustifyH("CENTER")
-  w.kindBtn = Button(w, "", 180, function() ns.ShowReport(w.kind == "bug" and "idea" or "bug") end)
+  w.kindBtn = BButton(w, "", 190, function() ns.ShowReport(w.kind == "bug" and "idea" or "bug") end)
   w.kindBtn:SetPoint("BOTTOMLEFT", 20, 16)
-  local close = Button(w, "Close", 110, function() w:Hide() end)
+  local close = BButton(w, CLOSE or "Close", 110, function() w:Hide() end)
   close:SetPoint("BOTTOMRIGHT", -20, 16)
   return w
 end
@@ -255,8 +139,8 @@ function ns.ShowReport(kind)
   w.urlBox:SetText(w.url); if w.urlBox.SetCursorPosition then w.urlBox:SetCursorPosition(0) end
   w.line:SetText(text)
   w.note:SetText(NOTE[w.kind])
-  w.kindBtn.label:SetText(w.kind == "bug" and "Feedback / feature request" or "Report a bug instead")
-  local G = "|cffffd200"
+  w.kindBtn:SetText(w.kind == "bug" and "Feedback / feature request" or "Report a bug instead")
+  local G = "|cffffffff"
   local q = info and info.quests
   w.stats[1]:SetText("Your quests: " .. G .. (q and (format("%d here, %d elsewhere", q.here, q.elsewhere) .. (q.unknown > 0 and format(", %d can't tell", q.unknown) or "")) or "-") .. "|r")
   w.stats[2]:SetText("Session: " .. G .. (info and (info.session .. ", " .. (info.xp or "max level")) or "-") .. "|r")
@@ -310,21 +194,7 @@ function ns.RefreshOptions()
   if ignUpdate then ignUpdate() end
 end
 
-local function Restyle() ns.ApplyBackdrop(); ns.RestyleOptions(); ns.RefreshOptions() end
-
--- a Blizzard template or atlas, if this client has it
-local function Make(kind, parent, template, name)
-  local ok, f = pcall(CreateFrame, kind, name, parent, template)
-  if ok and f then return f end
-end
-local function HasAtlas(a)
-  if not (C_Texture and C_Texture.GetAtlasInfo) then return false end
-  local ok, info = pcall(C_Texture.GetAtlasInfo, a)
-  return ok and info ~= nil
-end
-local function Font(fs, obj) if _G[obj] then fs:SetFontObject(obj) end end
--- a template's child frame or region, only if it's really there
-local function Part(f, key) local v = f and rawget(f, key); if type(v) == "table" or type(v) == "userdata" then return v end end
+local function Restyle() ns.ApplyBackdrop(); ns.RefreshOptions() end
 
 -- Search: every setting, its page and where it is on it
 local index, building = {}, nil
@@ -342,18 +212,10 @@ local function BCheck(parent, opt)
   local get, set = opt[1], opt[2]
   local b = CreateFrame("CheckButton", nil, parent)
   b:SetSize(30, 29)
-  if HasAtlas("checkbox-minimal") and HasAtlas("checkmark-minimal") then
-    local function tex(a) local t = b:CreateTexture(); t:SetAtlas(a, true); t:SetPoint("CENTER"); return t end
-    b:SetNormalTexture(tex("checkbox-minimal")); b:SetPushedTexture(tex("checkbox-minimal"))
-    b:SetCheckedTexture(tex("checkmark-minimal"))
-    if HasAtlas("checkmark-minimal-disabled") then b:SetDisabledCheckedTexture(tex("checkmark-minimal-disabled")) end
-  else
-    b:SetSize(26, 26)
-    b:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up"); b:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
-    b:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
-    b:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
-    b:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
-  end
+  -- (SettingsCheckboxTemplate's art; the template itself needs Blizzard's settings code behind it)
+  local function tex(a) local t = b:CreateTexture(); t:SetAtlas(a, true); t:SetPoint("CENTER"); return t end
+  b:SetNormalTexture(tex("checkbox-minimal")); b:SetPushedTexture(tex("checkbox-minimal"))
+  b:SetCheckedTexture(tex("checkmark-minimal")); b:SetDisabledCheckedTexture(tex("checkmark-minimal-disabled"))
   b:SetScript("OnClick", function(self) set(self:GetChecked() and true or false); Changed() end)
   b.Refresh = function() b:SetChecked(get() and true or false) end
   b.SetActive = function(on) b:SetEnabled(on); b:SetAlpha(on and 1 or 0.5) end
@@ -363,12 +225,7 @@ end
 local function BSlider(parent, minV, maxV, step, opt, fmt, width)
   local get, set = opt[1], opt[2]
   local M = MinimalSliderWithSteppersMixin
-  local s = M and Make("Frame", parent, "MinimalSliderWithSteppersTemplate")
-  if not (s and s.Init and s.RegisterCallback and M.Label and M.Event) then
-    if s then s:Hide() end
-    local fb = Slider(parent, nil, 0, 0, (width or 250) - 60, minV, maxV, step, opt, fmt) -- (placed by the row)
-    return fb
-  end
+  local s = CreateFrame("Frame", nil, parent, "MinimalSliderWithSteppersTemplate")
   s:SetWidth(width or 250)
   local refreshing = false
   local function snap(v) return math.floor(v / step + 0.5) * step end
@@ -380,19 +237,11 @@ local function BSlider(parent, minV, maxV, step, opt, fmt, width)
   end, s)
   s.Refresh = function()
     refreshing = true
-    s:SetValue(get()); if s.FormatValue then s:FormatValue(get()) end
+      s:SetValue(get()); s:FormatValue(get())
     refreshing = false
   end
   s.SetActive = function(on) s:SetEnabled(on) end
   return s
-end
-
-local function BButton(parent, text, width, onClick)
-  local b = Make("Button", parent, "UIPanelButtonTemplate")
-  if not b then return Button(parent, text, width, onClick) end
-  b:SetSize(width, 22); b:SetText(text)
-  b:SetScript("OnClick", onClick)
-  return b
 end
 
 ---------------------------------------------------------------------------
@@ -439,7 +288,7 @@ local function Rows(p)
     local c = track(BCheck(row, opt))
     c:SetPoint("LEFT", CTRL_X, 0)
     local sa = c.SetActive
-    c.SetActive = function(on) sa(on); Font(row.label, on and "GameFontNormal" or "GameFontDisable") end
+    c.SetActive = function(on) sa(on); row.label:SetFontObject(on and "GameFontNormal" or "GameFontDisable") end
     return c, row
   end
   function R.Slider(_, label, minV, maxV, step, opt, fmt, tip, x)
@@ -714,34 +563,12 @@ function ns.ConfirmDefaults()
   StaticPopup_Show("HEREABOUTS_DEFAULTS")
 end
 
--- the window: Blizzard's settings frame, else Hereabouts' own
-local function Frame()
-  local f = Make("Frame", UIParent, "SettingsFrameTemplate", "XPPlannerOptionsWindow")
-  if not f then
-    local w = Window("XPPlannerOptionsWindow", WIN_W, WIN_H)
-    Text(w, "title", "Hereabouts"):SetPoint("TOP", 0, -12)
-    return w
-  end
-  f:SetSize(WIN_W, WIN_H)
-  f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
-  f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  f:SetClampedToScreen(true)
-  f:HookScript("OnShow", function(self) self:Raise() end)
-  tinsert(UISpecialFrames, "XPPlannerOptionsWindow") -- Esc closes it
-  local text = Part(Part(f, "NineSlice"), "Text")
-  if text then text:SetText("Hereabouts") end
-  if HasAtlas("Options_InnerFrame") then
-    local inner = f:CreateTexture(nil, "BACKGROUND")
-    inner:SetAtlas("Options_InnerFrame", true); inner:SetPoint("TOPLEFT", 17, -64)
-  end
-  return f
-end
-
 local function BuildWindow()
   wipe(index)
-  window = Frame()
+  window = Window("XPPlannerOptionsWindow", WIN_W, WIN_H, "Hereabouts")
   window:SetPoint("CENTER")
+  local inner = window:CreateTexture(nil, "BACKGROUND")
+  inner:SetAtlas("Options_InnerFrame", true); inner:SetPoint("TOPLEFT", 17, -64)
   reportHost = window
   window:HookScript("OnHide", function() if reportWin then reportWin:Hide() end end)
 
@@ -756,11 +583,7 @@ local function BuildWindow()
   container:SetPoint("TOPLEFT", CONT_X, -76); container:SetPoint("BOTTOMRIGHT", -22, 46)
   local title = container:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
   title:SetPoint("TOPLEFT", 7, -22)
-  if HasAtlas("Options_HorizontalDivider") then
-    local div = container:CreateTexture(nil, "ARTWORK")
-    div:SetAtlas("Options_HorizontalDivider"); div:SetHeight(2)
-    div:SetPoint("TOPLEFT", 7, -50); div:SetPoint("TOPRIGHT", -26, -50)
-  end
+  Divider(container, -50, 7, 26)
   local bug = BButton(container, "Bugs & Feedback", 140, function() ns.ShowReport() end)
   bug:SetPoint("TOPRIGHT", -26, -16)
 
@@ -773,11 +596,9 @@ local function BuildWindow()
   local function paintItems()
     for i, it in ipairs(items) do
       local on, over = i == current, it.over
-      Font(it.label, on and "GameFontHighlight" or "GameFontNormal")
-      if on and HasAtlas("Options_List_Active") then it.tex:SetAtlas("Options_List_Active"); it.tex:SetAllPoints(); it.tex:Show()
-      elseif over and HasAtlas("Options_List_Hover") then it.tex:SetAtlas("Options_List_Hover"); it.tex:SetAllPoints(); it.tex:Show()
-      elseif on or over then it.tex:SetColorTexture(1, 1, 1, on and 0.12 or 0.06); it.tex:SetAllPoints(); it.tex:Show()
-      else it.tex:Hide() end
+      it.label:SetFontObject(on and "GameFontHighlight" or "GameFontNormal")
+      it.tex:SetShown(on or over)
+      if on or over then it.tex:SetAtlas(on and "Options_List_Active" or "Options_List_Hover") end
     end
   end
   local function Select(i)
@@ -793,17 +614,14 @@ local function BuildWindow()
     -- the header band: its art is taller than the band, which is at its top (seen in game), so it's
     -- placed by its top at its own height, as wide as the list
     local bg = head:CreateTexture(nil, "ARTWORK")
-    if HasAtlas("Options_CategoryHeader_" .. h) then
-      bg:SetAtlas("Options_CategoryHeader_" .. h, true); bg:SetWidth(LIST_W); bg:SetPoint("TOPLEFT")
-    end
+    bg:SetAtlas("Options_CategoryHeader_" .. h, true); bg:SetWidth(LIST_W); bg:SetPoint("TOPLEFT")
     local hl = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
-    if not _G.GameFontHighlightMedium then hl:SetFontObject("GameFontHighlightLarge") end
     hl:SetPoint("LEFT", 20, -1); hl:SetText(cat[1])
     y = y - 32
     for _, i in ipairs(cat[2]) do
       local b = CreateFrame("Button", nil, window)
       b:SetSize(LIST_W, 20); b:SetPoint("TOPLEFT", LIST_X, y)
-      b.tex = b:CreateTexture(nil, "BACKGROUND")
+      b.tex = b:CreateTexture(nil, "BACKGROUND"); b.tex:SetAllPoints()
       b.label = b:CreateFontString(nil, "ARTWORK", "GameFontNormal")
       b.label:SetPoint("TOPLEFT", 36, 1); b.label:SetPoint("BOTTOMRIGHT"); b.label:SetJustifyH("LEFT")
       b.label:SetText(PAGES[i][1])
@@ -820,9 +638,9 @@ local function BuildWindow()
     y = y - 18
   end
 
-  -- each page in Blizzard's scroll frame (its minimal scroll bar), else a plain one with the wheel
+  -- each page in Blizzard's scroll frame (its minimal scroll bar)
   for i, def in ipairs(PAGES) do
-    local scroll = Make("ScrollFrame", container, "ScrollFrameTemplate") or CreateFrame("ScrollFrame", nil, container)
+    local scroll = CreateFrame("ScrollFrame", nil, container, "ScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 0, -56); scroll:SetPoint("BOTTOMRIGHT", -26, 0)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetWidth(CHILD_W)
@@ -830,13 +648,6 @@ local function BuildWindow()
     building = i
     child:SetHeight(math.max(1, def[4](child)))
     building = nil
-    if not Part(scroll, "ScrollBar") then
-      scroll:EnableMouseWheel(true)
-      scroll:SetScript("OnMouseWheel", function(self, d)
-        local max = math.max(0, child:GetHeight() - self:GetHeight())
-        self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - d * 48)))
-      end)
-    end
     function scroll.ScrollTo(v)
       local max = math.max(0, child:GetHeight() - scroll:GetHeight())
       scroll:SetVerticalScroll(math.max(0, math.min(max, v)))
@@ -846,13 +657,9 @@ local function BuildWindow()
   end
 
   -- search (Blizzard's search box): any setting by name; pick one to go to it and see it flash
-  local search = Make("EditBox", window, "SearchBoxTemplate") or CreateFrame("EditBox", nil, window, "BackdropTemplate")
+  local search = CreateFrame("EditBox", nil, window, "SearchBoxTemplate")
   search:SetSize(260, 20); search:SetAutoFocus(false)
   search:SetPoint("BOTTOMRIGHT", container, "TOPRIGHT", 4, 20)
-  if not Part(search, "Instructions") then
-    search:SetBackdrop({ bgFile = W, edgeFile = W, edgeSize = 1 }); search:SetBackdropColor(0, 0, 0, 0.6)
-    search:SetBackdropBorderColor(0.5, 0.5, 0.5, 1); search:SetFontObject("GameFontHighlight"); search:SetTextInsets(6, 6, 0, 0)
-  end
   local results = CreateFrame("Frame", nil, window, "BackdropTemplate")
   results:SetPoint("TOPRIGHT", search, "BOTTOMRIGHT", 0, -2); results:SetWidth(320)
   results:SetFrameLevel(window:GetFrameLevel() + 40)
@@ -930,7 +737,6 @@ function ns.OpenOptions()
     local ok, e = pcall(BuildWindow)
     if not ok then if window then window:Hide() end; window = nil; ns.Print("settings failed: " .. tostring(e)); return end
   end
-  ns.RestyleOptions()
   window:SetScale(math.max(0.5, math.min(1, (UIParent:GetHeight() - 40) / window:GetHeight())))
   window:SetShown(not window:IsShown())
 end
@@ -969,34 +775,29 @@ local ignWin, ignRows = nil, {}
 local ROW_H = 24
 
 local function BuildIgnored()
-  ignWin = Window("XPPlannerIgnoredWindow", 360, 380)
+  ignWin = Window("XPPlannerIgnoredWindow", 380, 400, "Ignored Quests")
   ignWin:SetPoint("CENTER", 300, 0)
-  Text(ignWin, "title", "Ignored Quests"):SetPoint("TOPLEFT", 22, -20)
-  Note(ignWin, "Removed quests come back to Quests Nearby if they still qualify.", 22, -44, 316)
-  local line = ignWin:CreateTexture(nil, "ARTWORK")
-  line:SetPoint("TOPLEFT", 22, -70); line:SetPoint("TOPRIGHT", -22, -70); line:SetHeight(1)
-  Skin(function(th) line:SetColorTexture(RGB(th.eui and th.edge or th.accent, th.eui and 1 or 0.5)) end)
+  local note = Font(ignWin, "GameFontHighlightSmall", "Removed quests come back to Quests Nearby if they still qualify.")
+  note:SetPoint("TOPLEFT", 22, -36); note:SetWidth(336)
+  Divider(ignWin, -62, 18, 18)
 
-  local scroll = CreateFrame("ScrollFrame", nil, ignWin)
-  scroll:SetPoint("TOPLEFT", 22, -80)
-  scroll:SetPoint("BOTTOMRIGHT", -22, 50)
+  local scroll = CreateFrame("ScrollFrame", nil, ignWin, "ScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 22, -72)
+  scroll:SetPoint("BOTTOMRIGHT", -34, 50)
   local content = CreateFrame("Frame", nil, scroll)
   content:SetSize(316, 1)
   scroll:SetScrollChild(content)
-  scroll:EnableMouseWheel(true)
-  scroll:SetScript("OnMouseWheel", function(self, d)
-    local max = math.max(0, content:GetHeight() - self:GetHeight())
-    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - d * ROW_H * 2)))
-  end)
   ignWin.content = content
 
-  ignWin.empty = Text(content, "note", "No ignored quests.")
+  ignWin.empty = Font(content, "GameFontDisable", "No ignored quests.")
   ignWin.empty:SetPoint("TOPLEFT", 0, -4)
 
-  local clear = Button(ignWin, "Clear all", 100, function()
+  local clear = BButton(ignWin, "Clear all", 100, function()
     wipe(ns.db.ignoredQuests); ns.Refresh(); ns.RefreshIgnored()
   end)
-  clear:SetPoint("BOTTOMLEFT", 22, 18)
+  clear:SetPoint("BOTTOMLEFT", 18, 16)
+  local close = BButton(ignWin, CLOSE or "Close", 96, function() ignWin:Hide() end)
+  close:SetPoint("BOTTOMRIGHT", -16, 16)
 end
 
 function ns.RefreshIgnored()
@@ -1012,10 +813,10 @@ function ns.RefreshIgnored()
     if not r then
       r = CreateFrame("Frame", nil, ignWin.content)
       r:SetSize(316, ROW_H)
-      r.text = Text(r, "line", "")
+      r.text = Font(r, "GameFontNormal")
       r.text:SetPoint("LEFT"); r.text:SetPoint("RIGHT", -84, 0)
       r.text:SetWordWrap(false)
-      r.remove = Button(r, "Remove", 76, nil)
+      r.remove = BButton(r, "Remove", 76, nil)
       r.remove:SetPoint("RIGHT")
       ignRows[i] = r
     end
@@ -1031,7 +832,6 @@ end
 
 function ns.OpenIgnored()
   if not ignWin then BuildIgnored() end
-  ns.RestyleOptions()
   ignWin:Show()
   ns.RefreshIgnored()
 end

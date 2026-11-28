@@ -37,7 +37,7 @@ end
 if type(EllesmereUI) == "table" and EllesmereUI.RegisterSkin then
   EllesmereUI.RegisterSkin("Hereabouts", function(S)
     ns.euiSkin = S
-    local function again() if ns.db then ns.ApplyBackdrop(); if ns.RestyleOptions then ns.RestyleOptions() end; ns.Refresh() end end
+    local function again() if ns.db then ns.ApplyBackdrop(); ns.Refresh() end end
     if S.OnLooksChanged then S.OnLooksChanged(again) end
     again()
   end)
@@ -113,7 +113,6 @@ frame:SetFrameLevel(5) -- leaves room for the border frame to sit underneath the
 -- Don't let the game remember this frame's position itself: it would restore it after a reload
 -- with its own (centre-based) anchor and override our top-left anchor.
 if frame.SetDontSavePosition then frame:SetDontSavePosition(true) end
-ns.Frame = frame
 
 -- Backdrop: a soft dark panel behind the list so text stays readable.
 -- Drawn from a small soft-edged texture (media/SoftBackdrop.tga) cut into nine pieces:
@@ -240,53 +239,13 @@ function ns.ApplyBackdrop()
   end
 end
 
--- The tracker's look, for the settings windows: same palette, fonts and border.
+-- The tracker's look, for the session bars under it: which style, its accent, the line font and
+-- colours.
 function ns.Theme()
   ApplyStyle()
-  local flare = ns.UsingFlare()
-  local S = ns.UsingEUI()
-  local accent = flare and FLARE_BRONZE or (ns.db.borderColor or { 0.40, 0.33, 0.22 })
-  local th = {
-    flare = flare, header = HEADER_COLOR, title = TITLE_COLOR, hover = TITLE_HOVER_COLOR,
-    line = LINE_COLOR, dim = DIM_LINE, focus = FOCUS_COLOR, accent = accent,
-    box = flare and FLARE_BOX or accent, divider = FLARE_DIVIDER,
-    headerFont = HEADER_FONT, titleFont = TITLE_FONT, lineFont = LINE_FONT,
-  }
-  if S then -- EllesmereUI: flat dark controls, thin grey borders, its accent for what's selected
-    th.eui = true; th.accent = EUIAccent(S); th.box = { 0.16, 0.16, 0.16 }; th.edge = { 0.28, 0.28, 0.28 }
-    th.mark = th.accent; th.title = { 1, 1, 1 }; th.header = { 1, 1, 1 }
-  end
-  th.edge = th.edge or th.accent
-  th.mark = th.mark or th.title
-  return th
-end
-
--- A window drawn like the tracker's box: FlareUI's dialog background and bronze border,
--- or the dark panel with the thin brown border.
-local shelled = setmetatable({}, { __mode = "k" }) -- windows EllesmereUI has painted
-function ns.SkinWindow(f, alpha)
-  local th = ns.Theme()
-  if th.eui then
-    -- EllesmereUI paints the shell itself (once; it keeps it in step with the player's theme)
-    if not shelled[f] then
-      f:SetBackdrop(nil)
-      shelled[f] = pcall(ns.euiSkin.Shell, f)
-      if not shelled[f] then f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" }); f:SetBackdropColor(0.06, 0.06, 0.06, alpha) end
-    end
-    return
-  end
-  if th.flare then
-    f:SetBackdrop({ bgFile = DIALOG_BG, edgeFile = ns.FlareBorder(), tile = false, tileSize = 0, edgeSize = 16,
-      insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-    f:SetBackdropColor(1, 1, 1, alpha)
-    f:SetBackdropBorderColor(th.accent[1], th.accent[2], th.accent[3], 1)
-  else
-    f:SetBackdrop({ bgFile = BLIZZ_BG, edgeFile = BLIZZ_EDGE, tile = true, tileSize = 16, edgeSize = 16,
-      insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-    f:SetBackdropColor(0.03, 0.03, 0.03, alpha)
-    local c = ns.BLIZZ_BORDER_COLOR
-    f:SetBackdropBorderColor(c[1], c[2], c[3], 1)
-  end
+  local S, flare = ns.UsingEUI(), ns.UsingFlare()
+  return { flare = flare, eui = S and true or false, title = TITLE_COLOR, line = LINE_COLOR, lineFont = LINE_FONT,
+    accent = (S and EUIAccent(S)) or (flare and FLARE_BRONZE) or ns.BLIZZ_BORDER_COLOR }
 end
 
 ---------------------------------------------------------------------------
@@ -348,6 +307,16 @@ local headers, titles, lines = {}, {}, {}
 ns._headers = headers -- (for checks)
 local used = { h = 0, t = 0, l = 0 }
 
+-- a Zone / All button on a heading: the game's red button, sharing the small box's actions
+local function ZoneButton(h)
+  local z = CreateFrame("Button", nil, h, "UIPanelButtonTemplate")
+  z:SetSize(42, 18); z:SetPoint("RIGHT", h.plus, "LEFT", -6, 0)
+  z:SetNormalFontObject("GameFontNormalSmall"); z:SetHighlightFontObject("GameFontHighlightSmall")
+  for _, s in ipairs({ "OnClick", "OnEnter", "OnLeave" }) do z:SetScript(s, h.zone:GetScript(s)) end
+  z.Paint = function() z:SetText((z.key and ns.db[z.key]) and "Zone" or "All") end
+  return z
+end
+
 local function GetHeader()
   used.h = used.h + 1
   local h = headers[used.h]
@@ -372,7 +341,9 @@ local function GetHeader()
     h.text:SetTextColor(1, 0.82, 0)
     h.toggle = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     h.toggle:SetPoint("RIGHT", -4, 0)
-    -- "Zone" / "All": the section's current-zone filter, one click away
+    -- "Zone" / "All": the section's current-zone filter, one click away. Three looks, one per style:
+    -- FlareUI's small bronze box (h.zone), the game's red button (h.zoneBtn: Blizzard's headings,
+    -- clean or classic) and EllesmereUI's flat button (h.euiBtn, made the first time it's needed)
     h.zone = CreateFrame("Button", nil, h, "BackdropTemplate")
     h.zone:SetSize(34, 14); h.zone:SetPoint("RIGHT", h.toggle, "LEFT", -8, 0)
     h.zone:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
@@ -396,11 +367,9 @@ local function GetHeader()
     h.zone.Paint = function()
       local z = h.zone
       local on = z.key and ns.db[z.key]
-      local accent = ns.UsingFlare() and FLARE_BRONZE or (ns.db.borderColor or { 0.4, 0.33, 0.22 })
-      local box = ns.UsingFlare() and FLARE_BOX or accent
       z.text:SetText(on and "Zone" or "All")
-      z:SetBackdropColor(box[1], box[2], box[3], on and (z.hover and 0.75 or 0.55) or (z.hover and 0.35 or 0.15))
-      z:SetBackdropBorderColor(accent[1], accent[2], accent[3], z.hover and 1 or 0.7)
+      z:SetBackdropColor(FLARE_BOX[1], FLARE_BOX[2], FLARE_BOX[3], on and (z.hover and 0.75 or 0.55) or (z.hover and 0.35 or 0.15))
+      z:SetBackdropBorderColor(FLARE_BRONZE[1], FLARE_BRONZE[2], FLARE_BRONZE[3], z.hover and 1 or 0.7)
       if on then z.text:SetTextColor(TITLE_COLOR[1], TITLE_COLOR[2], TITLE_COLOR[3])
       else z.text:SetTextColor(LINE_COLOR[1], LINE_COLOR[2], LINE_COLOR[3]) end
     end
@@ -420,16 +389,7 @@ local function GetHeader()
     h.plusHi = h:CreateTexture(nil, "HIGHLIGHT")
     h.plusHi:SetAllPoints(h.plus); h.plusHi:SetBlendMode("ADD")
     -- ...and the game's standard red button for Zone / All, so it reads as a button
-    h.zoneBtn = CreateFrame("Button", nil, h, "UIPanelButtonTemplate")
-    h.zoneBtn:SetSize(42, 18); h.zoneBtn:SetPoint("RIGHT", h.plus, "LEFT", -6, 0)
-    if h.zoneBtn.SetNormalFontObject then
-      h.zoneBtn:SetNormalFontObject("GameFontNormalSmall"); h.zoneBtn:SetHighlightFontObject("GameFontHighlightSmall")
-    end
-    for _, s in ipairs({ "OnClick", "OnEnter", "OnLeave" }) do h.zoneBtn:SetScript(s, h.zone:GetScript(s)) end
-    h.zoneBtn.Paint = function()
-      local z = h.zoneBtn
-      z:SetText((z.key and ns.db[z.key]) and "Zone" or "All")
-    end
+    h.zoneBtn = ZoneButton(h)
     -- FlareUI style: a divider line under the heading instead of Blizzard's header art
     h.divider = h:CreateTexture(nil, "ARTWORK")
     h.divider:SetTexture(FLARE_DIVIDER)
@@ -456,7 +416,6 @@ local function GetHeader()
   end
   local flare = ns.UsingFlare()
   local clean = not flare and not ns.db.classicHeaders
-  h.clean = clean
   h.bg:SetShown(not flare and not clean)
   h.divider:SetShown(flare)
   h.line:SetShown(clean)
@@ -977,10 +936,15 @@ ns.SectionHidden = SectionHidden
 local function Section(name, count, key, zoneKey)
   local h = GetHeader()
   h.text:SetText(name)
-  -- the Zone / All switch: the red button (clean headings) or the small box (classic / FlareUI)
-  local z, other = h.zone, h.zoneBtn
-  if h.clean then z, other = h.zoneBtn, h.zone end
-  other:Hide()
+  -- the Zone / All switch in the style's look
+  local eui = ns.UsingEUI()
+  if eui and not h.euiBtn then
+    -- EllesmereUI's flat button (its skinning API: S.Button, label white while enabled)
+    h.euiBtn = ZoneButton(h)
+    pcall(eui.Button, h.euiBtn); pcall(eui.StateButtonLabel, h.euiBtn); pcall(eui.Font, h.euiBtn:GetFontString())
+  end
+  local z = (eui and h.euiBtn) or (ns.UsingFlare() and h.zone) or h.zoneBtn
+  for _, b in ipairs({ h.zone, h.zoneBtn, h.euiBtn }) do if b ~= z then b:Hide() end end
   z.key = zoneKey
   z:SetShown(zoneKey ~= nil)
   if zoneKey then z.Paint() end

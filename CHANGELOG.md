@@ -9,8 +9,12 @@
 - Search: type part of a setting's name in the box at the top right, then pick it (or press Enter)
   to jump to it, flashing.
 - Defaults (on the Status page) asks before putting every setting back.
-- The settings window always uses the game's look now; the tracker still follows FlareUI and
-  EllesmereUI.
+- The settings, Ignored Quests and Bugs & Feedback windows always use the game's look now,
+  whatever UI is installed; the tracker still follows FlareUI and EllesmereUI.
+- Zone / All on the list's headings: the game's red button with classic headings too (as with the
+  clean ones), and EllesmereUI's flat button in its style. FlareUI keeps its bronze box.
+- Tidied: the settings windows' old FlareUI / EllesmereUI styling and the unused border colour
+  setting are gone.
 
 ## 2.0.0 (the development plan: Milestones 1-7)
 

@@ -29,7 +29,6 @@ ns.DEFAULTS = {
   bgAlpha     = 0.5,    -- backdrop opacity behind the list (0 = none)
   showBorder  = true,   -- tooltip-style border; off = soft faded edges instead
   classicHeaders = false, -- section headings: the quest tracker's header art (the earlier look) instead of the clean line
-  borderColor = { 0.40, 0.33, 0.22 },  -- brown, FlareUI-style
   maxHeight   = 400,    -- px; taller content scrolls
   showActive  = true,   -- "Active Quests" section
   activeZoneOnly = false, -- Active Quests: only quests in the zone you're in (focused quest always shown)
@@ -179,11 +178,8 @@ function ns.LoadDB()
   for k, v in pairs(ns.DEFAULTS) do
     if HereaboutsDB[k] == nil then HereaboutsDB[k] = Copy(v) end
   end
-  -- one-time: switch the old gray border to the new brown default
-  if (HereaboutsDB.borderVersion or 1) < 2 then
-    HereaboutsDB.borderColor = { 0.40, 0.33, 0.22 }
-    HereaboutsDB.borderVersion = 2
-  end
+  -- 2.1.0: the border colour setting is gone (each style draws its own border)
+  HereaboutsDB.borderColor, HereaboutsDB.borderVersion = nil, nil
   HereaboutsDB.ignoredQuests = HereaboutsDB.ignoredQuests or {}
   -- 2.0.0: the session's separate stats folded into its XP and gold bars (here and in saved layouts)
   ns.Session.FoldStats(HereaboutsDB.sessionStats)

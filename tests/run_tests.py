@@ -60,19 +60,17 @@ def _():
 def _():
     """
     local db, D = NS.db, NS.DEFAULTS
-    assert(db.sessionStats ~= D.sessionStats and db.borderColor ~= D.borderColor and db.hideInCombat ~= D.hideInCombat, "copies, not the defaults")
+    assert(db.sessionStats ~= D.sessionStats and db.hideInCombat ~= D.hideInCombat, "copies, not the defaults")
     db.hideInInstance.quests = true; db.hideInCombat.pickup = true
     db.sessionStats.xph = nil; db.sessionStats.xp = true
-    db.borderColor[1] = 1
     assert(D.hideInInstance.quests == nil and D.hideInCombat.pickup == nil, "1.6.1: the defaults changed with them")
-    assert(D.sessionStats.xph == true and D.sessionStats.xp == nil and D.borderColor[1] == 0.40)
+    assert(D.sessionStats.xph == true and D.sessionStats.xp == nil)
     db.pos = { "TOPLEFT", 10, -20 }; db.ignoredQuests[123] = { name = "x", level = 5 }
     db.maxQuests = 3
     NS.ResetDB()
     db = NS.db
     assert(db.hideInInstance.quests == nil and db.hideInCombat.pickup == nil, "hide settings back to none")
     assert(db.sessionStats.xph == true and db.sessionStats.gph == true and db.sessionStats.xp == nil)
-    assert(db.borderColor[1] == 0.40 and db.borderColor[2] == 0.33 and db.borderColor[3] == 0.22)
     assert(db.maxQuests == 8)
     assert(db.pos and db.pos[2] == 10 and db.ignoredQuests[123], "position and ignored quests kept")
     -- a nested default added later is copied too
@@ -91,7 +89,7 @@ def _():
     """
     local db = NS.db
     assert(db.maxQuests == 5 and db.sessionStats.xph == true and db.sessionStats.ttl == nil, "the player's own table untouched")
-    assert(db.borderColor[1] == 1, "kept")
+    assert(db.borderColor == nil and db.borderVersion == nil, "2.1.0: the border colour setting removed")
     assert(db.hideInCombat and next(db.hideInCombat) == nil and db.hideInCombat ~= NS.DEFAULTS.hideInCombat, "filled with a copy")
     """
 
@@ -675,11 +673,11 @@ def _():
 @test("presets: set what shows (from the defaults), never the look; every preset applies")
 def _():
     """
-    NS.db.scale = 1.3; NS.db.borderColor = { 1, 0, 0 }; NS.db.pos = { "TOPLEFT", 5, -5 }
+    NS.db.scale = 1.3; NS.db.bgAlpha = 0.9; NS.db.pos = { "TOPLEFT", 5, -5 }
     NS.db.showTraining = false
     assert(NS.ApplyPreset("minimal"))
     assert(NS.db.showTurnIn == false and NS.db.maxQuests == 5 and NS.db.showSession == false and NS.db.showActive == true)
-    assert(NS.db.scale == 1.3 and NS.db.borderColor[1] == 1 and NS.db.pos[2] == 5, "the look and place stay")
+    assert(NS.db.scale == 1.3 and NS.db.bgAlpha == 0.9 and NS.db.pos[2] == 5, "the look and place stay")
     assert(NS.ApplyPreset("questing") and NS.db.showTraining == true and NS.db.showTurnIn == true, "back to the defaults")
     assert(NS.ApplyPreset("dungeon") and NS.SectionOrder()[1] == "dungeons" and NS.db.hideInInstance.turnin == true)
     NS.db.hideInInstance.quests = true
@@ -724,7 +722,7 @@ def _():
     """
     local db = NS.db
     assert(db.maxQuests == 6 and db.showTraining == false and db.pos[3] == 40 and db.ignoredQuests[77], "kept")
-    assert(db.borderColor[1] == 0.5 and db.sessionStats.gph and not db.sessionStats.ttl, "the player's border and stats")
+    assert(db.borderColor == nil and db.sessionStats.gph and not db.sessionStats.ttl, "the player's stats (the border colour setting is gone)")
     assert(#NS.SectionOrder() == #NS.MODULES and db.sectionOrder[1] == "quests", "new settings filled")
     -- a real login (the harness fires it): 1.6.1's session archived, never restored
     local h = NS.Session.History()
@@ -803,10 +801,10 @@ def _():
     SlashCmdList.XPPLANNER("report")
     local w = XPPlannerReportWindow
     assert(w and w._shown and w.line._text == NS.Report() and w.url:find("template=bug_report.yml&version=test", 1, true), "the report window")
-    assert(w.urlBox._text == w.url and w.stats[3]._text:find("Errors caught: |cffffd2001", 1, true), w.stats[3]._text)
-    assert(w.kindBtn.label._text == "Feedback / feature request")
+    assert(w.urlBox._text == w.url and w.stats[3]._text:find("Errors caught: |cffffffff1", 1, true), w.stats[3]._text)
+    assert(w.kindBtn._text == "Feedback / feature request")
     w.kindBtn._scripts.OnClick()
-    assert(w.kind == "idea" and w.urlBox._text:find("feature_request", 1, true) and w.kindBtn.label._text == "Report a bug instead")
+    assert(w.kind == "idea" and w.urlBox._text:find("feature_request", 1, true) and w.kindBtn._text == "Report a bug instead")
     """
 
 # what 1.12.0 saved: each session value its own setting, also in a saved layout
@@ -868,6 +866,30 @@ def _():
     for _, e in ipairs(idx) do assert(type(e.y) == "number" and e.y <= 0 and e.frame, e.label) end
     XPPlannerOptionsWindow._shown = true
     NS.RefreshOptions()
+    """
+
+@test("Zone / All (2.1.0): the game's red button with clean and classic headings; FlareUI's box with FlareUI")
+def _():
+    """
+    local function zoneHeader()
+      for _, h in ipairs(NS._headers) do if h._shown and (h.zoneBtn.key == "activeZoneOnly" or h.zone.key == "activeZoneOnly") then return h end end
+    end
+    MOCK.quests = { { questID = 1, title = "Q", level = 20 } }
+    NS.db.showActive = true
+    for _, classic in ipairs({ false, true }) do
+      NS.db.classicHeaders = classic
+      NS.Refresh(); MOCK.RunTimers()
+      local h = zoneHeader()
+      assert(h and h.zoneBtn._shown and not h.zone._shown, "red button, classic=" .. tostring(classic))
+    end
+    local flare = NS.UsingFlare
+    NS.UsingFlare = function() return true end
+    NS.Refresh(); MOCK.RunTimers()
+    local h = zoneHeader()
+    assert(h and h.zone._shown and not h.zoneBtn._shown, "FlareUI's box")
+    NS.UsingFlare = flare
+    NS.db.classicHeaders = false
+    NS.Refresh()
     """
 
 if __name__ == '__main__':

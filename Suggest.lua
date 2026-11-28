@@ -183,7 +183,7 @@ end
 -- In a group, lines after another member's name are theirs, not yours.
 -- Your target first; with no quest target, every enemy nameplate whose tooltip has a threat line
 -- ("100% Threat": it's fighting you), so a mob that jumps you counts too.
-local function UnitQuests(unit, titles)
+local function UnitQuests(unit)
   local ok, d = pcall(C_TooltipInfo.GetUnit, unit)
   if not (ok and type(d) == "table" and type(d.lines) == "table") then return false end
   local T = Enum and Enum.TooltipDataLineType or {}

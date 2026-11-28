@@ -125,6 +125,8 @@ hooksecurefunc = function(t, name, fn)
 end
 BreakUpLargeNumbers = function(n) return tostring(n) end
 SlashCmdList = {}; UISpecialFrames = {}
+-- Blizzard's slider with steppers (Blizzard_SharedXML): the keys its Init and callbacks take
+MinimalSliderWithSteppersMixin = { Label = { Right = 2 }, Event = { OnValueChanged = "OnValueChanged" } }
 PRINTS = {}
 print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end PRINTS[#PRINTS + 1] = table.concat(t, " ") end
 CreateFont = function(name) return obj(name) end

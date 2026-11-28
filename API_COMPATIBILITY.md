@@ -57,6 +57,24 @@ specific behaviour was observed.
 | `SetAlpha`, `SetDesaturated` on a secure button and its textures in combat | stale buttons dimmed (1.7.0) | Verified in WoW Forever (1.7.0 checklist 5: dimmed, no "action blocked") |
 | Re-parenting Blizzard's tracker out of combat; alpha 0 in combat | tracker replacement | Verified in WoW Forever (replacement works) |
 
+## Blizzard UI parts (2.1.0: the settings windows; source: Classic Era 1.15.9's Blizzard_SharedXML and Blizzard_Settings_Shared)
+
+| Part | Use | Status |
+|---|---|---|
+| `SettingsFrameTemplate` (`NineSlice.Text` title, close button) | the settings, Ignored Quests and Bugs & Feedback windows | Verified in WoW Forever (2.1.0 test builds) |
+| Atlases `Options_InnerFrame`, `Options_CategoryHeader_1`/`_2`, `Options_List_Active`, `Options_List_Hover`, `Options_HorizontalDivider` | the settings window's art. The header atlas is taller than its band, which is at its top (placed by its top); the inner frame's divider is at x 212 (measured in game) | Verified in WoW Forever |
+| Atlases `checkbox-minimal`, `checkmark-minimal`; `checkmark-minimal-disabled` | checkboxes | Verified in WoW Forever; the disabled tick: Documentation (not yet seen) |
+| `MinimalSliderWithSteppersTemplate`, `MinimalSliderWithSteppersMixin` (`Init`, `RegisterCallback(Event.OnValueChanged)`, `Label.Right`, `FormatValue`) | sliders | Verified in WoW Forever (values shown and changed) |
+| `ScrollFrameTemplate`, `SearchBoxTemplate`, `UIPanelButtonTemplate`, `InputBoxTemplate` | scrolling pages, search, buttons, the report's text boxes | Verified in WoW Forever, except `InputBoxTemplate` (2.1.0, in the game since vanilla: Documentation) |
+| `StaticPopupDialogs` / `StaticPopup_Show` | "Defaults" confirmation | Documentation; not yet seen in 2.1.0 |
+
+## EllesmereUI skinning API (its SKINNING_API.md, apiVersion 4)
+
+| Function | Use | Status |
+|---|---|---|
+| `EllesmereUI.RegisterSkin`, `S.IsEnabled`, `S.OnLooksChanged`, `S.GetAccentColor`, `S.GetPanelColor`, `S.GetFont` | the tracker and session bars in EllesmereUI's style | Verified in WoW Forever |
+| `S.Button`, `S.StateButtonLabel`, `S.Font` | the Zone / All button in EllesmereUI's style (2.1.0) | Documentation (EllesmereUI's source); not yet seen |
+
 ## Questie (outside code: every use protected, with a fallback)
 
 | Module / field | Use | Status |

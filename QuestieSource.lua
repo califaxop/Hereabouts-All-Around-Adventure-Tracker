@@ -394,7 +394,7 @@ function Q.ActiveQuestMaps(id, complete, logObjectives)
           end
         end
       end
-      for _, r in ipairs(type(obj[4]) == "table" and obj[4] or {}) do hasAny = true end
+      if type(obj[4]) == "table" and obj[4][1] ~= nil then hasAny = true end
     end
     -- the quest's own zone only for quests with no listed objectives at all (e.g. "talk to...");
     -- objectives still to do whose places Questie doesn't know don't make it count as here
