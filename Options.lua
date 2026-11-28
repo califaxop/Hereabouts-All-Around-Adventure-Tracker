@@ -790,10 +790,11 @@ local function BuildWindow()
   for h, cat in ipairs(CATEGORIES) do
     local head = CreateFrame("Frame", nil, window)
     head:SetSize(LIST_W, 30); head:SetPoint("TOPLEFT", LIST_X, y)
-    -- the header band at its own height, behind the name, as wide as the list
+    -- the header band: its art is taller than the band, which is at its top (seen in game), so it's
+    -- placed by its top at its own height, as wide as the list
     local bg = head:CreateTexture(nil, "ARTWORK")
     if HasAtlas("Options_CategoryHeader_" .. h) then
-      bg:SetAtlas("Options_CategoryHeader_" .. h, true); bg:SetWidth(LIST_W); bg:SetPoint("LEFT")
+      bg:SetAtlas("Options_CategoryHeader_" .. h, true); bg:SetWidth(LIST_W); bg:SetPoint("TOPLEFT")
     end
     local hl = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
     if not _G.GameFontHighlightMedium then hl:SetFontObject("GameFontHighlightLarge") end
